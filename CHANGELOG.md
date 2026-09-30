@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Add `GET /metrics`, the browser pool's saturation in the Prometheus text exposition format, for scrape jobs and autoscalers. It sits alongside the local metrics dashboard and reports pool utilization, waiting requests, and counters for granted checkouts, exhausted checkouts and cumulative wait time (#240, #244).
+
 ## [1.9.1] - 2026-10-19
 
 ### Added

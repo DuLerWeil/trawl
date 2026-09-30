@@ -275,6 +275,12 @@ export interface PoolStats {
   sleeping?: number
   queueDepth?: number
   longestBusyMs?: number
+  // Monotonic since process start: acquire() calls that got a slot, ones that gave up and
+  // became a 429, and cumulative milliseconds spent queued, so rate(waitMs)/rate(acquired)
+  // is the mean wait without a histogram. Omitted by older pool implementations.
+  acquired?: number
+  exhausted?: number
+  acquireWaitMsTotal?: number
 }
 
 // Per-instance HTTP-level fingerprint (User-Agent + matching navigator.platform /

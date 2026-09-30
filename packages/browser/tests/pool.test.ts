@@ -1145,3 +1145,56 @@ test("a completed recovery clears requests made while the replacement was warmin
   expect(launches).toBe(2)
   releaseRetention()
 })
+
+// The autoscaling counters /metrics exports. acquired and exhausted are monotonic, and a
+// caller's queued time is added however it leaves the queue.
+describe("BrowserPool saturation counters", () => {
+  test("counts a direct acquire and a queued one", async () => {
+    const pool = createPool({ poolSize: 1, acquireTimeoutMs: 5_000, browserFactory: makeFactory().factory })
+    await pool.init()
+
+    const first = await pool.acquire()
+    expect(pool.getStats().acquired).toBe(1)
+
+    const queued = pool.acquire()
+    await waitFor(() => pool.getStats().queueDepth === 1)
+    pool.release(first.id, first.lease)
+    const second = await queued
+
+    const stats = pool.getStats()
+    expect(stats.acquired).toBe(2)
+    expect(stats.exhausted).toBe(0)
+    expect(stats.queueDepth).toBe(0)
+    pool.release(second.id, second.lease)
+  })
+
+  test("a timed-out caller counts as exhausted and its wait is recorded", async () => {
+    const pool = createPool({ poolSize: 1, acquireTimeoutMs: 50, browserFactory: makeFactory().factory })
+    await pool.init()
+
+    const held = await pool.acquire()
+    await expect(pool.acquire()).rejects.toThrow("Browser pool exhausted")
+
+    const stats = pool.getStats()
+    expect(stats.exhausted).toBe(1)
+    expect(stats.acquired).toBe(1)
+    expect(stats.acquireWaitMsTotal).toBeGreaterThanOrEqual(45)
+    pool.release(held.id, held.lease)
+  })
+
+  test("a caller that aborts is not counted as exhausted", async () => {
+    const pool = createPool({ poolSize: 1, acquireTimeoutMs: 5_000, browserFactory: makeFactory().factory })
+    await pool.init()
+
+    const held = await pool.acquire()
+    const controller = new AbortController()
+    const queued = pool.acquire("aborted.test", undefined, controller.signal)
+    await waitFor(() => pool.getStats().queueDepth === 1)
+    controller.abort()
+    await expect(queued).rejects.toThrow("Browser pool exhausted")
+
+    expect(pool.getStats().exhausted).toBe(0)
+    expect(pool.getStats().queueDepth).toBe(0)
+    pool.release(held.id, held.lease)
+  })
+})

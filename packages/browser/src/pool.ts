@@ -112,6 +112,9 @@ export class BrowserPool {
   private replacementRunning = false
   private shuttingDown = false
   private acquireWaiters = new Set<() => void>()
+  private acquiredTotal = 0
+  private exhaustedTotal = 0
+  private acquireWaitMsTotal = 0
   private memoryUsage?: () =>
     | { currentBytes: number | null; limitBytes: number | null; workingSetBytes?: number }
     | undefined
@@ -392,17 +395,24 @@ export class BrowserPool {
   // Queue time consumes the caller's remaining request budget.
   acquire(domain?: string, budgetMs?: number, signal?: AbortSignal, browserId?: number): Promise<BrowserHandle> {
     const waitMs = Math.min(this.acquireTimeoutMs, budgetMs ?? this.acquireTimeoutMs)
-    const deadline = Date.now() + waitMs
+    const start = Date.now()
+    const deadline = start + waitMs
     return new Promise((resolve, reject) => {
       let timer: ReturnType<typeof setTimeout> | undefined
-      const finish = () => {
+      let settled = false
+      const finish = (outcome: "acquired" | "exhausted" | "cancelled") => {
+        if (settled) return
+        settled = true
+        if (outcome === "acquired") this.acquiredTotal++
+        if (outcome === "exhausted") this.exhaustedTotal++
+        this.acquireWaitMsTotal += Date.now() - start
         if (timer) clearTimeout(timer)
         this.acquireWaiters.delete(tryAcquire)
         signal?.removeEventListener("abort", tryAcquire)
       }
       const tryAcquire = () => {
         if (this.shuttingDown || signal?.aborted || Date.now() >= deadline) {
-          finish()
+          finish(this.shuttingDown || signal?.aborted ? "cancelled" : "exhausted")
           reject(new PoolExhaustedError())
           return
         }
@@ -415,7 +425,7 @@ export class BrowserPool {
         }
         const entry = this.pickEntry(domain, browserId)
         if (!entry) return
-        finish()
+        finish("acquired")
         const now = Date.now()
         entry.busy = true
         entry.busySince = now
@@ -455,7 +465,7 @@ export class BrowserPool {
       signal?.addEventListener("abort", tryAcquire, { once: true })
       timer = setTimeout(
         () => {
-          finish()
+          finish("exhausted")
           reject(new PoolExhaustedError())
         },
         Math.max(0, waitMs),
@@ -933,6 +943,9 @@ export class BrowserPool {
       sleeping: this.entries.filter((e) => e.sleeping && e.healthy && !e.restarting).length,
       queueDepth: this.acquireWaiters.size,
       longestBusyMs,
+      acquired: this.acquiredTotal,
+      exhausted: this.exhaustedTotal,
+      acquireWaitMsTotal: this.acquireWaitMsTotal,
     }
   }
 
