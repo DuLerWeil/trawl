@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Fold the MHTML archive's `Content-Type` parameters onto their own lines, as Blink writes them, so MHTML readers that find `boundary` at the start of a line can parse trawl's archives (#243).
+
 ## [1.9.1] - 2026-10-19
 
 ### Added

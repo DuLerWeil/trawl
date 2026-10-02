@@ -167,7 +167,11 @@ export function assembleMhtml(document: MhtmlDocument): string {
     "MIME-Version: 1.0",
     "X-Trawl-Archive: assembled-from-observed-subresources",
     ...(document.omitted > 0 ? [`X-Trawl-Omitted-Resources: ${document.omitted}`] : []),
-    `Content-Type: multipart/related; type="text/html"; boundary="${boundary}"`,
+    // Folded the way Blink writes it: readers that find the boundary by line start
+    // (SingleSizzle's MHTParser) cannot see one written inline.
+    "Content-Type: multipart/related;",
+    '\ttype="text/html";',
+    `\tboundary="${boundary}"`,
   ].join("\r\n")
 
   const body = parts
