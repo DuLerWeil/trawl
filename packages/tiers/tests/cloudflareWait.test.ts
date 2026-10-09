@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test"
 import type { Page } from "patchright"
 import { routeChallengeWait } from "../src/utils/challengeRouter"
-import { waitForChallengeResolution } from "../src/utils/challengeWait"
+import { attemptTurnstileClick, waitForChallengeResolution } from "../src/utils/challengeWait"
 
 const wall =
   '<html><head><title>Just a moment...</title></head><body id="challenge-form">Checking your browser</body></html>'
@@ -70,3 +70,75 @@ test("manual clearance recovery confirms the destination without waiting for net
   expect(result).toBe("ok")
   expect(loadStates).not.toContain("networkidle")
 }, 9000)
+
+test("settled content does not trigger a keyboard click for a provider link", async () => {
+  const page = pageFixture()
+  let presses = 0
+  page.title = async () => "Article"
+  page.content = async () =>
+    destination.replace("</article>", '<a href="https://challenges.cloudflare.com/turnstile">Docs</a></article>')
+  page.keyboard.press = async () => {
+    presses++
+  }
+  expect(await waitForChallengeResolution(page as unknown as Page, 1500, page.url())).toBe("ok")
+  expect(presses).toBe(0)
+})
+
+test("shadow traversal visits each subtree once and releases browser handles", async () => {
+  let evaluations = 0
+  let released = 0
+  let roots = 0
+  const shadow = { children: [], querySelectorAll: () => [] }
+  function node(child?: object, shadowRootUnl?: object): object {
+    return {
+      children: child ? [child] : [],
+      shadowRootUnl,
+      querySelectorAll() {
+        evaluations++
+        const descendants = []
+        let current = child as { children: object[] } | undefined
+        while (current) {
+          descendants.push(current)
+          current = current.children[0] as typeof current
+        }
+        return descendants
+      },
+    }
+  }
+  let tree = node(undefined, shadow)
+  for (let i = 0; i < 8; i++) tree = node(tree)
+  const frame = {
+    url: () => "https://challenges.cloudflare.com/turnstile/widget",
+    async evaluateHandle(callback: () => unknown[]) {
+      const descriptor = Object.getOwnPropertyDescriptor(globalThis, "document")
+      Object.defineProperty(globalThis, "document", { configurable: true, value: tree })
+      try {
+        roots = callback().length
+      } finally {
+        if (descriptor) Object.defineProperty(globalThis, "document", descriptor)
+        else Reflect.deleteProperty(globalThis, "document")
+      }
+      return {
+        getProperties: async () => new Map(),
+        dispose: async () => {
+          released++
+        },
+      }
+    },
+    locator: () => ({ first: () => ({ isVisible: async () => false }) }),
+    frameElement: async () => undefined,
+  }
+  const page = { frames: () => [frame], content: async () => "" }
+  expect(await attemptTurnstileClick(page as unknown as Page, false)).toBe(false)
+  expect(roots).toBe(1)
+  expect(evaluations).toBeLessThanOrEqual(9)
+  expect(released).toBe(1)
+})
+
+test("Cloudflare deny URLs remain blocked even without an active widget", async () => {
+  const page = pageFixture()
+  page.url = () => "https://example.test/cdn-cgi/error/1020"
+  page.title = async () => "Error"
+  page.content = async () => "<html><title>Error</title><body>Forbidden</body></html>"
+  expect(await waitForChallengeResolution(page as unknown as Page, 1500, page.url())).toBe("ip-blocked")
+})

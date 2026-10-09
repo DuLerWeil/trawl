@@ -51,16 +51,13 @@ export async function solveHcaptcha(page: Page, timeoutMs = 30_000, signal?: Abo
       .click({ timeout: Math.max(1, Math.min(5000, deadline - Date.now())), force: true })
     console.log("[hcaptcha] clicked checkbox")
 
-    // Step 2: give hCaptcha's risk scoring time to run
-    await sleep(2500, signal)
-
-    // Step 3: check for auto-pass
-    if (
-      await widget
-        .locator('[aria-checked="true"]')
-        .isVisible({ timeout: Math.max(1, Math.min(1000, deadline - Date.now())) })
-        .catch(() => false)
-    ) {
+    // Return as soon as the checkbox passes; retain the full risk-scoring window.
+    const autoPassed = await widget
+      .locator('[aria-checked="true"]')
+      .waitFor({ state: "visible", timeout: Math.max(1, Math.min(2500, deadline - Date.now())) })
+      .then(() => true)
+      .catch(() => false)
+    if (autoPassed) {
       console.log("[hcaptcha] auto-passed ✓")
       return true
     }

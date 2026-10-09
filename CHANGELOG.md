@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Traverse Cloudflare shadow DOM once per node, release temporary browser handles and avoid keyboard clicks after the challenge clears.
+- Skip reCAPTCHA, hCaptcha and Turnstile detection waits for documentation links without widget or SDK markup, and return immediately when checkbox auto-pass is confirmed.
+- Avoid unnecessary GeeTest solver waits when pages only contain demo links or textual references; retain bounded detection for widgets mounted by the SDK.
+
+
 ## [1.8.0] - 2026-10-08
 
 ### Changed

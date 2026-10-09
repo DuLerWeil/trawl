@@ -44,16 +44,13 @@ export async function solveRecaptchaV2(page: Page, timeoutMs = 30_000, signal?: 
       .click({ timeout: Math.max(1, Math.min(5000, deadline - Date.now())), force: true })
     console.log("[recaptcha] clicked checkbox")
 
-    // Give Google's risk scoring time to run
-    await sleep(2500, signal)
-
-    // Check for auto-pass (green checkmark)
-    if (
-      await anchor
-        .locator('#recaptcha-anchor[aria-checked="true"]')
-        .isVisible({ timeout: Math.max(1, Math.min(1000, deadline - Date.now())) })
-        .catch(() => false)
-    ) {
+    // Return as soon as the checkbox passes; retain the full risk-scoring window.
+    const autoPassed = await anchor
+      .locator('#recaptcha-anchor[aria-checked="true"]')
+      .waitFor({ state: "visible", timeout: Math.max(1, Math.min(2500, deadline - Date.now())) })
+      .then(() => true)
+      .catch(() => false)
+    if (autoPassed) {
       console.log("[recaptcha] auto-passed")
       return true
     }

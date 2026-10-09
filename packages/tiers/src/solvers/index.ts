@@ -16,6 +16,7 @@ import { hasGeetestSlide, solveGeetestSlide } from "./geetest"
 import { hasHcaptchaWidget, solveHcaptcha } from "./hcaptcha"
 import { hasRecaptchaV2, solveRecaptchaV2 } from "./recaptcha"
 import { solveTurnstile } from "./turnstile"
+import { embeddedWidgetHints } from "./widgetMarkup"
 
 export { hasAltchaWidget, solveAltcha } from "./altcha"
 export { hasFriendlyCaptchaWidget, solveFriendlyCaptcha } from "./friendlyCaptcha"
@@ -97,9 +98,15 @@ export async function solvePageCaptchas(
   // Quick HTML scan - skip detection entirely for pages with no widget markers
   const html = await page.content().catch(() => "")
   const externalProfiles = (await external?.discover(page, html).catch(() => [])) ?? []
-  const mightHaveTurnstile = /cf-turnstile|cloudflare\.com\/turnstile/i.test(html)
-  const mightHaveRecaptcha = /g-recaptcha|google\.com\/recaptcha|recaptcha\.net|grecaptcha/i.test(html)
-  const mightHaveHcaptcha = /h-captcha|hcaptcha\.com/i.test(html)
+  let mightHaveTurnstile = /cf-turnstile|cloudflare\.com\/turnstile/i.test(html)
+  let mightHaveRecaptcha = /g-recaptcha|google\.com\/recaptcha|recaptcha\.net|grecaptcha/i.test(html)
+  let mightHaveHcaptcha = /h-captcha|hcaptcha\.com/i.test(html)
+  if (mightHaveTurnstile || mightHaveRecaptcha || mightHaveHcaptcha) {
+    const hints = embeddedWidgetHints(html)
+    mightHaveTurnstile &&= hints.turnstile
+    mightHaveRecaptcha &&= hints.recaptcha
+    mightHaveHcaptcha &&= hints.hcaptcha
+  }
   const mightHaveGeetest = /geetest|gt_container|initGeetest/i.test(html)
   const mightHaveAltcha = hasAltchaMarkup(html)
   const mightHaveCap = hasCapChallenge(html)

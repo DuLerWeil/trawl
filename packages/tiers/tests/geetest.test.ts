@@ -57,3 +57,49 @@ test("failed page inspection is never reported as GeeTest success", async () => 
   }
   expect(await isGeetestSuccess(page as never)).toBe(false)
 })
+
+test("GeeTest references alone do not activate the solver or a widget wait", async () => {
+  const { hasGeetestSlide } = await import("../src/solvers/geetest")
+  let waits = 0
+  const page = {
+    content: async () => '<a href="/captcha/geetest">GeeTest demo</a><svg id="icon-geetest"></svg>',
+    evaluate: async () => ({ visible: false, initializing: false }),
+    waitForSelector: async () => {
+      waits++
+      return {}
+    },
+  }
+  expect(await hasGeetestSlide(page as never)).toBe(false)
+  expect(waits).toBe(0)
+})
+
+test("a visible GeeTest entry point or puzzle is detected immediately", async () => {
+  const { hasGeetestSlide } = await import("../src/solvers/geetest")
+  const page = {
+    content: async () => '<div class="geetest_bg"></div>',
+    evaluate: async () => ({ visible: true, initializing: false }),
+    waitForSelector: async () => {
+      throw new Error("visible widget should not need a wait")
+    },
+  }
+  expect(await hasGeetestSlide(page as never)).toBe(true)
+})
+
+test("GeeTest SDK initialization retains a bounded wait for a visible widget", async () => {
+  const { hasGeetestSlide } = await import("../src/solvers/geetest")
+  let options: unknown
+  const page = {
+    content: async () => '<script src="https://static.geetest.com/v4/gt4.js"></script>',
+    evaluate: async () => ({ visible: false, initializing: true }),
+    waitForSelector: async (_selector: string, settings: unknown) => {
+      options = settings
+      return {}
+    },
+  }
+  expect(await hasGeetestSlide(page as never, 250)).toBe(true)
+  expect(options).toEqual({ timeout: 250, state: "visible" })
+  page.waitForSelector = async () => {
+    throw new Error("timeout")
+  }
+  expect(await hasGeetestSlide(page as never, 250)).toBe(false)
+})

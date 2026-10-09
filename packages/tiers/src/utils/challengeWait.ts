@@ -52,6 +52,8 @@ export async function waitForChallengeResolution(
         inactiveSamples = 0
       }
 
+      if (/\/cdn-cgi\/error\/|error=1020|error=1015/.test(url)) return "ip-blocked"
+
       // Two observations prevent a transient normal title/DOM during navigation from
       // declaring a challenge solved. This also applies before the first active sample.
       if (inactiveSamples >= 2) {
@@ -62,7 +64,10 @@ export async function waitForChallengeResolution(
         return "ok"
       }
 
-      if (/\/cdn-cgi\/error\/|error=1020|error=1015/.test(url)) return "ip-blocked"
+      if (!active) {
+        await new Promise((r) => setTimeout(r, 300))
+        continue
+      }
 
       const cookies: Array<{ name: string; domain: string }> = await page
         .context()
@@ -158,6 +163,7 @@ export async function attemptTurnstileClick(page: Page, allowKeyboard = true): P
 
 // Requires: (1) pool.ts injects the shadowRootUnl patch, (2) forceScopeAccess: true in Camoufox config
 async function clickShadowCheckbox(_page: Page, frame: Frame): Promise<boolean> {
+  const handles: Array<{ dispose(): Promise<void> }> = []
   try {
     const handle = await frame
       .evaluateHandle(() => {
@@ -169,7 +175,7 @@ async function clickShadowCheckbox(_page: Page, frame: Frame): Promise<boolean> 
             collect(node.shadowRootUnl)
           }
           try {
-            const children = node.querySelectorAll("*")
+            const children = node.children
             for (const el of children) collect(el)
           } catch {
             /* shadow boundary */
@@ -181,9 +187,11 @@ async function clickShadowCheckbox(_page: Page, frame: Frame): Promise<boolean> 
       .catch(() => undefined)
 
     if (!handle) return false
+    handles.push(handle)
 
     const props = await handle.getProperties().catch(() => undefined)
     if (!props) return false
+    handles.push(...props.values())
 
     for (const [, shadowHandle] of props) {
       const el = shadowHandle.asElement()
@@ -192,6 +200,7 @@ async function clickShadowCheckbox(_page: Page, frame: Frame): Promise<boolean> 
         .evaluateHandle((root: ParentNode) => root.querySelector('input[type="checkbox"]'))
         .catch(() => undefined)
       if (!checkboxHandle) continue
+      handles.push(checkboxHandle)
       const checkbox = checkboxHandle.asElement()
       if (!checkbox) continue
       const visible = await checkbox.isVisible().catch(() => false)
@@ -202,6 +211,8 @@ async function clickShadowCheckbox(_page: Page, frame: Frame): Promise<boolean> 
     }
   } catch {
     // Shadow DOM not accessible (init script not injected or forceScopeAccess not set)
+  } finally {
+    await Promise.all(handles.map((handle) => handle.dispose().catch(() => {})))
   }
   return false
 }

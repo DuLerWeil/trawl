@@ -21,6 +21,8 @@ const VERIFY_BUTTON = [
 
 // Legacy v3 handles; v4 uses the button inside its slider.
 const DRAG_HANDLE_V3 = ".geetest_slider_button, .gt_slider_knob"
+const PUZZLE_IMAGE = ".geetest_bg, .geetest_canvas_bg, .gt_cut_bg"
+const WIDGET_ENTRY = `${VERIFY_BUTTON}, ${PUZZLE_IMAGE}`
 
 type Box = { x: number; y: number; width: number; height: number }
 
@@ -53,7 +55,7 @@ export async function solveGeetestSlide(page: Page, timeoutMs = 30_000, signal?:
         await page.mouse.click(verify.x + verify.width / 2, verify.y + verify.height / 2)
         break
       }
-      if (await visibleBox(page, ".geetest_bg, .geetest_canvas_bg, .gt_cut_bg", deadline)) break
+      if (await visibleBox(page, PUZZLE_IMAGE, deadline)) break
       await sleep(150, signal)
     }
 
@@ -63,7 +65,7 @@ export async function solveGeetestSlide(page: Page, timeoutMs = 30_000, signal?:
       let previous: Box[] | undefined
       while (Date.now() < readyUntil) {
         if (await isGeetestSuccess(page)) return true
-        image = await visibleBox(page, ".geetest_bg, .geetest_canvas_bg, .gt_cut_bg", deadline)
+        image = await visibleBox(page, PUZZLE_IMAGE, deadline)
         piece = await visibleBox(page, ".geetest_slice, .geetest_canvas_slice, .gt_slice", deadline)
         handle = await visibleBox(page, `${DRAG_HANDLE_V3}, .geetest_slider .geetest_btn`, deadline)
         if (image && piece && handle) {
@@ -82,7 +84,7 @@ export async function solveGeetestSlide(page: Page, timeoutMs = 30_000, signal?:
       const match = images ? matchGeetestPiece(images.background, images.piece, images.top) : undefined
       // The popup animates while its images decode. Use the live geometry for
       // input coordinates and scale the match from the sampled image dimensions.
-      image = await visibleBox(page, ".geetest_bg, .geetest_canvas_bg, .gt_cut_bg", deadline)
+      image = await visibleBox(page, PUZZLE_IMAGE, deadline)
       piece = await visibleBox(page, ".geetest_slice, .geetest_canvas_slice, .gt_slice", deadline)
       handle = await visibleBox(page, `${DRAG_HANDLE_V3}, .geetest_slider .geetest_btn`, deadline)
       if (!image || !piece || !handle) return false
@@ -341,10 +343,23 @@ function easeInOut(t: number): number {
 }
 
 export async function hasGeetestSlide(page: Page, timeout = 2000): Promise<boolean> {
-  const html = await page.content().catch(() => "")
-  if (/geetest|initGeetest|gt_container/i.test(html)) return true
+  const widget = await page
+    .evaluate((selector) => {
+      const visible = Array.from(document.querySelectorAll(selector)).some((el) => {
+        const box = el.getBoundingClientRect()
+        return box.width > 0 && box.height > 0 && getComputedStyle(el).visibility !== "hidden"
+      })
+      const initializing = Array.from(document.scripts).some(
+        (script) => /geetest/i.test(script.src) || /\binitGeetest(?:4)?\s*\(/.test(script.textContent ?? ""),
+      )
+      return { visible, initializing }
+    }, WIDGET_ENTRY)
+    .catch(() => undefined)
+  if (widget?.visible) return true
+  // SDK initialization may mount a widget later; links and prose must not trigger a solve.
+  if (!widget?.initializing || timeout <= 0) return false
   return page
-    .waitForSelector(VERIFY_BUTTON, { timeout, state: "attached" })
+    .waitForSelector(WIDGET_ENTRY, { timeout, state: "visible" })
     .then(() => true)
     .catch(() => false)
 }
