@@ -53,13 +53,13 @@ For existing FlareSolverr users, the compatible `/v1` endpoint works with Prowla
     </tr>
     <tr>
       <td width="30%" align="center" valign="middle">
-        <a href="https://go.nodemaven.com/MediaCrawlerSeptember" target="_blank">
-          <img width="1047" height="262" alt="NodeMaven" src="https://github.com/user-attachments/assets/1e4e89c6-a574-462a-86bc-13c273117657" />
+        <a href="https://go.nodemaven.com/germondaioctoberGH" target="_blank">
+          <img width="4096" height="1024" alt="NodeMaven" src="https://github.com/user-attachments/assets/6382e10d-1b73-48ef-bb29-c2d38225f9d7" />
         </a>
       </td>
       <td valign="middle">
-        <b><a href="https://go.nodemaven.com/MediaCrawlerSeptember" target="_blank">NodeMaven</a></b> - The most efficient proxy provider for Web Scrapping and Automation with the Highest Quality IP on the market.<br><br>
-        <b>Why <a href="https://go.nodemaven.com/MediaCrawlerSeptember" target="_blank">NodeMaven</a>?</b><br>
+        <b><a href="https://go.nodemaven.com/germondaioctoberGH" target="_blank">NodeMaven</a></b> - The most efficient proxy provider for Web Scrapping and Automation with the Highest Quality IP on the market.<br><br>
+        <b>Why <a href="https://go.nodemaven.com/germondaioctoberGH" target="_blank">NodeMaven</a>?</b><br>
         • ZIP targeting<br>
         • 99.9% uptime<br>
         • IP filtering: all proxies have fraud score <97%<br>
