@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Require readable content before clearing a Cloudflare wall, and restrict Cloudflare recovery cookies to the target domain boundary.
 - Respect the remaining Imperva wait budget, recognize completed navigation without requiring a particular sensor cookie and restrict recovery cookies to the target domain boundary.
+- Apply the ALTCHA post-verification timeout to the browser waiter options.
 - Release iframe element handles after Turnstile coordinate discovery, including hidden and detached frames.
 - Retry embedded Turnstile clicks after two seconds while retaining token verification, cancellation and request limits.
 - Avoid redundant HTML transfers while Cloudflare activity is already confirmed, retaining full document checks before declaring the challenge resolved.
