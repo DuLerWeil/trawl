@@ -6,8 +6,9 @@ import { runTier4 } from "../src/tiers/4"
 
 const html = `<html><body>${"Ready document ".repeat(20)}</body></html>`
 
-function fixture(anubisContent = true) {
+function fixture(anubisContent = true, documentHtml = html) {
   const waits: string[] = []
+  const verifications: number[] = []
   let closed = 0
   const page = {
     route: async () => {},
@@ -15,7 +16,7 @@ function fixture(anubisContent = true) {
     setExtraHTTPHeaders: async () => {},
     mainFrame: () => page,
     goto: async () => undefined,
-    content: async () => html,
+    content: async () => documentHtml,
     title: async () => "Fixture",
     context: () => context,
     close: async () => {
@@ -24,8 +25,20 @@ function fixture(anubisContent = true) {
     url: () => "https://fixture.example/",
     frames: () => [],
     isClosed: () => false,
-    evaluate: async (fn: unknown) =>
-      String(fn).includes("anubis_challenge") ? { ready: true, content: anubisContent } : "fixture-agent",
+    evaluate: async (fn: unknown) => {
+      const source = String(fn)
+      if (source.includes("anubis_challenge")) return { ready: true, content: anubisContent }
+      if (source.includes("cf-turnstile-response")) {
+        if (source.includes('return "token"')) return "token"
+        verifications.push(performance.now())
+        return true
+      }
+      if (source.includes("widgetSelector")) {
+        if (source.includes("validResponse")) verifications.push(performance.now())
+        return documentHtml.includes("frc-captcha")
+      }
+      return "fixture-agent"
+    },
     waitForSelector: async () => ({}),
     waitForLoadState: async (state: string) => {
       waits.push(state)
@@ -49,10 +62,39 @@ function fixture(anubisContent = true) {
     context,
     fingerprint: { userAgent: "fixture-agent", platform: "Linux x86_64", locale: "en-US", timezone: "UTC" },
   }
-  return { handle, waits, closed: () => closed }
+  return { handle, page, waits, verifications, closed: () => closed }
 }
 
 describe("browser document readiness", () => {
+  test.each([
+    ["friendly-captcha", '<div class="frc-captcha"></div>'],
+    ["turnstile", '<div class="cf-turnstile"></div>'],
+  ])("%s verification starts promptly while retaining the JS settling window", async (kind, markup) => {
+    const documentHtml = html.replace("</body>", `${markup}</body>`)
+    const site = fixture(true, documentHtml)
+    const start = performance.now()
+    const result = await runTier3("https://fixture.example/", site.handle, 6000)
+    expect(result.status).toBe("success")
+    expect(result.captchasSolved).toContain(kind)
+    expect(result.html).toBe(documentHtml)
+    expect((site.verifications[0] ?? Infinity) - start).toBeLessThan(500)
+    expect(performance.now() - start).toBeGreaterThanOrEqual(500)
+  })
+
+  test("overlapping verification retains discovery of a late-mounted widget", async () => {
+    const site = fixture(true, html.replace("</body>", '<div class="frc-captcha"></div></body>'))
+    const evaluate = site.page.evaluate
+    const start = performance.now()
+    site.page.evaluate = async (fn: unknown) => {
+      if (String(fn).includes("widgetSelector") && !String(fn).includes("validResponse"))
+        return performance.now() - start >= 5200
+      return evaluate(fn)
+    }
+    const result = await runTier3("https://fixture.example/", site.handle, 12000)
+    expect(result.status).toBe("success")
+    expect(result.captchasSolved).toContain("friendly-captcha")
+  }, 8000)
+
   test("cached Anubis content uses the provider readiness check", async () => {
     const site = fixture()
     const result = await runTier2(

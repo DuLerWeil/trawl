@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Overlap embedded Turnstile and Friendly Captcha verification with page settling while preserving the original widget discovery window, ordinary JavaScript settling and Cloudflare wall checks.
 - Avoid repeated browser pointer animations during GeeTest drags and re-read transient invalid geometry within the existing attempt limit.
 - Use Anubis document verification for cached responses after an HTTP challenge, avoiding unrelated network-idle waits while retaining normal page settling.
 - Require readable content before clearing a Cloudflare wall, and restrict Cloudflare recovery cookies to the target domain boundary.

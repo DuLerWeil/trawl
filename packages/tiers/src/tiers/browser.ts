@@ -36,6 +36,8 @@ const DATACENTER_BLOCKED_REASONS: Partial<Record<ChallengeType, string>> = {
 const DEFAULT_DATACENTER_BLOCKED_REASON =
   "datacenter-ip-blocked (cf_clearance obtained but redirect never completed — needs residential proxy)"
 
+const PAGE_SETTLE_MS = 600
+
 async function runBrowserTierTask<T extends 3 | 4>(
   tier: T,
   url: string,
@@ -194,9 +196,19 @@ async function runBrowserTierTask<T extends 3 | 4>(
       }
     }
 
+    // Overlap widget verification with the existing JS settling window.
+    const overlapWidgetSettling =
+      tier === 3 &&
+      !cloudflareWall &&
+      !capture.contentWaitForSelector &&
+      (challengeType === "cloudflare-turnstile" || challengeType === "friendly-captcha")
+    const settleUntil = Date.now() + PAGE_SETTLE_MS
     // Keep default settling for JS content and lingering Cloudflare frames.
-    if (cloudflareWall || (tier === 3 && challengeType !== "anubis" && !capture.contentWaitForSelector))
-      await sleep(600, budget.signal)
+    if (
+      cloudflareWall ||
+      (tier === 3 && challengeType !== "anubis" && !overlapWidgetSettling && !capture.contentWaitForSelector)
+    )
+      await sleep(PAGE_SETTLE_MS, budget.signal)
     if (tier === 4) await waitForBrowserLoad(page, capture, budget, 10_000)
 
     const solveRemaining = budget.remaining()
@@ -208,12 +220,15 @@ async function runBrowserTierTask<T extends 3 | 4>(
         budget.signal,
         capture.externalCaptcha,
         proxyUrl,
+        overlapWidgetSettling ? PAGE_SETTLE_MS : 0,
       ).catch(() => ({
         attempted: [],
         solved: [],
       }))
       captchasSolved = [...new Set([...captchasSolved, ...solveResult.solved])]
     }
+
+    if (overlapWidgetSettling) await sleep(Math.max(0, settleUntil - Date.now()), budget.signal)
 
     const { html, shot, evidence } = await captureBrowserDocument(page, capture, pageCapture, budget, screenshot)
 

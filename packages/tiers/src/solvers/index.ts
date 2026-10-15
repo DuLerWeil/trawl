@@ -89,6 +89,7 @@ export async function solvePageCaptchas(
   signal?: AbortSignal,
   external?: ExternalCaptchaSession,
   proxy?: string,
+  detectionGraceMs = 0,
 ): Promise<SolveResult> {
   if (timeoutMs <= 0 || signal?.aborted) return { attempted: [], solved: [] }
   const deadline = Date.now() + Math.max(0, timeoutMs)
@@ -143,7 +144,8 @@ export async function solvePageCaptchas(
   // waitForSelector already handles waiting for widgets - no blind sleep needed.
   // 5s: Turnstile/reCAPTCHA iframes typically appear within 2s of page load;
   // dynamic script-mounted widgets (e.g. Mojeek ALTCHA) can take 2-4s to load module scripts.
-  const DETECT_MS = Math.min(5_000, Math.max(0, deadline - Date.now()))
+  // Retain the original discovery window when verification overlaps page settling.
+  const DETECT_MS = Math.min(5_000 + Math.max(0, detectionGraceMs), Math.max(0, deadline - Date.now()))
 
   const recaptchaKind =
     mightHaveRecaptcha && !signal?.aborted && (await external?.canSolve(page, "recaptcha-v2-enterprise", proxy))
