@@ -225,3 +225,17 @@ describe("Anubis recovery under memory pressure", () => {
     expect(calls).toBe(1)
   })
 })
+
+for (const reason of ["anubis-challenge", "cloudflare-challenge"]) {
+  test(`cached browser receives the correct Anubis readiness hint for ${reason}`, async () => {
+    const attempts: TierResult[] = []
+    const result = await scrape({ url: "https://example.test", maxTier: 2 }, dependencies(1, attempts), {
+      tier1: async () => ({ tier: 1, status: "needs-js", durationMs: 1, reason }),
+      tier2: async (...args: unknown[]) => {
+        expect((args[9] as { anubisDetected?: boolean }).anubisDetected).toBe(reason === "anubis-challenge")
+        return { ...payload, tier: 2, status: "success", durationMs: 1 }
+      },
+    })
+    expect(result.tier).toBe(2)
+  })
+}

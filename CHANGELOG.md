@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Avoid repeated browser pointer animations during GeeTest drags and re-read transient invalid geometry within the existing attempt limit.
+- Use Anubis document verification for cached responses after an HTTP challenge, avoiding unrelated network-idle waits while retaining normal page settling.
 - Require readable content before clearing a Cloudflare wall, and restrict Cloudflare recovery cookies to the target domain boundary.
 - Respect the remaining Imperva wait budget, recognize completed navigation without requiring a particular sensor cookie and restrict recovery cookies to the target domain boundary.
 - Apply the ALTCHA post-verification timeout to the browser waiter options.

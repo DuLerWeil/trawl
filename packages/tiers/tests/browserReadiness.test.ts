@@ -6,7 +6,7 @@ import { runTier4 } from "../src/tiers/4"
 
 const html = `<html><body>${"Ready document ".repeat(20)}</body></html>`
 
-function fixture() {
+function fixture(anubisContent = true) {
   const waits: string[] = []
   let closed = 0
   const page = {
@@ -23,7 +23,9 @@ function fixture() {
     },
     url: () => "https://fixture.example/",
     frames: () => [],
-    evaluate: async () => "fixture-agent",
+    isClosed: () => false,
+    evaluate: async (fn: unknown) =>
+      String(fn).includes("anubis_challenge") ? { ready: true, content: anubisContent } : "fixture-agent",
     waitForSelector: async () => ({}),
     waitForLoadState: async (state: string) => {
       waits.push(state)
@@ -51,6 +53,55 @@ function fixture() {
 }
 
 describe("browser document readiness", () => {
+  test("cached Anubis content uses the provider readiness check", async () => {
+    const site = fixture()
+    const result = await runTier2(
+      "https://fixture.example/",
+      site.handle,
+      { cookies: [], userAgent: "fixture-agent", savedAt: 1 },
+      900,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      false,
+      { anubisDetected: true },
+    )
+    expect(result.status).toBe("success")
+    expect(result.html).toBe(html)
+    expect(site.waits).not.toContain("networkidle")
+  })
+
+  test("cached Anubis content must still pass the provider readiness check", async () => {
+    const site = fixture(false)
+    const result = await runTier2(
+      "https://fixture.example/",
+      site.handle,
+      { cookies: [], userAgent: "fixture-agent", savedAt: 1 },
+      450,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      false,
+      { anubisDetected: true },
+    )
+    expect(result.status).toBe("timeout")
+    expect(site.closed()).toBe(1)
+  })
+
+  test("ordinary cached pages retain the default JS settling", async () => {
+    const site = fixture()
+    const result = await runTier2(
+      "https://fixture.example/",
+      site.handle,
+      { cookies: [], userAgent: "fixture-agent", savedAt: 1 },
+      900,
+    )
+    expect(result.status).toBe("success")
+    expect(site.waits).toContain("networkidle")
+  })
+
   for (const tier of [2, 3, 4] as const) {
     test(`Tier ${tier} returns ready content without an unrelated settle delay`, async () => {
       const site = fixture()

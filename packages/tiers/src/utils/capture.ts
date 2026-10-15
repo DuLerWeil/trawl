@@ -38,6 +38,8 @@ export interface CaptureOptions extends ResponseCaptureOptions {
   screenshotWaitForSelector?: string
   screenshotSelector?: string
   contentWaitForSelector?: string
+  /** Tier 1 observed Anubis; cached pages use the same readiness check as fresh solves. */
+  anubisDetected?: boolean
   consoleLogs?: boolean
   networkLogs?: boolean
   redirectChain?: boolean

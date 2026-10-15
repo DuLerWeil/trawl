@@ -214,6 +214,7 @@ async function scrapeWithinBudget(
   // only via the thrown ScrapeError.
   let blockedEvidence: BlockedEvidence | undefined
   const capture = {
+    anubisDetected: false,
     cookies: req.cookies,
     budget,
     externalCaptcha: deps.externalCaptcha ? new ExternalCaptchaSession(deps.externalCaptcha) : undefined,
@@ -414,6 +415,7 @@ async function scrapeWithinBudget(
       t1.status = "needs-js"
       t1.reason = "external-captcha-profile-needs-browser"
     }
+    capture.anubisDetected = t1.reason === "anubis-challenge"
     if (ignoreCertificateErrors) certificateError = t1.certificateError
     const crossed1 = hasUsablePayload(t1)
       ? await refuseCrossed(t1.effectiveUrl, tier1Fingerprint.userAgent, tier1Proxy)

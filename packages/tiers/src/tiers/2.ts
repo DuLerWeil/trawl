@@ -4,6 +4,7 @@ import type { Cookie, SessionData } from "@trawl/types"
 import { capturePageFavicons } from "../favicons"
 import { solvePageCaptchas } from "../solvers"
 import { isAnubisVerificationUrl } from "../utils/anubis"
+import { waitForAnubisResolution } from "../utils/anubisWait"
 import { reportBlocked } from "../utils/blockedEvidence"
 import { captureBrowserDocument, waitForBrowserLoad } from "../utils/browserCapture"
 import { attachPageCapture, type CaptureOptions } from "../utils/capture"
@@ -101,7 +102,17 @@ async function runTier2Task(
     }
     const anubis = hasAnubisChallenge(html)
     if (!anubis && !isBlocked(mainResponse.status, html)) {
-      await waitForBrowserLoad(page, capture, budget, 8000)
+      if (capture.anubisDetected) {
+        const resolution = await waitForAnubisResolution(page, budget.remaining())
+        if (resolution === "timeout" || resolution === "browser-closed") {
+          return {
+            tier: 2,
+            status: resolution === "timeout" ? "timeout" : "error",
+            reason: `anubis-${resolution}`,
+            durationMs: Date.now() - start,
+          }
+        }
+      } else await waitForBrowserLoad(page, capture, budget, 8000)
       html = await page.content()
     }
     if (hasAnubisChallenge(html)) {
