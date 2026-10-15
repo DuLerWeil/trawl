@@ -95,8 +95,7 @@ export async function solveGeetestSlide(page: Page, timeoutMs = 30_000, signal?:
       const track = await visibleBox(page, ".geetest_slider, .geetest_slider_track, .gt_slider", deadline)
       const ratio = track ? (track.width - handle.width) / (image.width - piece.width) : 1
       const distance = gap * ratio
-      if (!Number.isFinite(distance) || distance <= 0 || (track && distance > track.width - handle.width + 2))
-        return false
+      if (!Number.isFinite(distance) || distance <= 0 || (track && distance > track.width - handle.width + 2)) continue
       console.log(
         `[geetest] attempt ${attempt + 1}, drag ${Math.round(distance)}px (${match === undefined ? "screenshot" : "texture"})`,
       )
@@ -105,12 +104,9 @@ export async function solveGeetestSlide(page: Page, timeoutMs = 30_000, signal?:
       await page.mouse.move(startX, startY)
       await page.mouse.down()
       try {
-        for (let i = 1; i <= 12; i++) {
-          if (Date.now() >= deadline || signal.aborted) return false
-          const t = i / 12
-          await page.mouse.move(startX + distance * easeInOut(t), startY + Math.sin(t * Math.PI) * 3, { steps: 1 })
-          await sleep(15 + Math.random() * 15, signal)
-        }
+        if (Date.now() >= deadline || signal.aborted) return false
+        // Camoufox animates each move; subdividing the drag repeats that animation.
+        await page.mouse.move(startX + distance, startY, { steps: 1 })
       } finally {
         await page.mouse.up().catch(() => {})
       }
@@ -336,10 +332,6 @@ export async function isGeetestSuccess(page: Page): Promise<boolean> {
       ).some((el) => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden"),
     )
     .catch(() => false)
-}
-
-function easeInOut(t: number): number {
-  return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t
 }
 
 export async function hasGeetestSlide(page: Page, timeout = 2000): Promise<boolean> {

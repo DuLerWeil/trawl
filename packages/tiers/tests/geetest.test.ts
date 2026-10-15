@@ -103,3 +103,45 @@ test("GeeTest SDK initialization retains a bounded wait for a visible widget", a
   }
   expect(await hasGeetestSlide(page as never, 250)).toBe(false)
 })
+
+test.each([false, true])(
+  "GeeTest completes a browser-animated drag with transient geometry=%s",
+  async (staleGeometry) => {
+    const { solveGeetestSlide } = await import("../src/solvers/geetest")
+    const sample = images()
+    let currentX = 0
+    let imageReads = 0
+    let verified = false
+    let pressed = false
+    const page = {
+      evaluate: async (_fn: unknown, arg: unknown) => {
+        if (typeof arg === "number") {
+          imageReads++
+          return sample
+        }
+        if (typeof arg !== "string") return verified
+        if (arg.includes(".geetest_slice,")) return { x: 0, y: sample.top, width: 30, height: 30 }
+        if (arg.includes(".geetest_slider_button")) return { x: 0, y: 80, width: 30, height: 20 }
+        if (arg === ".geetest_bg, .geetest_canvas_bg, .gt_cut_bg")
+          return { x: staleGeometry && imageReads === 1 ? 1000 : 0, y: 0, width: 160, height: 60 }
+        if (arg === ".geetest_slider, .geetest_slider_track, .gt_slider") return { x: 0, y: 80, width: 160, height: 20 }
+        return undefined
+      },
+      mouse: {
+        move: async (x: number) => {
+          await Bun.sleep(80)
+          currentX = x
+        },
+        down: async () => {
+          pressed = true
+        },
+        up: async () => {
+          verified = pressed && Math.abs(currentX - 15 - sample.target) < 0.1
+          pressed = false
+        },
+      },
+    }
+    expect(await solveGeetestSlide(page as never, 800)).toBe(true)
+    expect(pressed).toBe(false)
+  },
+)

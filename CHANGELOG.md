@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Avoid repeated browser pointer animations during GeeTest drags and re-read transient invalid geometry within the existing attempt limit.
 - Require readable content before clearing a Cloudflare wall, and restrict Cloudflare recovery cookies to the target domain boundary.
 - Respect the remaining Imperva wait budget, recognize completed navigation without requiring a particular sensor cookie and restrict recovery cookies to the target domain boundary.
 - Apply the ALTCHA post-verification timeout to the browser waiter options.
