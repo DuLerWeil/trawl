@@ -17,6 +17,7 @@ export async function waitForChallengeResolution(
 ): Promise<"ok" | "ip-blocked" | "timeout"> {
   const deadline = Date.now() + Math.max(timeoutMs, 0)
   let lastClickAttempt = 0
+  let hadChallengeFrame = false
   let cfClearanceAt: number | undefined
   let challengeSeen = false
   let inactiveSamples = 0
@@ -36,19 +37,23 @@ export async function waitForChallengeResolution(
   while (Date.now() < deadline) {
     try {
       const title = await page.title().catch(() => "")
-      const html = await page.content().catch(() => "")
       const url = page.url()
       const hasChallengeFrame = page.frames().some(isChallengeFrame)
-      const active =
+      if (hasChallengeFrame && !hadChallengeFrame) lastClickAttempt = 0
+      hadChallengeFrame = hasChallengeFrame
+      const headers = responseHeaders()
+      const activeSignal =
         CF_CHALLENGE_TITLE.test(title) ||
-        isCloudflarePage(html, responseHeaders()) ||
         /\/cdn-cgi\/challenge-platform|\/cdn-cgi\/challenge\//i.test(url) ||
-        hasChallengeFrame
+        hasChallengeFrame ||
+        isCloudflarePage("", headers)
+      const html = activeSignal ? "" : await page.content().catch(() => "")
+      const active = activeSignal || isCloudflarePage(html, headers)
 
-      if (!active) {
+      if (!active && html.trim()) {
         inactiveSamples++
       } else {
-        challengeSeen = true
+        if (active) challengeSeen = true
         inactiveSamples = 0
       }
 
@@ -79,7 +84,7 @@ export async function waitForChallengeResolution(
           targetHost &&
           (c.domain === targetHost ||
             c.domain === `.${targetHost}` ||
-            targetHost.endsWith(c.domain.replace(/^\./, ""))),
+            targetHost.endsWith(`.${c.domain.replace(/^\./, "")}`)),
       )
       if (hasDomainClearance && challengeSeen) {
         if (cfClearanceAt === undefined) {
@@ -104,8 +109,7 @@ export async function waitForChallengeResolution(
 
       const now = Date.now()
       if (now - lastClickAttempt >= 3000) {
-        lastClickAttempt = now
-        await attemptTurnstileClick(page).catch(() => {})
+        if (await attemptTurnstileClick(page).catch(() => false)) lastClickAttempt = now
       }
     } catch {
       // Page is mid-navigation — keep polling
@@ -132,7 +136,12 @@ export async function attemptTurnstileClick(page: Page, allowKeyboard = true): P
 
     // C: page-coordinate click - bypasses Fission by clicking on page instead of inside frame
     const frameEl = await frame.frameElement().catch(() => undefined)
-    const box = frameEl ? await frameEl.boundingBox().catch(() => undefined) : undefined
+    const box = frameEl
+      ? await frameEl
+          .boundingBox()
+          .catch(() => undefined)
+          .finally(() => frameEl.dispose().catch(() => {}))
+      : undefined
     if (box && box.width > 20) {
       const cx = box.x + Math.min(24, box.width * 0.15)
       const cy = box.y + box.height / 2
@@ -147,8 +156,9 @@ export async function attemptTurnstileClick(page: Page, allowKeyboard = true): P
   }
 
   // D: keyboard Tab → Space - last resort
+  if (!allowKeyboard) return false
   const html = await page.content().catch(() => "")
-  if (allowKeyboard && (hasTurnstile(html) || isCloudflarePage(html, {}))) {
+  if (hasTurnstile(html) || isCloudflarePage(html, {})) {
     try {
       await page.keyboard.press("Tab")
       await new Promise((r) => setTimeout(r, 200))
@@ -205,7 +215,11 @@ async function clickShadowCheckbox(_page: Page, frame: Frame): Promise<boolean> 
       if (!checkbox) continue
       const visible = await checkbox.isVisible().catch(() => false)
       if (!visible) continue
-      await checkbox.click({ timeout: 2000 }).catch(() => {})
+      const clicked = await checkbox
+        .click({ timeout: 2000 })
+        .then(() => true)
+        .catch(() => false)
+      if (!clicked) continue
       console.log("[challenge] Turnstile shadow-DOM checkbox clicked")
       return true
     }

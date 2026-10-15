@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Require readable content before clearing a Cloudflare wall, and restrict Cloudflare recovery cookies to the target domain boundary.
+- Release iframe element handles after Turnstile coordinate discovery, including hidden and detached frames.
+- Retry embedded Turnstile clicks after two seconds while retaining token verification, cancellation and request limits.
+- Avoid redundant HTML transfers while Cloudflare activity is already confirmed, retaining full document checks before declaring the challenge resolved.
+- Retry newly mounted Turnstile controls without the delay from an unsuccessful discovery attempt, and retain fallback clicks when a shadow checkbox detaches.
 - Traverse Cloudflare shadow DOM once per node, release temporary browser handles and avoid keyboard clicks after the challenge clears.
 - Skip reCAPTCHA, hCaptcha and Turnstile detection waits for documentation links without widget or SDK markup, and return immediately when checkbox auto-pass is confirmed.
 - Avoid unnecessary GeeTest solver waits when pages only contain demo links or textual references; retain bounded detection for widgets mounted by the SDK.

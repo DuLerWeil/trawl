@@ -35,9 +35,9 @@ export async function solveTurnstile(page: Page, timeoutMs = 25_000, signal?: Ab
   let lastClick = 0
   while (Date.now() < deadline && !signal.aborted) {
     if (await turnstileVerified(page)) return true
-    if (Date.now() - lastClick >= 3000 && deadline - Date.now() > 2000) {
-      lastClick = Date.now()
-      await attemptTurnstileClick(page, false).catch(() => {})
+    const now = Date.now()
+    if (now - lastClick >= 2000 && deadline - now > 2000) {
+      if (await attemptTurnstileClick(page, false).catch(() => false)) lastClick = now
     }
     await sleep(Math.min(250, Math.max(0, deadline - Date.now())), signal)
   }
