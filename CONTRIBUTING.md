@@ -8,12 +8,12 @@ This project follows the [Contributor Covenant](CODE_OF_CONDUCT.md). Be respectf
 
 ## Reporting bugs & requesting features
 
-Please use the GitHub issue templates — they ensure we have the context we need:
+Please use the GitHub issue templates - they ensure we have the context we need:
 
 - **Bug reports:** [`.github/ISSUE_TEMPLATE/bug_report.md`](.github/ISSUE_TEMPLATE/bug_report.md)
 - **Feature requests:** [`.github/ISSUE_TEMPLATE/feature_request.md`](.github/ISSUE_TEMPLATE/feature_request.md)
 
-For security issues, **do not open a public issue** — see [SECURITY.md](SECURITY.md).
+For security issues, **do not open a public issue** - see [SECURITY.md](SECURITY.md).
 
 ## Development setup
 
@@ -136,7 +136,7 @@ apps/
   docs/     VitePress documentation
 packages/
   browser/  Camoufox Firefox pool
-  tiers/    Tier 1–4 execution engine
+  tiers/    Tier 1-4 execution engine
   types/    Shared TypeScript types
 ```
 
@@ -160,7 +160,7 @@ The `type` is one of `feat`, `fix`, `chore`, `docs`, `ci`, `refactor`, `test`, `
 2. **Branch from `main`.** Use a descriptive name (`feat/captcha-hcaptcha`, `fix/redis-reconnect`).
 3. **Run `bun run verify` before pushing.** Lint, types, tests, and production builds must be clean.
 4. **Update `CHANGELOG.md`** under `## [Unreleased]` for any user-visible change.
-5. **Fill out the PR template** — the checklist catches the easy-to-miss items.
+5. **Fill out the PR template** - the checklist catches the easy-to-miss items.
 6. **Keep PRs focused.** One feature or fix per PR; large refactors should be split.
 
 ## Adding a new tier or solver
@@ -174,4 +174,4 @@ TRAWL's design centers on a 4-tier escalation ladder (HTTP → cached session �
 
 ## License
 
-TRAWL is licensed under **AGPL-3.0**. By submitting a pull request, you affirm that your contribution is your own work and you agree to license it under AGPL-3.0. AGPL is more restrictive than MIT/Apache — if your employer might claim ownership of your work, get explicit approval first.
+TRAWL is licensed under **AGPL-3.0**. By submitting a pull request, you affirm that your contribution is your own work and you agree to license it under AGPL-3.0. AGPL is more restrictive than MIT/Apache - if your employer might claim ownership of your work, get explicit approval first.
