@@ -52,7 +52,7 @@ Maintains warm browser instances using [Camoufox](https://github.com/daijro/camo
 
 ### Session Cache (`packages/browser/src/session.ts`)
 
-Stores cookies, browser User-Agent, save time and optional direct-origin provenance in Redis or a bounded in-memory backend, keyed by hostname (`session:example.com`). Successful eligible browser requests populate or refresh the entry when cookies are available. Tier 1 can reuse valid Cloudflare or supported Anubis clearance over HTTP; Tier 2 can inject cached cookies into the browser when HTTP is unsuitable or rejected.
+Stores cookies, browser User-Agent, save time, optional proxy identity and direct-origin provenance in Redis or a bounded in-memory backend, keyed by hostname (`session:v2:example.com`). Successful eligible browser requests populate or refresh the entry when cookies are available. Tier 1 can reuse valid direct Cloudflare or supported Anubis clearance over HTTP; Tier 2 can inject cached cookies into the browser when HTTP is unsuitable or rejected. Proxy-bound sessions retain their original configured proxy in an isolated temporary context.
 
 The configurable TTL defaults to one hour and does not extend cookie expiry. Named sessions and imported login cookies do not populate the shared cache. See [Session Cache](/architecture/session-cache) for eligibility and fallback rules.
 
