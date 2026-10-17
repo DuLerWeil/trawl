@@ -66,6 +66,42 @@ function fixture(anubisContent = true, documentHtml = html) {
 }
 
 describe("browser document readiness", () => {
+  for (const tier of [2, 3] as const) {
+    test(`Tier ${tier} skips embedded verification only when requested`, async () => {
+      const site = fixture(true, html.replace("</body>", '<div class="cf-turnstile"></div></body>'))
+      const capture = { solveEmbeddedCaptchas: false }
+      const result =
+        tier === 2
+          ? await runTier2(
+              "https://fixture.example/",
+              site.handle,
+              { cookies: [], userAgent: "fixture-agent", savedAt: 1 },
+              10000,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              false,
+              capture,
+            )
+          : await runTier3(
+              "https://fixture.example/",
+              site.handle,
+              10000,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              false,
+              capture,
+            )
+      expect(result.status).toBe("success")
+      expect(result.captchasSolved ?? []).toEqual([])
+      expect(site.verifications).toEqual([])
+    })
+  }
+
   test("Cloudflare retains content scheduled after the load event", async () => {
     const site = fixture()
     let first = true

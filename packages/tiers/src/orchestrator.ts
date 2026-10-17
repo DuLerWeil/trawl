@@ -219,6 +219,7 @@ async function scrapeWithinBudget(
     cookies: req.cookies,
     budget,
     externalCaptcha: deps.externalCaptcha ? new ExternalCaptchaSession(deps.externalCaptcha) : undefined,
+    solveEmbeddedCaptchas: req.solveEmbeddedCaptchas,
     followMetaRefresh: req.followMetaRefresh,
     screenshotFullPage: req.screenshotFullPage,
     screenshotWaitForSelector: req.screenshotWaitForSelector,
@@ -298,7 +299,7 @@ async function scrapeWithinBudget(
   const failure = (message: string): ScrapeError =>
     new ScrapeError(
       crossedHost
-        ? `${message} — refused crossed landing on ${crossedHost}: ${req.url} does not lead there and its certificate was not verified`
+        ? `${message} - refused crossed landing on ${crossedHost}: ${req.url} does not lead there and its certificate was not verified`
         : message,
       timings,
       blockedEvidence,
@@ -656,7 +657,7 @@ async function scrapeWithinBudget(
         const next = pool.next(domain)
         if (!next || next === proxy3) break
         console.log(
-          `[orchestrator] Tier 3 proxy ${proxy3.replace(/\/\/[^@]*@/, "//**@")} blocked — retrying with next proxy`,
+          `[orchestrator] Tier 3 proxy ${proxy3.replace(/\/\/[^@]*@/, "//**@")} blocked - retrying with next proxy`,
         )
         proxy3 = next
       }

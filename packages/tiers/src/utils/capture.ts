@@ -33,6 +33,7 @@ export interface CaptureOptions extends ResponseCaptureOptions {
   sessionStorage?: Map<string, [string, string][]>
   budget?: RequestBudget
   externalCaptcha?: ExternalCaptchaSession
+  solveEmbeddedCaptchas?: boolean
   followMetaRefresh?: boolean
   screenshotFullPage?: boolean
   screenshotWaitForSelector?: string

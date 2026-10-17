@@ -32,6 +32,8 @@ export interface ScrapeRequest {
   url: string
   maxTimeout?: number
   skipHttp?: boolean
+  // Solve embedded form widgets after clearing access challenges. Defaults to true.
+  solveEmbeddedCaptchas?: boolean
   maxTier?: 1 | 2 | 3 | 4
   sessionId?: string
   cookies?: InputCookie[]
@@ -329,6 +331,8 @@ export interface FlareSolverrScrapeRequest {
   cookies?: InputCookie[]
   returnOnlyCookies?: boolean
   returnScreenshot?: boolean
+  // TRAWL extension: defaults to false; access challenges are always resolved.
+  solveEmbeddedCaptchas?: boolean
   url: string
   maxTimeout?: number
   postData?: string

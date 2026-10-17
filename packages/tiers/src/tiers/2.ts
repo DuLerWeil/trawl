@@ -212,9 +212,10 @@ async function runTier2Task(
 
     // Attempt to solve any embedded captcha widgets (Turnstile, reCAPTCHA, hCaptcha).
     // Pages that load cleanly via session cache may still have in-page challenge widgets.
-    const solveRemaining = budget.remaining()
+    // Embedded widgets are best effort; leave time to return the loaded document.
+    const solveRemaining = Math.max(0, budget.remaining() - 2000)
     let captchasSolved: string[] = []
-    if (solveRemaining > 5000) {
+    if (capture.solveEmbeddedCaptchas !== false && budget.remaining() > 5000) {
       const result = await solvePageCaptchas(page, solveRemaining, budget.signal, capture.externalCaptcha).catch(
         () => ({
           attempted: [],
