@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Limit Cloudflare clearance recovery to one navigation, allow refreshed clearance to finish, and retain time for an available residential fallback instead of exhausting the request in Tier 3 (#219).
 - Recognize embedded Turnstile tokens consumed during widget removal without treating widget disappearance alone as success (#221).
 - Bind cached browser sessions to their configured proxy and reuse that proxy in an isolated Tier 2 context. Retain direct-session reuse, invalidate removed or unavailable proxies, and ignore older Redis entries without proxy provenance (#218).
 - Honor client Accept-Encoding overrides case-insensitively in Tier 1, including empty values, so the forward proxy does not advertise unsupported compression to upstream servers (#212).

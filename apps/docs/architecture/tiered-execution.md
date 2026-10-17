@@ -95,6 +95,20 @@ On success:
 
 Uses [Camoufox](https://github.com/daijro/camoufox) - Firefox with fingerprint patching at the C++/Juggler level to reduce common automation signals. Success still depends on the target's challenge variant, IP reputation, and upstream network conditions.
 
+### Cloudflare recovery and fallback
+
+A `cf_clearance` cookie alone does not confirm page access. The Cloudflare waiter still
+requires two readable observations without an active challenge. If clearance is present but
+the redirect has not completed after five seconds, TRAWL attempts one recovery navigation.
+An unchanged clearance and a wall that persists for another five seconds stop that attempt.
+A newly issued clearance token receives a fresh grace period without repeating the navigation.
+
+When Tier 4 is allowed and a configured residential proxy is outside cooldown, ordinary
+requests reserve one third of the remaining time, capped at 30 seconds, for escalation.
+This cutoff applies only to Tier 3 Cloudflare waiting and is shared across datacenter retries.
+Other provider flows and page readiness retain the request budget. Requests with an explicit
+proxy, or without an available residential fallback, do not reserve this time.
+
 ### Embedded CAPTCHA widgets
 
 Detected access challenges must clear before content is returned. After the page loads,

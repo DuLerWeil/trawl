@@ -79,6 +79,13 @@ a solution, cancellation, and both API routes in cached and fresh browser sessio
 TRAWL_TURNSTILE_TESTS=1 CAMOUFOX_INSTALL_DIR=/path/to/camoufox bun test apps/api/src/turnstile.integration.test.ts
 ```
 
+Cloudflare fallback tests use owned challenge pages and two local HTTP proxies. They cover
+both API routes, persistent clearance, a stalled recovery navigation and context cleanup:
+
+```bash
+TRAWL_CLOUDFLARE_FALLBACK_TESTS=1 CAMOUFOX_INSTALL_DIR=/path/to/camoufox bun test apps/api/src/cloudflareFallback.integration.test.ts
+```
+
 Raw text browser integration tests use owned HTTP fixtures and a local forward proxy:
 
 ```bash

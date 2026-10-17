@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test"
+import { expect, spyOn, test } from "bun:test"
 import type { Page } from "patchright"
 import { solveTurnstile } from "../src/solvers/turnstile"
 import { routeChallengeWait } from "../src/utils/challengeRouter"
@@ -79,6 +79,60 @@ test("clearance and a completed goto do not declare a persistent wall solved", a
   const result = await waitForChallengeResolution(page as unknown as Page, 6500, page.url())
   expect(navigations).toBe(1)
   expect(result).toBe("timeout")
+}, 8000)
+
+test("persistent clearance cannot restart manual recovery indefinitely", async () => {
+  const page = pageFixture()
+  let now = Date.now()
+  let navigations = 0
+  const clock = spyOn(Date, "now").mockImplementation(() => now)
+  page.title = async () => {
+    now += 3000
+    return "Just a moment..."
+  }
+  page.goto = async () => {
+    navigations++
+  }
+  try {
+    const result = await waitForChallengeResolution(page as unknown as Page, 24000, page.url())
+    expect(result).toBe("ip-blocked")
+    expect(navigations).toBe(1)
+  } finally {
+    clock.mockRestore()
+  }
+}, 8000)
+
+test("fresh clearance after recovery gets time to finish without another navigation", async () => {
+  const page = pageFixture()
+  let now = Date.now()
+  let recoveredAt: number | undefined
+  let navigations = 0
+  const clock = spyOn(Date, "now").mockImplementation(() => now)
+  const finished = () => recoveredAt !== undefined && now - recoveredAt >= 8000
+  page.title = async () => {
+    now += 2000
+    return finished() ? "Article" : "Just a moment..."
+  }
+  page.content = async () => (finished() ? destination : wall)
+  page.context = () => ({
+    cookies: async () => [
+      {
+        name: "cf_clearance",
+        domain: "example.test",
+        value: recoveredAt !== undefined && now - recoveredAt >= 4000 ? "fresh-clearance" : "old-clearance",
+      },
+    ],
+  })
+  page.goto = async () => {
+    navigations++
+    recoveredAt = now
+  }
+  try {
+    expect(await waitForChallengeResolution(page as unknown as Page, 36000, page.url())).toBe("ok")
+    expect(navigations).toBe(1)
+  } finally {
+    clock.mockRestore()
+  }
 }, 8000)
 
 test("manual clearance recovery confirms the destination without waiting for network idle", async () => {

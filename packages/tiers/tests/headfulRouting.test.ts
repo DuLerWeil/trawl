@@ -223,6 +223,7 @@ describe("headful pool routing", () => {
       saveSession: async () => {},
       invalidateSession: async () => {},
       residentialProxyPool: {
+        hasAvailable: () => true,
         next: () => "http://residential.test:8080",
         markBad: () => {},
       } as unknown as OrchestratorDeps["residentialProxyPool"],

@@ -142,6 +142,10 @@ async function runBrowserTierTask<T extends 3 | 4>(
     const remaining = budget.remaining()
     const peekHtml = await page.content().catch(() => "")
     const cloudflareWall = isCloudflarePage(peekHtml, mainResponse.headers)
+    const challengeTimeout =
+      cloudflareWall && capture.cloudflareDeadline !== undefined
+        ? Math.max(0, Math.min(remaining, capture.cloudflareDeadline - Date.now()))
+        : remaining
     const {
       challengeType,
       resolution,
@@ -150,7 +154,7 @@ async function runBrowserTierTask<T extends 3 | 4>(
       page,
       peekHtml,
       mainResponse.headers,
-      remaining,
+      challengeTimeout,
       refresh?.url ?? url,
       undefined,
       mainResponse.status,

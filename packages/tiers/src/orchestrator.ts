@@ -623,6 +623,10 @@ async function scrapeWithinBudget(
       // next pool proxy before falling through to Tier 4. A per-request override has no
       // fallback candidate, so it's tried exactly once.
       let proxy3 = req.proxy ?? deps.proxyPool?.next(domain) ?? undefined
+      const tier3Capture =
+        maxTier >= 4 && !explicitProxy && deps.residentialProxyPool?.hasAvailable()
+          ? { ...capture, cloudflareDeadline: budget.deadline - Math.min(30_000, Math.floor(budget.remaining() / 3)) }
+          : capture
       let t3: Awaited<ReturnType<typeof runTier3>>
       for (let attempt = 0; ; attempt++) {
         budget.check()
@@ -638,7 +642,7 @@ async function scrapeWithinBudget(
           req.body,
           deps.validateOutboundUrl,
           req.screenshot,
-          capture,
+          tier3Capture,
           ignoreCertificateErrors || Boolean(trustedProxyCa && proxy3 === explicitProxy),
         )
         if (t3.challenge === "datadome" && !handle.headful) {
@@ -653,7 +657,7 @@ async function scrapeWithinBudget(
             req.body,
             deps.validateOutboundUrl,
             req.screenshot,
-            capture,
+            tier3Capture,
             ignoreCertificateErrors || Boolean(trustedProxyCa && proxy3 === explicitProxy),
           )
         }
