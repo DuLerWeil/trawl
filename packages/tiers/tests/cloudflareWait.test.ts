@@ -325,6 +325,10 @@ test("embedded Turnstile retries discovery without waiting three seconds for an 
   })
   const page = {
     evaluate: async () => clicked,
+    evaluateHandle: async () => ({
+      evaluate: async (read: any) => read({ verified: () => clicked, disconnect() {} }),
+      dispose: async () => {},
+    }),
     frames: () => (++inspections === 1 ? [] : [frame]),
     content: async () => "",
   }

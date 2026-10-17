@@ -20,6 +20,10 @@ function fixture(requiredClicks: number) {
   }
   const page = {
     evaluate: async () => clicks.length >= requiredClicks,
+    evaluateHandle: async () => ({
+      evaluate: async (read: any) => read({ verified: () => clicks.length >= requiredClicks, disconnect() {} }),
+      dispose: async () => {},
+    }),
     frames: () => [frame],
   }
   return { page: page as unknown as Page, clicks }

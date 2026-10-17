@@ -8,12 +8,15 @@ function widget(autoPass: boolean, eligible = true) {
     url: () => "https://example.com/owned-fixture",
     content: async () => '<div class="cf-turnstile" data-sitekey="owned-key"></div>',
     frames: () => [],
+    evaluateHandle: async () => ({
+      evaluate: async (read: any) => read({ verified: () => autoPass, disconnect() {} }),
+      dispose: async () => {},
+    }),
     evaluate: async (fn: unknown, arg: unknown) => {
       if (typeof arg === "string") return eligible ? { sitekey: "owned-key", callback: null, invisible: false } : null
       if (typeof arg === "object" && arg !== null) return true
       const code = String(fn)
       if (code.includes('return "iframe"')) return "iframe"
-      if (code.includes("const valid")) return autoPass
       return undefined
     },
   } as unknown as Page
