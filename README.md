@@ -13,6 +13,8 @@ TRAWL starts with a fast HTTP request, reuses solved browser sessions, and escal
 
 For existing FlareSolverr users, the compatible `/v1` endpoint works with Prowlarr and other \*arr tools. TRAWL's adaptive routing and session reuse are designed for faster, more reliable requests; [selected same-machine benchmarks](https://trawl.germondai.com/#compare) show faster responses than FlareSolverr and Byparr, with results varying by site and session state.
 
+[HTTP clearance comparison](benchmarks/http-clearance.md) records the automatic repeat-request optimization against the previous build.
+
 ## Features
 
 - **Isolated browser sessions** - preserve login cookies and localStorage across native API, MCP and FlareSolverr requests, with capacity limits and automatic idle expiry. [Session API](https://docs.trawl.germondai.com/api-reference/browser-sessions).

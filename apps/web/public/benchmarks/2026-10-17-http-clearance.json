@@ -1,0 +1,2906 @@
+{
+  "feature": "Automatic HTTP clearance reuse",
+  "method": {
+    "scope": "Default /v1 request.get, including failures. Full pre-change campaign plus complete final-build recheck and a fresh baseline confirmation on the first three targets.",
+    "timing": "Client wall time including API overhead and response transfer; verified responses only for medians.",
+    "resources": "Application plus Redis, cgroup samples every 250 ms. CPU includes failed work. Memory is a conservative sum of per-request application and Redis peaks, not process RSS.",
+    "limitations": [
+      "Small samples of changing public sites; first request timings vary with target protection and network state.",
+      "First visits still solve challenges in the browser when required. Named sessions and browser captures do not use HTTP replay.",
+      "Discogs search remains an existing delivery timeout; all failures are retained.",
+      "No attempt is made to infer that every JavaScript application is fully rendered. Use skipHttp or a browser content wait for rendered content."
+    ]
+  },
+  "before": {
+    "method": {
+      "date": "2026-10-16",
+      "host": "Apple Silicon / OrbStack",
+      "platform": "linux/arm64",
+      "endpoint": "/v1",
+      "maxTimeoutMs": 30000,
+      "rounds": 2,
+      "requestsPerSitePerRound": 3,
+      "memoryLimit": null,
+      "shmMiB": 1024,
+      "cpuQuota": null,
+      "samplingMs": 250,
+      "trawlProfile": {
+        "pool": 1,
+        "headful": 0,
+        "blockAds": false,
+        "contentProcesses": 1,
+        "hardwareConcurrency": 4
+      },
+      "cache": "Redis for TRAWL; cleared before each site",
+      "cpuAndMemoryScope": "Application container; TRAWL Redis costs are also recorded separately",
+      "sessions": {
+        "products": ["trawl", "flaresolverr"],
+        "sites": ["cloudflare-demo", "1337x"]
+      },
+      "sources": {
+        "run.py": "ef0b0a7e54824d1f7fa4fca88e19598df3acade4d607ca28a807abf5bb80a167",
+        "observer.ts": "f246c1bbddda324afcd97e24104709da66cb2f507f6ab5615c83be19c410abe7"
+      },
+      "targetFileSha256": "6fc3bee65ac422ecd787fd8e23b263d8fb7c2138b7ef13823736c0be7ffbccae"
+    },
+    "products": {
+      "trawl": {
+        "imageId": "sha256:1f38086a67a31066d8e13687168ea564b7344220a0c99c840766d019cc569872",
+        "reference": "trawl:cloudflare-safe-click-20261016",
+        "imageBytes": 447349710,
+        "architecture": "arm64"
+      }
+    },
+    "sites": [
+      {
+        "id": "cloudflare-demo",
+        "name": "nopecha.com/demo/cloudflare",
+        "url": "https://nopecha.com/demo/cloudflare",
+        "protection": "Cloudflare",
+        "expected": "NopeCHA.*(Cloudflare|Demo)|Cloudflare.*NopeCHA",
+        "expectedPaths": ["/demo/cloudflare", "/demo"]
+      },
+      {
+        "id": "1337x",
+        "name": "1337x.to",
+        "url": "https://1337x.to/",
+        "protection": "Cloudflare",
+        "expected": "1337x.*(Search|Torrents)|Search.*Torrents"
+      },
+      {
+        "id": "mvnrepository",
+        "name": "mvnrepository.com",
+        "url": "https://mvnrepository.com/artifact/org.springframework.boot/spring-boot",
+        "protection": "Cloudflare",
+        "expected": "<title>[^<]*Maven Repository[^<]*org\\.springframework\\.boot[^<]*spring-boot"
+      },
+      {
+        "id": "fragrantica",
+        "name": "fragrantica.com/search",
+        "url": "https://www.fragrantica.com/search/",
+        "protection": "Cloudflare",
+        "expected": "<title>\\s*Perfumes Search\\s*</title>"
+      },
+      {
+        "id": "discogs-search",
+        "name": "discogs.com/search",
+        "url": "https://www.discogs.com/search/?q=Beatles&type=release",
+        "protection": "Cloudflare",
+        "expected": "<title>[^<]*(Beatles|Music|Search)[^<]*Discogs"
+      },
+      {
+        "id": "eztv",
+        "name": "eztvx.to/home",
+        "url": "https://eztvx.to/home",
+        "protection": "Cloudflare",
+        "expected": "<title>[^<]*EZTV"
+      }
+    ],
+    "requests": [
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "cloudflare-demo",
+        "attempt": 1,
+        "clientMs": 7261,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 5.34707,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1128083456,
+          "working": 1005940736,
+          "anon": 739680256,
+          "processes": 9,
+          "threads": 220,
+          "fds": 332,
+          "pids": 220
+        },
+        "transportError": null,
+        "hostLoadBefore": [4.1357421875, 3.580078125, 3.0322265625],
+        "hostLoadAfter": [4.20703125, 3.61083984375, 3.048828125],
+        "redisCpuSeconds": 0.032719,
+        "redisPeakMemory": 65957888,
+        "redisPeakWorking": 65568768
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "cloudflare-demo",
+        "attempt": 2,
+        "clientMs": 5162,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 1.927115,
+        "oomKills": 0,
+        "peak": {
+          "memory": 979652608,
+          "working": 840114176,
+          "anon": 589582336,
+          "processes": 9,
+          "threads": 213,
+          "fds": 335,
+          "pids": 213
+        },
+        "transportError": null,
+        "hostLoadBefore": [4.20703125, 3.61083984375, 3.048828125],
+        "hostLoadAfter": [4.5908203125, 3.7001953125, 3.08349609375],
+        "redisCpuSeconds": 0.014513,
+        "redisPeakMemory": 65646592,
+        "redisPeakWorking": 65257472
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "cloudflare-demo",
+        "attempt": 3,
+        "clientMs": 2293,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 1.424684,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1036582912,
+          "working": 742875136,
+          "anon": 578797568,
+          "processes": 9,
+          "threads": 210,
+          "fds": 355,
+          "pids": 210
+        },
+        "transportError": null,
+        "hostLoadBefore": [4.5908203125, 3.7001953125, 3.08349609375],
+        "hostLoadAfter": [4.54345703125, 3.705078125, 3.08837890625],
+        "redisCpuSeconds": 0.006156,
+        "redisPeakMemory": 65646592,
+        "redisPeakWorking": 65257472
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "1337x",
+        "attempt": 1,
+        "clientMs": 5378,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 4.718699,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1242468352,
+          "working": 850259968,
+          "anon": 774176768,
+          "processes": 9,
+          "threads": 223,
+          "fds": 357,
+          "pids": 223
+        },
+        "transportError": null,
+        "hostLoadBefore": [4.54345703125, 3.705078125, 3.08837890625],
+        "hostLoadAfter": [4.41943359375, 3.693359375, 3.08740234375],
+        "redisCpuSeconds": 0.024359,
+        "redisPeakMemory": 66428928,
+        "redisPeakWorking": 12623872
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "1337x",
+        "attempt": 2,
+        "clientMs": 1309,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.750617,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1038565376,
+          "working": 633589760,
+          "anon": 565874688,
+          "processes": 9,
+          "threads": 207,
+          "fds": 339,
+          "pids": 207
+        },
+        "transportError": null,
+        "hostLoadBefore": [4.41943359375, 3.693359375, 3.08740234375],
+        "hostLoadAfter": [4.41943359375, 3.693359375, 3.08740234375],
+        "redisCpuSeconds": 0.005054,
+        "redisPeakMemory": 66428928,
+        "redisPeakWorking": 12623872
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "1337x",
+        "attempt": 3,
+        "clientMs": 911,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.565231,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1048928256,
+          "working": 642469888,
+          "anon": 577228800,
+          "processes": 9,
+          "threads": 210,
+          "fds": 356,
+          "pids": 210
+        },
+        "transportError": null,
+        "hostLoadBefore": [4.41943359375, 3.693359375, 3.08740234375],
+        "hostLoadAfter": [4.41943359375, 3.693359375, 3.08740234375],
+        "redisCpuSeconds": 0.002907,
+        "redisPeakMemory": 66428928,
+        "redisPeakWorking": 12623872
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "mvnrepository",
+        "attempt": 1,
+        "clientMs": 3862,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 3.441796,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1337024512,
+          "working": 928616448,
+          "anon": 857264128,
+          "processes": 9,
+          "threads": 216,
+          "fds": 363,
+          "pids": 216
+        },
+        "transportError": null,
+        "hostLoadBefore": [4.41943359375, 3.693359375, 3.08740234375],
+        "hostLoadAfter": [4.6259765625, 3.748046875, 3.10986328125],
+        "redisCpuSeconds": 0.021692,
+        "redisPeakMemory": 66224128,
+        "redisPeakWorking": 12419072
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "mvnrepository",
+        "attempt": 2,
+        "clientMs": 2253,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 1.797688,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1236287488,
+          "working": 819200000,
+          "anon": 755462144,
+          "processes": 9,
+          "threads": 210,
+          "fds": 386,
+          "pids": 210
+        },
+        "transportError": null,
+        "hostLoadBefore": [4.6259765625, 3.748046875, 3.10986328125],
+        "hostLoadAfter": [4.73583984375, 3.78515625, 3.12646484375],
+        "redisCpuSeconds": 0.004704,
+        "redisPeakMemory": 66461696,
+        "redisPeakWorking": 12656640
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "mvnrepository",
+        "attempt": 3,
+        "clientMs": 1486,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 1.267976,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1209012224,
+          "working": 788856832,
+          "anon": 727097344,
+          "processes": 9,
+          "threads": 210,
+          "fds": 408,
+          "pids": 210
+        },
+        "transportError": null,
+        "hostLoadBefore": [4.73583984375, 3.78515625, 3.12646484375],
+        "hostLoadAfter": [4.73583984375, 3.78515625, 3.12646484375],
+        "redisCpuSeconds": 0.00366,
+        "redisPeakMemory": 66461696,
+        "redisPeakWorking": 12656640
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "fragrantica",
+        "attempt": 1,
+        "clientMs": 5992,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 7.309706,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1598459904,
+          "working": 1158713344,
+          "anon": 1095528448,
+          "processes": 9,
+          "threads": 234,
+          "fds": 410,
+          "pids": 234
+        },
+        "transportError": null,
+        "hostLoadBefore": [4.73583984375, 3.78515625, 3.12646484375],
+        "hostLoadAfter": [4.9970703125, 3.85498046875, 3.15478515625],
+        "redisCpuSeconds": 0.020214,
+        "redisPeakMemory": 66461696,
+        "redisPeakWorking": 12656640
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "fragrantica",
+        "attempt": 2,
+        "clientMs": 2860,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 4.051798,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1505853440,
+          "working": 1058918400,
+          "anon": 997699584,
+          "processes": 9,
+          "threads": 224,
+          "fds": 428,
+          "pids": 224
+        },
+        "transportError": null,
+        "hostLoadBefore": [4.9970703125, 3.85498046875, 3.15478515625],
+        "hostLoadAfter": [5.2373046875, 3.92333984375, 3.18310546875],
+        "redisCpuSeconds": 0.005434,
+        "redisPeakMemory": 66134016,
+        "redisPeakWorking": 12328960
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "fragrantica",
+        "attempt": 3,
+        "clientMs": 2400,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 3.824329,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1526190080,
+          "working": 1068957696,
+          "anon": 1017487360,
+          "processes": 9,
+          "threads": 220,
+          "fds": 538,
+          "pids": 220
+        },
+        "transportError": null,
+        "hostLoadBefore": [5.2373046875, 3.92333984375, 3.18310546875],
+        "hostLoadAfter": [6.49951171875, 4.20654296875, 3.287109375],
+        "redisCpuSeconds": 0.004525,
+        "redisPeakMemory": 66134016,
+        "redisPeakWorking": 12328960
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "discogs-search",
+        "attempt": 1,
+        "clientMs": 30062,
+        "apiStatus": 500,
+        "verified": false,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 9.032476,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1390870528,
+          "working": 907833344,
+          "anon": 883183616,
+          "processes": 9,
+          "threads": 212,
+          "fds": 534,
+          "pids": 212
+        },
+        "transportError": null,
+        "hostLoadBefore": [6.49951171875, 4.20654296875, 3.287109375],
+        "hostLoadAfter": [5.5263671875, 4.185546875, 3.310546875],
+        "redisCpuSeconds": 0.102927,
+        "redisPeakMemory": 66134016,
+        "redisPeakWorking": 12328960
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "discogs-search",
+        "attempt": 2,
+        "clientMs": 30070,
+        "apiStatus": 500,
+        "verified": false,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 8.310525,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1185128448,
+          "working": 900988928,
+          "anon": 876515328,
+          "processes": 9,
+          "threads": 210,
+          "fds": 368,
+          "pids": 210
+        },
+        "transportError": null,
+        "hostLoadBefore": [5.5263671875, 4.185546875, 3.310546875],
+        "hostLoadAfter": [5.11328125, 4.22705078125, 3.35595703125],
+        "redisCpuSeconds": 0.077943,
+        "redisPeakMemory": 22720512,
+        "redisPeakWorking": 12279808
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "discogs-search",
+        "attempt": 3,
+        "clientMs": 30052,
+        "apiStatus": 500,
+        "verified": false,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 6.612372,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1109929984,
+          "working": 943534080,
+          "anon": 854056960,
+          "processes": 9,
+          "threads": 209,
+          "fds": 373,
+          "pids": 209
+        },
+        "transportError": null,
+        "hostLoadBefore": [5.11328125, 4.22705078125, 3.35595703125],
+        "hostLoadAfter": [3.83740234375, 4.0107421875, 3.306640625],
+        "redisCpuSeconds": 0.080267,
+        "redisPeakMemory": 16977920,
+        "redisPeakWorking": 8847360
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "eztv",
+        "attempt": 1,
+        "clientMs": 7207,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 4.964293,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1208864768,
+          "working": 1031077888,
+          "anon": 904257536,
+          "processes": 9,
+          "threads": 210,
+          "fds": 375,
+          "pids": 210
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.83740234375, 4.0107421875, 3.306640625],
+        "hostLoadAfter": [3.85009765625, 4.01025390625, 3.310546875],
+        "redisCpuSeconds": 0.065583,
+        "redisPeakMemory": 31350784,
+        "redisPeakWorking": 23212032
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "eztv",
+        "attempt": 2,
+        "clientMs": 2883,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 4.762473,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1392930816,
+          "working": 1148203008,
+          "anon": 892088320,
+          "processes": 14,
+          "threads": 330,
+          "fds": 555,
+          "pids": 330
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.85009765625, 4.01025390625, 3.310546875],
+        "hostLoadAfter": [3.94189453125, 4.0263671875, 3.3203125],
+        "redisCpuSeconds": 0.010086,
+        "redisPeakMemory": 31346688,
+        "redisPeakWorking": 23207936
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "eztv",
+        "attempt": 3,
+        "clientMs": 3552,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 3.673708,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1030402048,
+          "working": 774746112,
+          "anon": 592297984,
+          "processes": 9,
+          "threads": 214,
+          "fds": 309,
+          "pids": 214
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.94189453125, 4.0263671875, 3.3203125],
+        "hostLoadAfter": [4.1064453125, 4.05908203125, 3.3359375],
+        "redisCpuSeconds": 0.014453,
+        "redisPeakMemory": 31346688,
+        "redisPeakWorking": 23207936
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "cloudflare-demo",
+        "attempt": 1,
+        "clientMs": 6789,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 4.726186,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1312047104,
+          "working": 1182556160,
+          "anon": 739753984,
+          "processes": 9,
+          "threads": 221,
+          "fds": 328,
+          "pids": 221
+        },
+        "transportError": null,
+        "hostLoadBefore": [2.5732421875, 4.97802734375, 5.4462890625],
+        "hostLoadAfter": [2.60693359375, 4.94482421875, 5.431640625],
+        "redisCpuSeconds": 0.049899,
+        "redisPeakMemory": 34373632,
+        "redisPeakWorking": 29765632
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "cloudflare-demo",
+        "attempt": 2,
+        "clientMs": 2345,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 1.167176,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1153495040,
+          "working": 1002008576,
+          "anon": 580399104,
+          "processes": 9,
+          "threads": 215,
+          "fds": 331,
+          "pids": 215
+        },
+        "transportError": null,
+        "hostLoadBefore": [2.60693359375, 4.94482421875, 5.431640625],
+        "hostLoadAfter": [2.55810546875, 4.8955078125, 5.4111328125],
+        "redisCpuSeconds": 0.008289,
+        "redisPeakMemory": 34373632,
+        "redisPeakWorking": 29765632
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "cloudflare-demo",
+        "attempt": 3,
+        "clientMs": 2172,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 1.016821,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1158807552,
+          "working": 997797888,
+          "anon": 584953856,
+          "processes": 9,
+          "threads": 216,
+          "fds": 352,
+          "pids": 216
+        },
+        "transportError": null,
+        "hostLoadBefore": [2.55810546875, 4.8955078125, 5.4111328125],
+        "hostLoadAfter": [2.55810546875, 4.8955078125, 5.4111328125],
+        "redisCpuSeconds": 0.006986,
+        "redisPeakMemory": 34373632,
+        "redisPeakWorking": 29765632
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "1337x",
+        "attempt": 1,
+        "clientMs": 5117,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 3.511626,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1332477952,
+          "working": 1165094912,
+          "anon": 758112256,
+          "processes": 9,
+          "threads": 220,
+          "fds": 358,
+          "pids": 220
+        },
+        "transportError": null,
+        "hostLoadBefore": [2.55810546875, 4.8955078125, 5.4111328125],
+        "hostLoadAfter": [2.51318359375, 4.84716796875, 5.39111328125],
+        "redisCpuSeconds": 0.031004,
+        "redisPeakMemory": 34373632,
+        "redisPeakWorking": 29765632
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "1337x",
+        "attempt": 2,
+        "clientMs": 1315,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.738581,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1165574144,
+          "working": 994856960,
+          "anon": 587415552,
+          "processes": 9,
+          "threads": 210,
+          "fds": 335,
+          "pids": 210
+        },
+        "transportError": null,
+        "hostLoadBefore": [2.51318359375, 4.84716796875, 5.39111328125],
+        "hostLoadAfter": [2.3916015625, 4.783203125, 5.365234375],
+        "redisCpuSeconds": 0.004081,
+        "redisPeakMemory": 34160640,
+        "redisPeakWorking": 29552640
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "1337x",
+        "attempt": 3,
+        "clientMs": 881,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.467912,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1173098496,
+          "working": 999047168,
+          "anon": 594063360,
+          "processes": 9,
+          "threads": 211,
+          "fds": 350,
+          "pids": 211
+        },
+        "transportError": null,
+        "hostLoadBefore": [2.3916015625, 4.783203125, 5.365234375],
+        "hostLoadAfter": [2.3916015625, 4.783203125, 5.365234375],
+        "redisCpuSeconds": 0.003242,
+        "redisPeakMemory": 34160640,
+        "redisPeakWorking": 29552640
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "mvnrepository",
+        "attempt": 1,
+        "clientMs": 3901,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 2.915965,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1343401984,
+          "working": 1168605184,
+          "anon": 767344640,
+          "processes": 9,
+          "threads": 215,
+          "fds": 360,
+          "pids": 215
+        },
+        "transportError": null,
+        "hostLoadBefore": [2.3916015625, 4.783203125, 5.365234375],
+        "hostLoadAfter": [2.35986328125, 4.73681640625, 5.34521484375],
+        "redisCpuSeconds": 0.027235,
+        "redisPeakMemory": 34267136,
+        "redisPeakWorking": 29659136
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "mvnrepository",
+        "attempt": 2,
+        "clientMs": 2341,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 1.214572,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1210601472,
+          "working": 1033506816,
+          "anon": 632999936,
+          "processes": 9,
+          "threads": 208,
+          "fds": 356,
+          "pids": 208
+        },
+        "transportError": null,
+        "hostLoadBefore": [2.35986328125, 4.73681640625, 5.34521484375],
+        "hostLoadAfter": [2.35986328125, 4.73681640625, 5.34521484375],
+        "redisCpuSeconds": 0.007121,
+        "redisPeakMemory": 34267136,
+        "redisPeakWorking": 29659136
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "mvnrepository",
+        "attempt": 3,
+        "clientMs": 1286,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.659477,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1210667008,
+          "working": 1029636096,
+          "anon": 632348672,
+          "processes": 9,
+          "threads": 208,
+          "fds": 369,
+          "pids": 208
+        },
+        "transportError": null,
+        "hostLoadBefore": [2.35986328125, 4.73681640625, 5.34521484375],
+        "hostLoadAfter": [2.41064453125, 4.70751953125, 5.3310546875],
+        "redisCpuSeconds": 0.003819,
+        "redisPeakMemory": 34267136,
+        "redisPeakWorking": 29659136
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "fragrantica",
+        "attempt": 1,
+        "clientMs": 5284,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 6.204174,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1623482368,
+          "working": 1428733952,
+          "anon": 1056407552,
+          "processes": 9,
+          "threads": 228,
+          "fds": 387,
+          "pids": 228
+        },
+        "transportError": null,
+        "hostLoadBefore": [2.41064453125, 4.70751953125, 5.3310546875],
+        "hostLoadAfter": [2.61767578125, 4.7119140625, 5.3291015625],
+        "redisCpuSeconds": 0.026064,
+        "redisPeakMemory": 34385920,
+        "redisPeakWorking": 29777920
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "fragrantica",
+        "attempt": 2,
+        "clientMs": 394,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.042473,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1162551296,
+          "working": 615190528,
+          "anon": 636899328,
+          "processes": 8,
+          "threads": 177,
+          "fds": 342,
+          "pids": 177
+        },
+        "transportError": null,
+        "hostLoadBefore": [2.61767578125, 4.7119140625, 5.3291015625],
+        "hostLoadAfter": [2.61767578125, 4.7119140625, 5.3291015625],
+        "redisCpuSeconds": 0.002044,
+        "redisPeakMemory": 32956416,
+        "redisPeakWorking": 9113600
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "fragrantica",
+        "attempt": 3,
+        "clientMs": 531,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.24962,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1129209856,
+          "working": 571625472,
+          "anon": 603635712,
+          "processes": 8,
+          "threads": 176,
+          "fds": 331,
+          "pids": 176
+        },
+        "transportError": null,
+        "hostLoadBefore": [2.61767578125, 4.7119140625, 5.3291015625],
+        "hostLoadAfter": [2.61767578125, 4.7119140625, 5.3291015625],
+        "redisCpuSeconds": 0.00245,
+        "redisPeakMemory": 32956416,
+        "redisPeakWorking": 9113600
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "discogs-search",
+        "attempt": 1,
+        "clientMs": 30049,
+        "apiStatus": 500,
+        "verified": false,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 6.460593,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1368838144,
+          "working": 798261248,
+          "anon": 833142784,
+          "processes": 9,
+          "threads": 212,
+          "fds": 380,
+          "pids": 212
+        },
+        "transportError": null,
+        "hostLoadBefore": [2.61767578125, 4.7119140625, 5.3291015625],
+        "hostLoadAfter": [2.64013671875, 4.515625, 5.2353515625],
+        "redisCpuSeconds": 0.110074,
+        "redisPeakMemory": 34283520,
+        "redisPeakWorking": 10432512
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "discogs-search",
+        "attempt": 2,
+        "clientMs": 30030,
+        "apiStatus": 500,
+        "verified": false,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 6.100551,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1383006208,
+          "working": 831348736,
+          "anon": 841633792,
+          "processes": 9,
+          "threads": 210,
+          "fds": 349,
+          "pids": 210
+        },
+        "transportError": null,
+        "hostLoadBefore": [2.64013671875, 4.515625, 5.2353515625],
+        "hostLoadAfter": [2.3701171875, 4.27294921875, 5.12158203125],
+        "redisCpuSeconds": 0.090225,
+        "redisPeakMemory": 34283520,
+        "redisPeakWorking": 10444800
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "discogs-search",
+        "attempt": 3,
+        "clientMs": 30046,
+        "apiStatus": 500,
+        "verified": false,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 6.250832,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1126694912,
+          "working": 923729920,
+          "anon": 841932800,
+          "processes": 9,
+          "threads": 206,
+          "fds": 352,
+          "pids": 206
+        },
+        "transportError": null,
+        "hostLoadBefore": [2.3701171875, 4.27294921875, 5.12158203125],
+        "hostLoadAfter": [2.68701171875, 4.17919921875, 5.0576171875],
+        "redisCpuSeconds": 0.092108,
+        "redisPeakMemory": 14307328,
+        "redisPeakWorking": 13774848
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "eztv",
+        "attempt": 1,
+        "clientMs": 3762,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 3.06211,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1134923776,
+          "working": 1000693760,
+          "anon": 866807808,
+          "processes": 9,
+          "threads": 212,
+          "fds": 362,
+          "pids": 212
+        },
+        "transportError": null,
+        "hostLoadBefore": [2.68701171875, 4.17919921875, 5.0576171875],
+        "hostLoadAfter": [2.4716796875, 4.109375, 5.02783203125],
+        "redisCpuSeconds": 0.02356,
+        "redisPeakMemory": 30031872,
+        "redisPeakWorking": 24690688
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "eztv",
+        "attempt": 2,
+        "clientMs": 2551,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 1.698789,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1358036992,
+          "working": 1147682816,
+          "anon": 864432128,
+          "processes": 14,
+          "threads": 318,
+          "fds": 535,
+          "pids": 318
+        },
+        "transportError": null,
+        "hostLoadBefore": [2.4716796875, 4.109375, 5.02783203125],
+        "hostLoadAfter": [2.513671875, 4.0908203125, 5.015625],
+        "redisCpuSeconds": 0.008693,
+        "redisPeakMemory": 31342592,
+        "redisPeakWorking": 26001408
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "eztv",
+        "attempt": 3,
+        "clientMs": 2517,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 1.450389,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1108303872,
+          "working": 949530624,
+          "anon": 603705344,
+          "processes": 9,
+          "threads": 213,
+          "fds": 310,
+          "pids": 213
+        },
+        "transportError": null,
+        "hostLoadBefore": [2.513671875, 4.0908203125, 5.015625],
+        "hostLoadAfter": [2.513671875, 4.0908203125, 5.015625],
+        "redisCpuSeconds": 0.007175,
+        "redisPeakMemory": 31342592,
+        "redisPeakWorking": 26001408
+      }
+    ],
+    "completed": true,
+    "liveServicesUnchanged": true,
+    "selection": {
+      "product": "trawl",
+      "mode": "default"
+    }
+  },
+  "after": {
+    "method": {
+      "date": "2026-10-17",
+      "host": "Apple Silicon / OrbStack",
+      "platform": "linux/arm64",
+      "endpoint": "/v1",
+      "maxTimeoutMs": 30000,
+      "rounds": 2,
+      "requestsPerSitePerRound": 3,
+      "memoryLimit": null,
+      "shmMiB": 1024,
+      "cpuQuota": null,
+      "samplingMs": 250,
+      "trawlProfile": {
+        "pool": 1,
+        "headful": 0,
+        "blockAds": false,
+        "contentProcesses": 1,
+        "hardwareConcurrency": 4
+      },
+      "cache": "Redis for TRAWL; cleared before each site",
+      "cpuAndMemoryScope": "Application container; TRAWL Redis costs are also recorded separately",
+      "sessions": {
+        "products": [],
+        "sites": ["cloudflare-demo", "1337x"]
+      },
+      "sources": {
+        "run.py": "ef0b0a7e54824d1f7fa4fca88e19598df3acade4d607ca28a807abf5bb80a167",
+        "observer.ts": "f246c1bbddda324afcd97e24104709da66cb2f507f6ab5615c83be19c410abe7"
+      },
+      "targetFileSha256": "89ed8b6ba97634b764e5bc9628cf25eb49a318547007179db407b220cbb87506"
+    },
+    "products": {
+      "trawl": {
+        "imageId": "sha256:dd909aaeae259782829e3637363339191c535249e94ef617e84ce15a063a0274",
+        "reference": "trawl:http-clearance-final-20261017",
+        "imageBytes": 447351775,
+        "architecture": "arm64"
+      }
+    },
+    "sites": [
+      {
+        "id": "cloudflare-demo",
+        "name": "nopecha.com/demo/cloudflare",
+        "url": "https://nopecha.com/demo/cloudflare",
+        "protection": "Cloudflare",
+        "expected": "NopeCHA.*(Cloudflare|Demo)|Cloudflare.*NopeCHA",
+        "expectedPaths": ["/demo/cloudflare", "/demo"]
+      },
+      {
+        "id": "1337x",
+        "name": "1337x.to",
+        "url": "https://1337x.to/",
+        "protection": "Cloudflare",
+        "expected": "1337x.*(Search|Torrents)|Search.*Torrents"
+      },
+      {
+        "id": "mvnrepository",
+        "name": "mvnrepository.com",
+        "url": "https://mvnrepository.com/artifact/org.springframework.boot/spring-boot",
+        "protection": "Cloudflare",
+        "expected": "<title>[^<]*Maven Repository[^<]*org\\.springframework\\.boot[^<]*spring-boot"
+      },
+      {
+        "id": "fragrantica",
+        "name": "fragrantica.com/search",
+        "url": "https://www.fragrantica.com/search/",
+        "protection": "Cloudflare",
+        "expected": "<title>\\s*Perfumes Search\\s*</title>"
+      },
+      {
+        "id": "discogs-search",
+        "name": "discogs.com/search",
+        "url": "https://www.discogs.com/search/?q=Beatles&type=release",
+        "protection": "Cloudflare",
+        "expected": "<title>[^<]*(Beatles|Music|Search)[^<]*Discogs"
+      },
+      {
+        "id": "eztv",
+        "name": "eztvx.to/home",
+        "url": "https://eztvx.to/home",
+        "protection": "Cloudflare",
+        "expected": "<title>[^<]*EZTV"
+      }
+    ],
+    "requests": [
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "cloudflare-demo",
+        "attempt": 1,
+        "clientMs": 6209,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 6.155254,
+        "oomKills": 0,
+        "peak": {
+          "memory": 919617536,
+          "working": 848584704,
+          "anon": 707059712,
+          "processes": 9,
+          "threads": 219,
+          "fds": 330,
+          "pids": 219
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.9990234375, 3.45166015625, 3.388671875],
+        "hostLoadAfter": [4.1396484375, 3.50146484375, 3.4072265625],
+        "redisCpuSeconds": 0.023395,
+        "redisPeakMemory": 7958528,
+        "redisPeakWorking": 7958528
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "cloudflare-demo",
+        "attempt": 2,
+        "clientMs": 1345,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.085146,
+        "oomKills": 0,
+        "peak": {
+          "memory": 727773184,
+          "working": 647946240,
+          "anon": 500228096,
+          "processes": 8,
+          "threads": 179,
+          "fds": 280,
+          "pids": 179
+        },
+        "transportError": null,
+        "hostLoadBefore": [4.1396484375, 3.50146484375, 3.4072265625],
+        "hostLoadAfter": [4.1396484375, 3.50146484375, 3.4072265625],
+        "redisCpuSeconds": 0.003101,
+        "redisPeakMemory": 7958528,
+        "redisPeakWorking": 7954432
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "cloudflare-demo",
+        "attempt": 3,
+        "clientMs": 827,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.125857,
+        "oomKills": 0,
+        "peak": {
+          "memory": 727773184,
+          "working": 647946240,
+          "anon": 500228096,
+          "processes": 8,
+          "threads": 176,
+          "fds": 280,
+          "pids": 176
+        },
+        "transportError": null,
+        "hostLoadBefore": [4.1396484375, 3.50146484375, 3.4072265625],
+        "hostLoadAfter": [4.1396484375, 3.50146484375, 3.4072265625],
+        "redisCpuSeconds": 0.002993,
+        "redisPeakMemory": 7958528,
+        "redisPeakWorking": 7954432
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "1337x",
+        "attempt": 1,
+        "clientMs": 5096,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 4.161146,
+        "oomKills": 0,
+        "peak": {
+          "memory": 982966272,
+          "working": 897748992,
+          "anon": 751697920,
+          "processes": 9,
+          "threads": 224,
+          "fds": 332,
+          "pids": 224
+        },
+        "transportError": null,
+        "hostLoadBefore": [4.1396484375, 3.50146484375, 3.4072265625],
+        "hostLoadAfter": [3.96826171875, 3.47607421875, 3.39892578125],
+        "redisCpuSeconds": 0.021776,
+        "redisPeakMemory": 8314880,
+        "redisPeakWorking": 8310784
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "1337x",
+        "attempt": 2,
+        "clientMs": 146,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.035254,
+        "oomKills": 0,
+        "peak": {
+          "memory": 728158208,
+          "working": 625958912,
+          "anon": 496599040,
+          "processes": 8,
+          "threads": 175,
+          "fds": 285,
+          "pids": 175
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.96826171875, 3.47607421875, 3.39892578125],
+        "hostLoadAfter": [3.96826171875, 3.47607421875, 3.39892578125],
+        "redisCpuSeconds": 0.002087,
+        "redisPeakMemory": 8286208,
+        "redisPeakWorking": 8282112
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "1337x",
+        "attempt": 3,
+        "clientMs": 94,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.03515,
+        "oomKills": 0,
+        "peak": {
+          "memory": 729014272,
+          "working": 625463296,
+          "anon": 497741824,
+          "processes": 8,
+          "threads": 175,
+          "fds": 284,
+          "pids": 175
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.96826171875, 3.47607421875, 3.39892578125],
+        "hostLoadAfter": [3.96826171875, 3.47607421875, 3.39892578125],
+        "redisCpuSeconds": 0.002364,
+        "redisPeakMemory": 8286208,
+        "redisPeakWorking": 8282112
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "mvnrepository",
+        "attempt": 1,
+        "clientMs": 4534,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 4.095572,
+        "oomKills": 0,
+        "peak": {
+          "memory": 980840448,
+          "working": 876535808,
+          "anon": 748740608,
+          "processes": 9,
+          "threads": 216,
+          "fds": 345,
+          "pids": 216
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.96826171875, 3.47607421875, 3.39892578125],
+        "hostLoadAfter": [4.291015625, 3.55078125, 3.42578125],
+        "redisCpuSeconds": 0.029683,
+        "redisPeakMemory": 8286208,
+        "redisPeakWorking": 8282112
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "mvnrepository",
+        "attempt": 2,
+        "clientMs": 362,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.157529,
+        "oomKills": 0,
+        "peak": {
+          "memory": 745766912,
+          "working": 639590400,
+          "anon": 513228800,
+          "processes": 8,
+          "threads": 175,
+          "fds": 296,
+          "pids": 175
+        },
+        "transportError": null,
+        "hostLoadBefore": [4.291015625, 3.55078125, 3.42578125],
+        "hostLoadAfter": [4.908203125, 3.69091796875, 3.4755859375],
+        "redisCpuSeconds": 0.001662,
+        "redisPeakMemory": 8241152,
+        "redisPeakWorking": 8237056
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "mvnrepository",
+        "attempt": 3,
+        "clientMs": 212,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.059733,
+        "oomKills": 0,
+        "peak": {
+          "memory": 744128512,
+          "working": 637747200,
+          "anon": 508932096,
+          "processes": 8,
+          "threads": 175,
+          "fds": 295,
+          "pids": 175
+        },
+        "transportError": null,
+        "hostLoadBefore": [4.908203125, 3.69091796875, 3.4755859375],
+        "hostLoadAfter": [4.908203125, 3.69091796875, 3.4755859375],
+        "redisCpuSeconds": 0.002447,
+        "redisPeakMemory": 8241152,
+        "redisPeakWorking": 8237056
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "fragrantica",
+        "attempt": 1,
+        "clientMs": 4957,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.184262,
+        "oomKills": 0,
+        "peak": {
+          "memory": 746328064,
+          "working": 637747200,
+          "anon": 511430656,
+          "processes": 8,
+          "threads": 175,
+          "fds": 296,
+          "pids": 175
+        },
+        "transportError": null,
+        "hostLoadBefore": [4.908203125, 3.69091796875, 3.4755859375],
+        "hostLoadAfter": [4.83544921875, 3.69580078125, 3.478515625],
+        "redisCpuSeconds": 0.039067,
+        "redisPeakMemory": 8245248,
+        "redisPeakWorking": 8241152
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "fragrantica",
+        "attempt": 2,
+        "clientMs": 380,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.027791,
+        "oomKills": 0,
+        "peak": {
+          "memory": 748601344,
+          "working": 638824448,
+          "anon": 514801664,
+          "processes": 8,
+          "threads": 175,
+          "fds": 296,
+          "pids": 175
+        },
+        "transportError": null,
+        "hostLoadBefore": [4.83544921875, 3.69580078125, 3.478515625],
+        "hostLoadAfter": [4.83544921875, 3.69580078125, 3.478515625],
+        "redisCpuSeconds": 0.002677,
+        "redisPeakMemory": 8245248,
+        "redisPeakWorking": 8241152
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "fragrantica",
+        "attempt": 3,
+        "clientMs": 8862,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 9.250368,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1188921344,
+          "working": 1066860544,
+          "anon": 919150592,
+          "processes": 9,
+          "threads": 346,
+          "fds": 368,
+          "pids": 349
+        },
+        "transportError": null,
+        "hostLoadBefore": [4.83544921875, 3.69580078125, 3.478515625],
+        "hostLoadAfter": [5.74072265625, 3.9208984375, 3.560546875],
+        "redisCpuSeconds": 0.018416,
+        "redisPeakMemory": 8245248,
+        "redisPeakWorking": 8241152
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "discogs-search",
+        "attempt": 1,
+        "clientMs": 30056,
+        "apiStatus": 500,
+        "verified": false,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 6.528818,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1071144960,
+          "working": 946946048,
+          "anon": 795561984,
+          "processes": 9,
+          "threads": 214,
+          "fds": 373,
+          "pids": 214
+        },
+        "transportError": null,
+        "hostLoadBefore": [5.74072265625, 3.9208984375, 3.560546875],
+        "hostLoadAfter": [5.0205078125, 3.92578125, 3.57373046875],
+        "redisCpuSeconds": 0.098734,
+        "redisPeakMemory": 11632640,
+        "redisPeakWorking": 11472896
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "discogs-search",
+        "attempt": 2,
+        "clientMs": 30066,
+        "apiStatus": 500,
+        "verified": false,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 6.442432,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1049055232,
+          "working": 811233280,
+          "anon": 787337216,
+          "processes": 9,
+          "threads": 211,
+          "fds": 350,
+          "pids": 211
+        },
+        "transportError": null,
+        "hostLoadBefore": [5.0205078125, 3.92578125, 3.57373046875],
+        "hostLoadAfter": [4.4853515625, 3.912109375, 3.58056640625],
+        "redisCpuSeconds": 0.085872,
+        "redisPeakMemory": 11632640,
+        "redisPeakWorking": 11472896
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "discogs-search",
+        "attempt": 3,
+        "clientMs": 30065,
+        "apiStatus": 500,
+        "verified": false,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 6.424903,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1098362880,
+          "working": 950296576,
+          "anon": 786030592,
+          "processes": 9,
+          "threads": 205,
+          "fds": 356,
+          "pids": 205
+        },
+        "transportError": null,
+        "hostLoadBefore": [4.4853515625, 3.912109375, 3.58056640625],
+        "hostLoadAfter": [3.97412109375, 3.8525390625, 3.5703125],
+        "redisCpuSeconds": 0.09242,
+        "redisPeakMemory": 11472896,
+        "redisPeakWorking": 7987200
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "eztv",
+        "attempt": 1,
+        "clientMs": 3640,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 3.034151,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1164623872,
+          "working": 992919552,
+          "anon": 838201344,
+          "processes": 9,
+          "threads": 212,
+          "fds": 360,
+          "pids": 212
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.97412109375, 3.8525390625, 3.5703125],
+        "hostLoadAfter": [3.89599609375, 3.83837890625, 3.56689453125],
+        "redisCpuSeconds": 0.028766,
+        "redisPeakMemory": 33267712,
+        "redisPeakWorking": 29700096
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "eztv",
+        "attempt": 2,
+        "clientMs": 361,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.746727,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1096359936,
+          "working": 873771008,
+          "anon": 675201024,
+          "processes": 11,
+          "threads": 248,
+          "fds": 407,
+          "pids": 248
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.89599609375, 3.83837890625, 3.56689453125],
+        "hostLoadAfter": [3.89599609375, 3.83837890625, 3.56689453125],
+        "redisCpuSeconds": 0.000787,
+        "redisPeakMemory": 33259520,
+        "redisPeakWorking": 29687808
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "eztv",
+        "attempt": 3,
+        "clientMs": 1019,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.100803,
+        "oomKills": 0,
+        "peak": {
+          "memory": 869134336,
+          "working": 703750144,
+          "anon": 395759616,
+          "processes": 7,
+          "threads": 156,
+          "fds": 213,
+          "pids": 156
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.89599609375, 3.83837890625, 3.56689453125],
+        "hostLoadAfter": [3.89599609375, 3.83837890625, 3.56689453125],
+        "redisCpuSeconds": 0.00463,
+        "redisPeakMemory": 33259520,
+        "redisPeakWorking": 29687808
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "cloudflare-demo",
+        "attempt": 1,
+        "clientMs": 6528,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 4.69846,
+        "oomKills": 0,
+        "peak": {
+          "memory": 922316800,
+          "working": 818085888,
+          "anon": 704225280,
+          "processes": 9,
+          "threads": 219,
+          "fds": 328,
+          "pids": 219
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.744140625, 3.8076171875, 3.5576171875],
+        "hostLoadAfter": [3.76416015625, 3.810546875, 3.56005859375],
+        "redisCpuSeconds": 0.029069,
+        "redisPeakMemory": 33710080,
+        "redisPeakWorking": 10838016
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "cloudflare-demo",
+        "attempt": 2,
+        "clientMs": 841,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.083864,
+        "oomKills": 0,
+        "peak": {
+          "memory": 715141120,
+          "working": 605270016,
+          "anon": 497754112,
+          "processes": 8,
+          "threads": 177,
+          "fds": 278,
+          "pids": 177
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.76416015625, 3.810546875, 3.56005859375],
+        "hostLoadAfter": [3.86279296875, 3.830078125, 3.568359375],
+        "redisCpuSeconds": 0.003939,
+        "redisPeakMemory": 33705984,
+        "redisPeakWorking": 10833920
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "cloudflare-demo",
+        "attempt": 3,
+        "clientMs": 1870,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.164156,
+        "oomKills": 0,
+        "peak": {
+          "memory": 715141120,
+          "working": 605270016,
+          "anon": 497754112,
+          "processes": 8,
+          "threads": 177,
+          "fds": 278,
+          "pids": 177
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.86279296875, 3.830078125, 3.568359375],
+        "hostLoadAfter": [3.86279296875, 3.830078125, 3.568359375],
+        "redisCpuSeconds": 0.006515,
+        "redisPeakMemory": 33705984,
+        "redisPeakWorking": 10833920
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "1337x",
+        "attempt": 1,
+        "clientMs": 4444,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 3.23788,
+        "oomKills": 0,
+        "peak": {
+          "memory": 987320320,
+          "working": 856027136,
+          "anon": 768344064,
+          "processes": 9,
+          "threads": 223,
+          "fds": 327,
+          "pids": 223
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.86279296875, 3.830078125, 3.568359375],
+        "hostLoadAfter": [3.79345703125, 3.81591796875, 3.56494140625],
+        "redisCpuSeconds": 0.018156,
+        "redisPeakMemory": 34148352,
+        "redisPeakWorking": 11276288
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "1337x",
+        "attempt": 2,
+        "clientMs": 135,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.02562,
+        "oomKills": 0,
+        "peak": {
+          "memory": 716627968,
+          "working": 583401472,
+          "anon": 497602560,
+          "processes": 8,
+          "threads": 175,
+          "fds": 279,
+          "pids": 175
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.79345703125, 3.81591796875, 3.56494140625],
+        "hostLoadAfter": [3.79345703125, 3.81591796875, 3.56494140625],
+        "redisCpuSeconds": 0.001911,
+        "redisPeakMemory": 34140160,
+        "redisPeakWorking": 11268096
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "1337x",
+        "attempt": 3,
+        "clientMs": 88,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.020801,
+        "oomKills": 0,
+        "peak": {
+          "memory": 717987840,
+          "working": 584757248,
+          "anon": 498909184,
+          "processes": 8,
+          "threads": 175,
+          "fds": 279,
+          "pids": 175
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.79345703125, 3.81591796875, 3.56494140625],
+        "hostLoadAfter": [3.79345703125, 3.81591796875, 3.56494140625],
+        "redisCpuSeconds": 0.001012,
+        "redisPeakMemory": 34140160,
+        "redisPeakWorking": 11268096
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "mvnrepository",
+        "attempt": 1,
+        "clientMs": 3770,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 3.403985,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1033158656,
+          "working": 897204224,
+          "anon": 810962944,
+          "processes": 9,
+          "threads": 215,
+          "fds": 365,
+          "pids": 215
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.79345703125, 3.81591796875, 3.56494140625],
+        "hostLoadAfter": [3.8095703125, 3.81884765625, 3.5673828125],
+        "redisCpuSeconds": 0.018506,
+        "redisPeakMemory": 34140160,
+        "redisPeakWorking": 11268096
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "mvnrepository",
+        "attempt": 2,
+        "clientMs": 244,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.075035,
+        "oomKills": 0,
+        "peak": {
+          "memory": 767655936,
+          "working": 630775808,
+          "anon": 546623488,
+          "processes": 8,
+          "threads": 174,
+          "fds": 312,
+          "pids": 174
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.8095703125, 3.81884765625, 3.5673828125],
+        "hostLoadAfter": [3.8095703125, 3.81884765625, 3.5673828125],
+        "redisCpuSeconds": 0.002559,
+        "redisPeakMemory": 33652736,
+        "redisPeakWorking": 10780672
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "mvnrepository",
+        "attempt": 3,
+        "clientMs": 175,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.126538,
+        "oomKills": 0,
+        "peak": {
+          "memory": 761413632,
+          "working": 624508928,
+          "anon": 540192768,
+          "processes": 8,
+          "threads": 174,
+          "fds": 311,
+          "pids": 174
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.8095703125, 3.81884765625, 3.5673828125],
+        "hostLoadAfter": [3.8095703125, 3.81884765625, 3.5673828125],
+        "redisCpuSeconds": 0.001611,
+        "redisPeakMemory": 33652736,
+        "redisPeakWorking": 10780672
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "fragrantica",
+        "attempt": 1,
+        "clientMs": 504,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.032031,
+        "oomKills": 0,
+        "peak": {
+          "memory": 750227456,
+          "working": 610566144,
+          "anon": 528846848,
+          "processes": 8,
+          "threads": 174,
+          "fds": 310,
+          "pids": 174
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.8095703125, 3.81884765625, 3.5673828125],
+        "hostLoadAfter": [3.8095703125, 3.81884765625, 3.5673828125],
+        "redisCpuSeconds": 0.017976,
+        "redisPeakMemory": 33652736,
+        "redisPeakWorking": 10780672
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "fragrantica",
+        "attempt": 2,
+        "clientMs": 6251,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 7.247439,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1311084544,
+          "working": 1159319552,
+          "anon": 1065103360,
+          "processes": 9,
+          "threads": 272,
+          "fds": 413,
+          "pids": 264
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.8095703125, 3.81884765625, 3.5673828125],
+        "hostLoadAfter": [3.771484375, 3.80859375, 3.56640625],
+        "redisCpuSeconds": 0.009914,
+        "redisPeakMemory": 33398784,
+        "redisPeakWorking": 10526720
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "fragrantica",
+        "attempt": 3,
+        "clientMs": 538,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.149505,
+        "oomKills": 0,
+        "peak": {
+          "memory": 843698176,
+          "working": 686587904,
+          "anon": 612343808,
+          "processes": 8,
+          "threads": 177,
+          "fds": 340,
+          "pids": 177
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.771484375, 3.80859375, 3.56640625],
+        "hostLoadAfter": [3.771484375, 3.80859375, 3.56640625],
+        "redisCpuSeconds": 0.002311,
+        "redisPeakMemory": 33390592,
+        "redisPeakWorking": 10518528
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "discogs-search",
+        "attempt": 1,
+        "clientMs": 30041,
+        "apiStatus": 500,
+        "verified": false,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 6.561528,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1092657152,
+          "working": 930902016,
+          "anon": 849371136,
+          "processes": 9,
+          "threads": 214,
+          "fds": 393,
+          "pids": 214
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.771484375, 3.80859375, 3.56640625],
+        "hostLoadAfter": [3.46435546875, 3.72998046875, 3.5458984375],
+        "redisCpuSeconds": 0.10214,
+        "redisPeakMemory": 33464320,
+        "redisPeakWorking": 14061568
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "discogs-search",
+        "attempt": 2,
+        "clientMs": 30047,
+        "apiStatus": 500,
+        "verified": false,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 6.818136,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1034993664,
+          "working": 817168384,
+          "anon": 811716608,
+          "processes": 9,
+          "threads": 211,
+          "fds": 352,
+          "pids": 211
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.46435546875, 3.72998046875, 3.5458984375],
+        "hostLoadAfter": [3.81591796875, 3.79931640625, 3.5771484375],
+        "redisCpuSeconds": 0.099211,
+        "redisPeakMemory": 15110144,
+        "redisPeakWorking": 11845632
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "discogs-search",
+        "attempt": 3,
+        "clientMs": 30070,
+        "apiStatus": 500,
+        "verified": false,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 6.53116,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1139560448,
+          "working": 976429056,
+          "anon": 802938880,
+          "processes": 9,
+          "threads": 205,
+          "fds": 357,
+          "pids": 205
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.81591796875, 3.79931640625, 3.5771484375],
+        "hostLoadAfter": [4.52099609375, 3.96240234375, 3.64208984375],
+        "redisCpuSeconds": 0.07757,
+        "redisPeakMemory": 11845632,
+        "redisPeakWorking": 8634368
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "eztv",
+        "attempt": 1,
+        "clientMs": 4331,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 3.670841,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1235931136,
+          "working": 1057038336,
+          "anon": 882290688,
+          "processes": 9,
+          "threads": 211,
+          "fds": 364,
+          "pids": 211
+        },
+        "transportError": null,
+        "hostLoadBefore": [4.52099609375, 3.96240234375, 3.64208984375],
+        "hostLoadAfter": [4.47900390625, 3.962890625, 3.64404296875],
+        "redisCpuSeconds": 0.03762,
+        "redisPeakMemory": 33157120,
+        "redisPeakWorking": 29859840
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "eztv",
+        "attempt": 2,
+        "clientMs": 628,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.954369,
+        "oomKills": 0,
+        "peak": {
+          "memory": 1077796864,
+          "working": 847122432,
+          "anon": 640585728,
+          "processes": 9,
+          "threads": 210,
+          "fds": 372,
+          "pids": 210
+        },
+        "transportError": null,
+        "hostLoadBefore": [4.47900390625, 3.962890625, 3.64404296875],
+        "hostLoadAfter": [4.47900390625, 3.962890625, 3.64404296875],
+        "redisCpuSeconds": 0.001685,
+        "redisPeakMemory": 33144832,
+        "redisPeakWorking": 29847552
+      },
+      {
+        "product": "trawl",
+        "round": 2,
+        "mode": "default",
+        "site": "eztv",
+        "attempt": 3,
+        "clientMs": 529,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.065861,
+        "oomKills": 0,
+        "peak": {
+          "memory": 899317760,
+          "working": 728809472,
+          "anon": 403099648,
+          "processes": 7,
+          "threads": 153,
+          "fds": 214,
+          "pids": 153
+        },
+        "transportError": null,
+        "hostLoadBefore": [4.47900390625, 3.962890625, 3.64404296875],
+        "hostLoadAfter": [4.47900390625, 3.962890625, 3.64404296875],
+        "redisCpuSeconds": 0.003244,
+        "redisPeakMemory": 33144832,
+        "redisPeakWorking": 29847552
+      }
+    ],
+    "completed": true,
+    "liveServicesUnchanged": true,
+    "selection": {
+      "product": "trawl",
+      "mode": "default"
+    }
+  },
+  "baselineConfirmation": {
+    "method": {
+      "date": "2026-10-17",
+      "host": "Apple Silicon / OrbStack",
+      "platform": "linux/arm64",
+      "endpoint": "/v1",
+      "maxTimeoutMs": 30000,
+      "rounds": 1,
+      "requestsPerSitePerRound": 3,
+      "memoryLimit": null,
+      "shmMiB": 1024,
+      "cpuQuota": null,
+      "samplingMs": 250,
+      "trawlProfile": {
+        "pool": 1,
+        "headful": 0,
+        "blockAds": false,
+        "contentProcesses": 1,
+        "hardwareConcurrency": 4
+      },
+      "cache": "Redis for TRAWL; cleared before each site",
+      "cpuAndMemoryScope": "Application container; TRAWL Redis costs are also recorded separately",
+      "sessions": {
+        "products": [],
+        "sites": ["cloudflare-demo", "1337x"]
+      },
+      "sources": {
+        "run.py": "ef0b0a7e54824d1f7fa4fca88e19598df3acade4d607ca28a807abf5bb80a167",
+        "observer.ts": "f246c1bbddda324afcd97e24104709da66cb2f507f6ab5615c83be19c410abe7"
+      },
+      "targetFileSha256": "e058358c297428db85e62f5a4b7b6bb3e5bc707359b2cbbe70dc6dbbd044fba7"
+    },
+    "products": {
+      "trawl": {
+        "imageId": "sha256:1f38086a67a31066d8e13687168ea564b7344220a0c99c840766d019cc569872",
+        "reference": "trawl:cloudflare-safe-click-20261016",
+        "imageBytes": 447349710,
+        "architecture": "arm64"
+      }
+    },
+    "sites": [
+      {
+        "id": "cloudflare-demo",
+        "name": "nopecha.com/demo/cloudflare",
+        "url": "https://nopecha.com/demo/cloudflare",
+        "protection": "Cloudflare",
+        "expected": "NopeCHA.*(Cloudflare|Demo)|Cloudflare.*NopeCHA",
+        "expectedPaths": ["/demo/cloudflare", "/demo"]
+      },
+      {
+        "id": "1337x",
+        "name": "1337x.to",
+        "url": "https://1337x.to/",
+        "protection": "Cloudflare",
+        "expected": "1337x.*(Search|Torrents)|Search.*Torrents"
+      },
+      {
+        "id": "mvnrepository",
+        "name": "mvnrepository.com",
+        "url": "https://mvnrepository.com/artifact/org.springframework.boot/spring-boot",
+        "protection": "Cloudflare",
+        "expected": "<title>[^<]*Maven Repository[^<]*org\\.springframework\\.boot[^<]*spring-boot"
+      }
+    ],
+    "requests": [
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "cloudflare-demo",
+        "attempt": 1,
+        "clientMs": 6073,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 4.910932,
+        "oomKills": 0,
+        "peak": {
+          "memory": 779190272,
+          "working": 725053440,
+          "anon": 715546624,
+          "processes": 9,
+          "threads": 224,
+          "fds": 327,
+          "pids": 224
+        },
+        "transportError": null,
+        "hostLoadBefore": [4.08642578125, 3.40185546875, 3.37060546875],
+        "hostLoadAfter": [4.1591796875, 3.42822265625, 3.3798828125],
+        "redisCpuSeconds": 0.023337,
+        "redisPeakMemory": 63635456,
+        "redisPeakWorking": 63279104
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "cloudflare-demo",
+        "attempt": 2,
+        "clientMs": 3157,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 1.282079,
+        "oomKills": 0,
+        "peak": {
+          "memory": 645160960,
+          "working": 576921600,
+          "anon": 581328896,
+          "processes": 9,
+          "threads": 217,
+          "fds": 330,
+          "pids": 217
+        },
+        "transportError": null,
+        "hostLoadBefore": [4.1591796875, 3.42822265625, 3.3798828125],
+        "hostLoadAfter": [4.14599609375, 3.4375, 3.38330078125],
+        "redisCpuSeconds": 0.012127,
+        "redisPeakMemory": 62570496,
+        "redisPeakWorking": 62214144
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "cloudflare-demo",
+        "attempt": 3,
+        "clientMs": 1588,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.904641,
+        "oomKills": 0,
+        "peak": {
+          "memory": 656838656,
+          "working": 576851968,
+          "anon": 592723968,
+          "processes": 9,
+          "threads": 218,
+          "fds": 353,
+          "pids": 218
+        },
+        "transportError": null,
+        "hostLoadBefore": [4.14599609375, 3.4375, 3.38330078125],
+        "hostLoadAfter": [3.97412109375, 3.41357421875, 3.375],
+        "redisCpuSeconds": 0.00501,
+        "redisPeakMemory": 62570496,
+        "redisPeakWorking": 62214144
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "1337x",
+        "attempt": 1,
+        "clientMs": 4527,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 3.488517,
+        "oomKills": 0,
+        "peak": {
+          "memory": 813981696,
+          "working": 731074560,
+          "anon": 748662784,
+          "processes": 9,
+          "threads": 222,
+          "fds": 354,
+          "pids": 222
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.97412109375, 3.41357421875, 3.375],
+        "hostLoadAfter": [3.89599609375, 3.40625, 3.37255859375],
+        "redisCpuSeconds": 0.019223,
+        "redisPeakMemory": 62570496,
+        "redisPeakWorking": 62214144
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "1337x",
+        "attempt": 2,
+        "clientMs": 1623,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.796765,
+        "oomKills": 0,
+        "peak": {
+          "memory": 649826304,
+          "working": 552366080,
+          "anon": 580714496,
+          "processes": 9,
+          "threads": 212,
+          "fds": 333,
+          "pids": 212
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.89599609375, 3.40625, 3.37255859375],
+        "hostLoadAfter": [3.89599609375, 3.40625, 3.37255859375],
+        "redisCpuSeconds": 0.003719,
+        "redisPeakMemory": 62509056,
+        "redisPeakWorking": 62152704
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "1337x",
+        "attempt": 3,
+        "clientMs": 863,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.522925,
+        "oomKills": 0,
+        "peak": {
+          "memory": 662048768,
+          "working": 562573312,
+          "anon": 592564224,
+          "processes": 9,
+          "threads": 213,
+          "fds": 350,
+          "pids": 213
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.89599609375, 3.40625, 3.37255859375],
+        "hostLoadAfter": [3.89599609375, 3.40625, 3.37255859375],
+        "redisCpuSeconds": 0.001646,
+        "redisPeakMemory": 62509056,
+        "redisPeakWorking": 62152704
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "mvnrepository",
+        "attempt": 1,
+        "clientMs": 3865,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 3.608124,
+        "oomKills": 0,
+        "peak": {
+          "memory": 870608896,
+          "working": 770056192,
+          "anon": 801927168,
+          "processes": 9,
+          "threads": 220,
+          "fds": 357,
+          "pids": 220
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.89599609375, 3.40625, 3.37255859375],
+        "hostLoadAfter": [3.984375, 3.4326171875, 3.3818359375],
+        "redisCpuSeconds": 0.022552,
+        "redisPeakMemory": 62693376,
+        "redisPeakWorking": 62337024
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "mvnrepository",
+        "attempt": 2,
+        "clientMs": 2236,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 1.212335,
+        "oomKills": 0,
+        "peak": {
+          "memory": 711061504,
+          "working": 607440896,
+          "anon": 642174976,
+          "processes": 9,
+          "threads": 212,
+          "fds": 366,
+          "pids": 212
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.984375, 3.4326171875, 3.3818359375],
+        "hostLoadAfter": [3.8251953125, 3.40869140625, 3.37353515625],
+        "redisCpuSeconds": 0.004394,
+        "redisPeakMemory": 62726144,
+        "redisPeakWorking": 62369792
+      },
+      {
+        "product": "trawl",
+        "round": 1,
+        "mode": "default",
+        "site": "mvnrepository",
+        "attempt": 3,
+        "clientMs": 1456,
+        "apiStatus": 200,
+        "verified": true,
+        "destinationVerified": true,
+        "widgets": {
+          "turnstileFields": 0,
+          "turnstileTokens": 0
+        },
+        "cpuSeconds": 0.779059,
+        "oomKills": 0,
+        "peak": {
+          "memory": 715927552,
+          "working": 607264768,
+          "anon": 647122944,
+          "processes": 9,
+          "threads": 212,
+          "fds": 380,
+          "pids": 212
+        },
+        "transportError": null,
+        "hostLoadBefore": [3.8251953125, 3.40869140625, 3.37353515625],
+        "hostLoadAfter": [3.8251953125, 3.40869140625, 3.37353515625],
+        "redisCpuSeconds": 0.003091,
+        "redisPeakMemory": 62726144,
+        "redisPeakWorking": 62369792
+      }
+    ],
+    "completed": true,
+    "liveServicesUnchanged": true,
+    "selection": {
+      "product": "trawl",
+      "mode": "default"
+    }
+  },
+  "verification": {
+    "completed": true,
+    "stages": [
+      {
+        "name": "verify",
+        "exitCode": 0,
+        "seconds": 120.25
+      },
+      {
+        "name": "native-v1-browser-fallback",
+        "exitCode": 0,
+        "seconds": 6.45
+      },
+      {
+        "name": "named-session-isolation",
+        "exitCode": 0,
+        "seconds": 25.32
+      },
+      {
+        "name": "baseline-confirmation",
+        "exitCode": 0,
+        "seconds": 35.41
+      },
+      {
+        "name": "final-benchmark",
+        "exitCode": 0,
+        "seconds": 273.29
+      }
+    ],
+    "runtimeFilesMatchImage": 100,
+    "liveServicesUnchanged": {
+      "Trawl": true,
+      "Prowlarr": true
+    },
+    "runtimeCommits": {
+      "before": "68b1701182081d9afed2354f347cbd2ef7c00bf5",
+      "after": "fc1aa5f980c644893da3cf77200669ff65d10d49"
+    }
+  }
+}
