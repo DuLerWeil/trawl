@@ -12,7 +12,7 @@
 .github/
 docker-compose*.yml
 
-# Local agent / IDE state — not needed at build or runtime
+# Local agent / IDE state - not needed at build or runtime
 .git/
 .claude/
 .gitignore
@@ -22,7 +22,7 @@ docker-compose*.yml
 .vscode/
 .dockerignore
 
-# Sources for apps not built into this image (apps/web, apps/docs) — exclude
+# Sources for apps not built into this image (apps/web, apps/docs) - exclude
 # their source/build dirs but keep each package.json (the workspace `bun install`
 # needs them for dependency resolution).
 apps/web/**

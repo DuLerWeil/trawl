@@ -5,7 +5,7 @@ description: Connect Prowlarr to TRAWL as a FlareSolverr replacement.
 
 # Prowlarr
 
-TRAWL implements the FlareSolverr v2 API exactly, including the `version: "2.0.0"` field that Prowlarr validates. No plugins or code changes required — it's a URL swap.
+TRAWL implements the FlareSolverr v2 API exactly, including the `version: "2.0.0"` field that Prowlarr validates. No plugins or code changes required - it's a URL swap.
 
 ## Setup
 
@@ -26,7 +26,7 @@ the optional forward proxy on port `8192` is a separate mode.
    ```
 
 4. Leave all other fields at their defaults
-5. Click **Test** — you should see a green tick
+5. Click **Test** - you should see a green tick
 6. Click **Save**
 
 ## Verification
@@ -75,7 +75,7 @@ FlareSolverr service, you are using the optional forward proxy. Enable it with
 the Prowlarr container for HTTPS targets. See [Proxy client setup](/proxy/client-setup#prowlarr).
 
 **Test succeeds but searches still fail**  
-Some indexers use a different domain than their main site. TRAWL caches cookies per hostname — the first request to each subdomain takes the full challenge time.
+Some indexers use a different domain than their main site. TRAWL caches cookies per hostname - the first request to each subdomain takes the full challenge time.
 
 **`version` mismatch error in Prowlarr logs**  
-This should not happen — TRAWL always returns `"version": "2.0.0"`. If you see it, check you're not running an old build with a cached layer: `docker compose pull && docker compose up -d`.
+This should not happen - TRAWL always returns `"version": "2.0.0"`. If you see it, check you're not running an old build with a cached layer: `docker compose pull && docker compose up -d`.

@@ -13,6 +13,7 @@ import { normalizeInputCookies } from "./utils/cookies"
 import { createCrossedLandingGuard, type LandingProbe } from "./utils/crossedLanding"
 import { DeadlineError, RequestBudget } from "./utils/deadline"
 import { normalizeHtml } from "./utils/html"
+import { HttpSessionCookies } from "./utils/httpSessionCookies"
 import { metaRefreshTarget } from "./utils/metaRefresh"
 import type { ProxyPool } from "./utils/proxyRotator"
 import { isHtmlContentType } from "./utils/response"
@@ -214,9 +215,11 @@ async function scrapeWithinBudget(
   // only via the thrown ScrapeError.
   let blockedEvidence: BlockedEvidence | undefined
   const capture = {
+    anubisDetected: false,
     cookies: req.cookies,
     budget,
     externalCaptcha: deps.externalCaptcha ? new ExternalCaptchaSession(deps.externalCaptcha) : undefined,
+    solveEmbeddedCaptchas: req.solveEmbeddedCaptchas,
     followMetaRefresh: req.followMetaRefresh,
     screenshotFullPage: req.screenshotFullPage,
     screenshotWaitForSelector: req.screenshotWaitForSelector,
@@ -296,7 +299,7 @@ async function scrapeWithinBudget(
   const failure = (message: string): ScrapeError =>
     new ScrapeError(
       crossedHost
-        ? `${message} — refused crossed landing on ${crossedHost}: ${req.url} does not lead there and its certificate was not verified`
+        ? `${message} - refused crossed landing on ${crossedHost}: ${req.url} does not lead there and its certificate was not verified`
         : message,
       timings,
       blockedEvidence,
@@ -377,6 +380,29 @@ async function scrapeWithinBudget(
 
   // Tier 1 is the only look at the wall that happens before a browser is checked out, so
   // it is also the only chance to pick the right kind of browser for the tiers below.
+  const session = minTier <= 2 && !explicitProxy ? await deps.loadSession(domain) : undefined
+  const httpSession =
+    minTier === 1 &&
+    !ignoreCertificateErrors &&
+    !explicitProxy &&
+    !deps.proxyPool &&
+    (!req.method || req.method === "GET" || req.method === "HEAD") &&
+    !req.screenshot &&
+    !req.consoleLogs &&
+    !req.networkLogs &&
+    !req.redirectChain &&
+    !req.captureResponses?.length &&
+    !req.contentWaitForSelector &&
+    !req.favicons &&
+    !req.mhtml
+      ? HttpSessionCookies.from(session, req.url)
+      : undefined
+  const httpOrigin = (effectiveUrl?: string) =>
+    !ignoreCertificateErrors &&
+    (!req.method || req.method === "GET" || req.method === "HEAD") &&
+    new URL(effectiveUrl ?? req.url).origin === new URL(req.url).origin
+      ? new URL(req.url).origin
+      : undefined
   let headful = false
 
   // Tier 1: plain HTTP fetch
@@ -384,17 +410,24 @@ async function scrapeWithinBudget(
     // Tier 1 has no browser handle, so select its identity up front and use the
     // same UA for both the outbound request and the public result.
     const tier1Fingerprint = FINGERPRINT_POOL[Math.floor(Math.random() * FINGERPRINT_POOL.length)] ?? FINGERPRINT
+    const httpUserAgent = httpSession && session ? session.userAgent : tier1Fingerprint.userAgent
     const tier1Runner = runners.tier1 ?? runTier1
     const t1 = await tier1Runner(
       req.url,
-      { ...sanitizedHeaders, "User-Agent": tier1Fingerprint.userAgent },
+      { ...sanitizedHeaders, "User-Agent": httpUserAgent },
       req.method,
       req.body,
       tier1Proxy,
       deps.validateOutboundUrl,
       ignoreCertificateErrors,
       trustedProxyCa,
-      budget.signal,
+      httpSession
+        ? AbortSignal.any([
+            budget.signal,
+            AbortSignal.timeout(Math.max(1, Math.min(5000, Math.floor(budget.remaining() / 3)))),
+          ])
+        : budget.signal,
+      httpSession,
     )
     if (req.followMetaRefresh && t1.status === "success" && t1.html && isHtmlContentType(t1.contentType)) {
       const refresh = await metaRefreshTarget(t1.html, t1.effectiveUrl ?? req.url)
@@ -414,23 +447,25 @@ async function scrapeWithinBudget(
       t1.status = "needs-js"
       t1.reason = "external-captcha-profile-needs-browser"
     }
+    capture.anubisDetected = t1.reason === "anubis-challenge"
     if (ignoreCertificateErrors) certificateError = t1.certificateError
-    const crossed1 = hasUsablePayload(t1)
-      ? await refuseCrossed(t1.effectiveUrl, tier1Fingerprint.userAgent, tier1Proxy)
-      : undefined
+    const crossed1 = hasUsablePayload(t1) ? await refuseCrossed(t1.effectiveUrl, httpUserAgent, tier1Proxy) : undefined
     emit(crossed1 ? crossedTiming(t1, crossed1) : t1)
     if (explicitProxy && t1.status === "error" && t1.reason?.startsWith("proxy-")) {
       throw new ScrapeError(t1.reason, timings)
     }
     if (hasUsablePayload(t1) && !crossed1) {
+      if (httpSession && session && t1.cookies) {
+        await deps.saveSession(domain, { ...session, cookies: t1.cookies, savedAt: Date.now() })
+      }
       return {
         url: t1.effectiveUrl ?? req.url,
         html: normalizeHtml(t1.html ?? ""),
-        cookies: [],
-        userAgent: tier1Fingerprint.userAgent,
+        cookies: t1.cookies ?? [],
+        userAgent: httpUserAgent,
         statusCode: t1.statusCode ?? 200,
         tier: 1,
-        sessionCached: false,
+        sessionCached: Boolean(httpSession),
         timings,
         totalMs: Date.now() - totalStart,
         proxyUsed: Boolean(tier1Proxy),
@@ -483,7 +518,6 @@ async function scrapeWithinBudget(
 
   try {
     // Tier 2: browser with cached session
-    const session = minTier <= 2 && !explicitProxy ? await deps.loadSession(domain) : undefined
     if (session && maxTier >= 2 && ignoreCertificateErrors) {
       // Tier 2 replays the cached session inside the pool's shared browser context, whose
       // TLS policy is fixed when the browser launches and stays verified for every other
@@ -533,6 +567,7 @@ async function scrapeWithinBudget(
             cookies: t2.cookies,
             userAgent: session.userAgent,
             savedAt: Date.now(),
+            httpOrigin: httpOrigin(t2.effectiveUrl),
           })
         }
         return {
@@ -622,7 +657,7 @@ async function scrapeWithinBudget(
         const next = pool.next(domain)
         if (!next || next === proxy3) break
         console.log(
-          `[orchestrator] Tier 3 proxy ${proxy3.replace(/\/\/[^@]*@/, "//**@")} blocked — retrying with next proxy`,
+          `[orchestrator] Tier 3 proxy ${proxy3.replace(/\/\/[^@]*@/, "//**@")} blocked - retrying with next proxy`,
         )
         proxy3 = next
       }
@@ -635,6 +670,7 @@ async function scrapeWithinBudget(
             cookies,
             userAgent: t3.userAgent ?? handle.fingerprint.userAgent,
             savedAt: Date.now(),
+            httpOrigin: proxy3 ? undefined : httpOrigin(t3.effectiveUrl),
           })
         }
         return {

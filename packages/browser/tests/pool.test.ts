@@ -169,14 +169,14 @@ describe("BrowserPool recycling", () => {
 
     await pool.init()
 
-    // Hammer the pool with noteTemporaryContext — should never trigger recycle.
+    // Hammer the pool with noteTemporaryContext - should never trigger recycle.
     for (let i = 0; i < 20; i++) {
       const handle = await pool.acquire("example.com")
       handle.noteTemporaryContext?.()
       pool.release(handle.id)
     }
 
-    // No recycle should have happened — only the initial browser exists.
+    // No recycle should have happened - only the initial browser exists.
     expect(pool.getStats().restarts).toBe(0)
     expect(browsers).toHaveLength(1)
   })
@@ -288,7 +288,7 @@ describe("BrowserPool wedge recovery", () => {
   test("a browser whose close() never resolves does not strand the entry in restarting", async () => {
     // The failure: restartEntry awaited context.close() with no bound, the
     // close never settled, and `restarting` stayed true forever. From then on the 30s
-    // health check hit the `if (entry.restarting) return` guard and could only log —
+    // health check hit the `if (entry.restarting) return` guard and could only log -
     // the entry was never rebuilt and never counted as available again.
     const browsers: MockBrowser[] = []
     const factory = async () => {
@@ -332,7 +332,7 @@ describe("BrowserPool wedge recovery", () => {
     handle.noteTemporaryContext?.()
     pool.release(handle.id, handle.lease)
 
-    // Before the fix this never happened — the pool sat at restarts=0, available=0.
+    // Before the fix this never happened - the pool sat at restarts=0, available=0.
     await waitFor(() => pool.getStats().restarts === 1)
     expect(pool.getStats().available).toBe(1)
     expect(pool.getStats().live).toBe(1)
@@ -405,7 +405,7 @@ describe("BrowserPool wedge recovery", () => {
     let launches = 0
     const factory = async () => {
       launches++
-      // Second launch (the restart) hangs — camoufox-js can block before Playwright's
+      // Second launch (the restart) hangs - camoufox-js can block before Playwright's
       // own launch timeout ever applies.
       if (launches === 2) await NEVER()
       const browser: MockBrowser = {
@@ -452,7 +452,7 @@ describe("BrowserPool wedge recovery", () => {
 
   test("a stalled checkout is not counted as live capacity", async () => {
     // This is the exact arithmetic that defeated the old `available + busy > 0` gate:
-    // total=1, busy=1, available=0 — which read as "ok" despite nothing being usable.
+    // total=1, busy=1, available=0 - which read as "ok" despite nothing being usable.
     const { factory } = makeFactory()
     const pool = createPool({ poolSize: 1, stallAfterMs: 40, browserFactory: factory })
     await pool.init()
@@ -467,13 +467,13 @@ describe("BrowserPool wedge recovery", () => {
     expect(stats.busy).toBe(1)
     expect(stats.available).toBe(0)
     expect(stats.stalled).toBe(1)
-    expect(stats.live).toBe(0) // …and the old gate would have said "ok" here
+    expect(stats.live).toBe(0) // ...and the old gate would have said "ok" here
     expect(handle.id).toBe(0)
   })
 
   test("a busy entry whose browser died is not counted as live capacity", async () => {
     // The health check never probes busy entries, so a checkout whose browser dies would
-    // otherwise read as capacity right up until its stall deadline — the same "200 with
+    // otherwise read as capacity right up until its stall deadline - the same "200 with
     // nothing usable" failure the gate exists to prevent, just on a timer.
     const { factory, browsers } = makeFactory()
     const pool = createPool({ poolSize: 1, stallAfterMs: 60_000, browserFactory: factory })
@@ -487,8 +487,8 @@ describe("BrowserPool wedge recovery", () => {
 
     const stats = pool.getStats()
     expect(stats.busy).toBe(1)
-    expect(stats.stalled).toBe(0) // still inside its budget…
-    expect(stats.live).toBe(0) // …but not usable, so not capacity
+    expect(stats.stalled).toBe(0) // still inside its budget...
+    expect(stats.live).toBe(0) // ...but not usable, so not capacity
     expect(handle.id).toBe(0)
   })
 
@@ -557,7 +557,7 @@ describe("BrowserPool wedge recovery", () => {
     await pool.init()
     pool.startHealthCheck()
 
-    // Budget of 5s dwarfs the 40ms stall threshold — this checkout must survive.
+    // Budget of 5s dwarfs the 40ms stall threshold - this checkout must survive.
     const handle = await pool.acquire("example.com", 5000)
     await new Promise((r) => setTimeout(r, 300))
 

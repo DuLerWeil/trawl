@@ -4,6 +4,7 @@ import type { Cookie, SessionData } from "@trawl/types"
 import { capturePageFavicons } from "../favicons"
 import { solvePageCaptchas } from "../solvers"
 import { isAnubisVerificationUrl } from "../utils/anubis"
+import { waitForAnubisResolution } from "../utils/anubisWait"
 import { reportBlocked } from "../utils/blockedEvidence"
 import { captureBrowserDocument, waitForBrowserLoad } from "../utils/browserCapture"
 import { attachPageCapture, type CaptureOptions } from "../utils/capture"
@@ -101,7 +102,17 @@ async function runTier2Task(
     }
     const anubis = hasAnubisChallenge(html)
     if (!anubis && !isBlocked(mainResponse.status, html)) {
-      await waitForBrowserLoad(page, capture, budget, 8000)
+      if (capture.anubisDetected) {
+        const resolution = await waitForAnubisResolution(page, budget.remaining())
+        if (resolution === "timeout" || resolution === "browser-closed") {
+          return {
+            tier: 2,
+            status: resolution === "timeout" ? "timeout" : "error",
+            reason: `anubis-${resolution}`,
+            durationMs: Date.now() - start,
+          }
+        }
+      } else await waitForBrowserLoad(page, capture, budget, 8000)
       html = await page.content()
     }
     if (hasAnubisChallenge(html)) {
@@ -201,9 +212,10 @@ async function runTier2Task(
 
     // Attempt to solve any embedded captcha widgets (Turnstile, reCAPTCHA, hCaptcha).
     // Pages that load cleanly via session cache may still have in-page challenge widgets.
-    const solveRemaining = budget.remaining()
+    // Embedded widgets are best effort; leave time to return the loaded document.
+    const solveRemaining = Math.max(0, budget.remaining() - 2000)
     let captchasSolved: string[] = []
-    if (solveRemaining > 5000) {
+    if (capture.solveEmbeddedCaptchas !== false && budget.remaining() > 5000) {
       const result = await solvePageCaptchas(page, solveRemaining, budget.signal, capture.externalCaptcha).catch(
         () => ({
           attempted: [],

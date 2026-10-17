@@ -134,7 +134,7 @@ export const createSessionCacheRecovery = ({
     onUnavailable: (err) => {
       const retry = redisRetryDelayMs > 0 ? `; retrying in ${redisRetryDelayMs}ms` : ""
       console.warn(
-        `[api] session cache unavailable — Tier 2 disabled${retry}:`,
+        `[api] session cache unavailable - Tier 2 disabled${retry}:`,
         err instanceof Error ? err.message : err,
       )
     },
@@ -234,7 +234,7 @@ export const initPool = async ({
     throw error
   }
 
-  console.log(`[api] ready — all ${poolSize} browser${poolSize === 1 ? "" : "s"} warm`)
+  console.log(`[api] ready - all ${poolSize} browser${poolSize === 1 ? "" : "s"} warm`)
 }
 
 export const getDeps = (): OrchestratorDeps => {

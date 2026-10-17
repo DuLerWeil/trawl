@@ -368,7 +368,7 @@ const LEAN_BODY_THRESHOLDS: Partial<Record<ChallengeType, number>> = {
 
 export function hasChallengeWallMarkers(html: string): boolean {
   if (
-    /<title\b[^>]*>(?:[^<]*[-|–—:]\s*)?(?:captcha|challenge|security\s*check|human\s*verification|bot\s*verification|just\s*a\s*moment|attention\s*required)\b/i.test(
+    /<title\b[^>]*>(?:[^<]*[-|\u2013\u2014:]\s*)?(?:captcha|challenge|security\s*check|human\s*verification|bot\s*verification|just\s*a\s*moment|attention\s*required)\b/i.test(
       html,
     )
   ) {

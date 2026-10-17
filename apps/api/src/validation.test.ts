@@ -40,6 +40,14 @@ describe("API request validation", () => {
     )
   })
 
+  test("validates the embedded CAPTCHA override on the compatibility endpoint", () => {
+    for (const solveEmbeddedCaptchas of [true, false])
+      expect(() => validateFlareSolverrRequest({ url: "https://example.com", solveEmbeddedCaptchas })).not.toThrow()
+    expect(() => validateFlareSolverrRequest({ url: "https://example.com", solveEmbeddedCaptchas: "false" })).toThrow(
+      new RequestValidationError("solveEmbeddedCaptchas must be a boolean", 400),
+    )
+  })
+
   test("validates element screenshot selectors and incompatible modes", () => {
     expect(() =>
       validateScrapeRequest({ url: "https://example.com", screenshot: true, screenshotSelector: ".chart" }),
@@ -60,6 +68,7 @@ describe("API request validation", () => {
   })
 
   for (const field of [
+    "solveEmbeddedCaptchas",
     "consoleLogs",
     "networkLogs",
     "redirectChain",

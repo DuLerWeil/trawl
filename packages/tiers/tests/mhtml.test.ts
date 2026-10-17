@@ -651,7 +651,7 @@ describe("browser tiers", () => {
 
     expect(withoutArchive.status).toBe("success")
     expect(withoutArchive.mhtml).toBeUndefined()
-    // Only the main-document tracker's listener — the archive attached nothing.
+    // Only the main-document tracker's listener - the archive attached nothing.
     expect(untouched.emitter.listeners("response")).toBe(1)
     expect(requested.emitter.listeners("response")).toBe(1)
   })

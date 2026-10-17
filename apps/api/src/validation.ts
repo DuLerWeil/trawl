@@ -44,7 +44,7 @@ export function validateFlareSolverrRequest(body: unknown): asserts body is Flar
         !Number.isFinite(body.session_ttl_minutes * 60_000))
     )
       throw new RequestValidationError("session_ttl_minutes must be a non-negative finite number", 400)
-    for (const field of ["returnOnlyCookies", "returnScreenshot"] as const)
+    for (const field of ["returnOnlyCookies", "returnScreenshot", "solveEmbeddedCaptchas"] as const)
       if (body[field] !== undefined && typeof body[field] !== "boolean")
         throw new RequestValidationError(`${field} must be a boolean`, 400)
   }
@@ -104,6 +104,7 @@ export function validateScrapeRequest(body: unknown): asserts body is ScrapeRequ
     )
   }
   for (const field of [
+    "solveEmbeddedCaptchas",
     "consoleLogs",
     "networkLogs",
     "redirectChain",

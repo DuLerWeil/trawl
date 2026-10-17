@@ -60,7 +60,7 @@ describe("deployment-wide minimum tier", () => {
 
     expect(result.tier).toBe(1)
     expect(result.html).toBe(challenge)
-    expect(events).toEqual([])
+    expect(events).toEqual(["load-session"])
   })
 
   test("Tier 2 floor skips plain HTTP and starts with a cached browser session", async () => {
@@ -75,7 +75,7 @@ describe("deployment-wide minimum tier", () => {
     })
 
     expect(result.tier).toBe(2)
-    expect(events).toEqual(["acquire", "load-session", "release"])
+    expect(events).toEqual(["load-session", "acquire", "release"])
     expect(result.timings.map(({ tier }) => tier)).toEqual([2])
   })
 

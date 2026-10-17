@@ -93,7 +93,7 @@ export async function solveAltcha(page: Page, timeoutMs = 30_000, signal?: Abort
         if (settleBudget > 0 && typeof page.waitForFunction === "function") {
           settles.push(
             page
-              .waitForFunction(() => !document.querySelector("altcha-widget, #altcha-form, .captcha-wrap"), {
+              .waitForFunction(() => !document.querySelector("altcha-widget, #altcha-form, .captcha-wrap"), undefined, {
                 timeout: settleBudget,
               })
               .catch(() => {}),

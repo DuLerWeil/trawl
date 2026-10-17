@@ -170,7 +170,10 @@ describe("in-page proof-of-work widget solvers", () => {
       },
       locator: locator([]),
       waitForNavigation: wait,
-      waitForFunction: (_predicate: () => boolean, options: { timeout: number }) => wait(options),
+      waitForFunction: (_predicate: () => boolean, arg: unknown, options: { timeout: number }) => {
+        expect(arg).toBeUndefined()
+        return wait(options)
+      },
     } as unknown as Page
     const started = Date.now()
 

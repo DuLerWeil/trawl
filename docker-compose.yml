@@ -15,7 +15,7 @@ services:
     ports:
       # API + FlareSolverr-compatible /v1
       - "${PORT:-8191}:8191"
-      # MITM forward proxy (:8192) — only used when MITM_ENABLED=true.
+      # MITM forward proxy (:8192) - only used when MITM_ENABLED=true.
       # The CA cert is served from :8191/proxy-ca.crt and must be installed
       # in each client's trust store (system keychain, Java cacerts, etc.).
       - "${MITM_PORT:-8192}:${MITM_PORT:-8192}"
@@ -90,7 +90,7 @@ services:
       PROXY_LIST_FILE: ${PROXY_LIST_FILE:-}
       RESIDENTIAL_PROXY_URL: ${RESIDENTIAL_PROXY_URL:-}
       RESIDENTIAL_PROXY_LIST_FILE: ${RESIDENTIAL_PROXY_LIST_FILE:-}
-      # MITM proxy (off by default — opt in via .env)
+      # MITM proxy (off by default - opt in via .env)
       MITM_ENABLED: ${MITM_ENABLED:-false}
       MITM_HOST: ${MITM_HOST:-0.0.0.0}
       MITM_PORT: ${MITM_PORT:-8192}

@@ -57,3 +57,91 @@ test("failed page inspection is never reported as GeeTest success", async () => 
   }
   expect(await isGeetestSuccess(page as never)).toBe(false)
 })
+
+test("GeeTest references alone do not activate the solver or a widget wait", async () => {
+  const { hasGeetestSlide } = await import("../src/solvers/geetest")
+  let waits = 0
+  const page = {
+    content: async () => '<a href="/captcha/geetest">GeeTest demo</a><svg id="icon-geetest"></svg>',
+    evaluate: async () => ({ visible: false, initializing: false }),
+    waitForSelector: async () => {
+      waits++
+      return {}
+    },
+  }
+  expect(await hasGeetestSlide(page as never)).toBe(false)
+  expect(waits).toBe(0)
+})
+
+test("a visible GeeTest entry point or puzzle is detected immediately", async () => {
+  const { hasGeetestSlide } = await import("../src/solvers/geetest")
+  const page = {
+    content: async () => '<div class="geetest_bg"></div>',
+    evaluate: async () => ({ visible: true, initializing: false }),
+    waitForSelector: async () => {
+      throw new Error("visible widget should not need a wait")
+    },
+  }
+  expect(await hasGeetestSlide(page as never)).toBe(true)
+})
+
+test("GeeTest SDK initialization retains a bounded wait for a visible widget", async () => {
+  const { hasGeetestSlide } = await import("../src/solvers/geetest")
+  let options: unknown
+  const page = {
+    content: async () => '<script src="https://static.geetest.com/v4/gt4.js"></script>',
+    evaluate: async () => ({ visible: false, initializing: true }),
+    waitForSelector: async (_selector: string, settings: unknown) => {
+      options = settings
+      return {}
+    },
+  }
+  expect(await hasGeetestSlide(page as never, 250)).toBe(true)
+  expect(options).toEqual({ timeout: 250, state: "visible" })
+  page.waitForSelector = async () => {
+    throw new Error("timeout")
+  }
+  expect(await hasGeetestSlide(page as never, 250)).toBe(false)
+})
+
+test.each([false, true])(
+  "GeeTest completes a browser-animated drag with transient geometry=%s",
+  async (staleGeometry) => {
+    const { solveGeetestSlide } = await import("../src/solvers/geetest")
+    const sample = images()
+    let currentX = 0
+    let imageReads = 0
+    let verified = false
+    let pressed = false
+    const page = {
+      evaluate: async (_fn: unknown, arg: unknown) => {
+        if (typeof arg === "number") {
+          imageReads++
+          return sample
+        }
+        if (typeof arg !== "string") return verified
+        if (arg.includes(".geetest_slice,")) return { x: 0, y: sample.top, width: 30, height: 30 }
+        if (arg.includes(".geetest_slider_button")) return { x: 0, y: 80, width: 30, height: 20 }
+        if (arg === ".geetest_bg, .geetest_canvas_bg, .gt_cut_bg")
+          return { x: staleGeometry && imageReads === 1 ? 1000 : 0, y: 0, width: 160, height: 60 }
+        if (arg === ".geetest_slider, .geetest_slider_track, .gt_slider") return { x: 0, y: 80, width: 160, height: 20 }
+        return undefined
+      },
+      mouse: {
+        move: async (x: number) => {
+          await Bun.sleep(80)
+          currentX = x
+        },
+        down: async () => {
+          pressed = true
+        },
+        up: async () => {
+          verified = pressed && Math.abs(currentX - 15 - sample.target) < 0.1
+          pressed = false
+        },
+      },
+    }
+    expect(await solveGeetestSlide(page as never, 800)).toBe(true)
+    expect(pressed).toBe(false)
+  },
+)

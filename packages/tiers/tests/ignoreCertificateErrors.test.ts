@@ -9,6 +9,7 @@ import { scrape } from "../src/orchestrator"
 import { runTier1 } from "../src/tiers/1"
 import { runTier3 } from "../src/tiers/3"
 import { runTier4 } from "../src/tiers/4"
+import { HttpSessionCookies } from "../src/utils/httpSessionCookies"
 
 // A self-signed certificate nothing trusts. Minted per run rather than committed so no
 // private key ever lands in the repository.
@@ -108,6 +109,36 @@ describe.skipIf(!opensslPath)("ignoreCertificateErrors", () => {
     expect(result.status).toBe("error")
     expect(result.reason).toMatch(/self[- ]signed certificate/i)
     await expect(scrape({ url: baseUrl, maxTier: 1 }, noBrowserDeps)).rejects.toThrow()
+  })
+
+  test("cached HTTP clearance does not bypass certificate verification", async () => {
+    const before = tlsRequests.length
+    const jar = new HttpSessionCookies(new URL(baseUrl).origin, [
+      {
+        name: "cf_clearance",
+        value: "owned-fixture",
+        domain: "localhost",
+        path: "/",
+        expires: -1,
+        httpOnly: true,
+        secure: true,
+      },
+    ])
+    const result = await runTier1(
+      baseUrl,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      false,
+      undefined,
+      undefined,
+      jar,
+    )
+    expect(result.status).toBe("error")
+    expect(result.reason).toMatch(/self[- ]signed certificate/i)
+    expect(tlsRequests).toHaveLength(before)
   })
 
   test("the opted-in request loads the page and reports why the certificate was rejected", async () => {

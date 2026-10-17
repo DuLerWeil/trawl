@@ -44,12 +44,12 @@ Selects the backend used for the Tier 2 session cache. Redis remains the default
 cross-instance session sharing and backward compatibility.
 
 ```ini
-SESSION_CACHE_DRIVER=redis   # default — shared across instances, requires Redis
+SESSION_CACHE_DRIVER=redis   # default - shared across instances, requires Redis
 SESSION_CACHE_DRIVER=memory  # in-process Map, zero external dependencies
 ```
 
 Use `memory` for single-instance deployments where running Redis is not justified. Sessions are
-scoped to the API process and lost on restart — they are **not shared** across instances. See
+scoped to the API process and lost on restart - they are **not shared** across instances. See
 [Session Cache](/architecture/session-cache) for details.
 
 Unknown values stop startup with a configuration error instead of silently selecting another
@@ -66,9 +66,9 @@ used session. Expired sessions are removed automatically on reads and writes.
 
 ### `REDIS_URL`
 
-**Default:** _(empty — Redis driver disabled)_
+**Default:** _(empty - Redis driver disabled)_
 
-Standard Redis connection URL — the bundled Compose service uses Redis 8. Set a non-empty URL to enable
+Standard Redis connection URL - the bundled Compose service uses Redis 8. Set a non-empty URL to enable
 the session cache. When running inside Docker Compose use the service name:
 
 ```ini
@@ -105,16 +105,17 @@ disable retries. The supplied minimal Compose variant does this automatically.
 
 **Default:** `3600` (1 hour)
 
-How long solved browser cookies and user-agent state are cached per domain by either driver. After
-this TTL the next protected request triggers a fresh challenge solve and refreshes the cache.
+How long either cache driver retains solved cookies and browser identity per hostname. After this
+TTL, the entry is unavailable for reuse; a protected request may need another browser solve.
 
-Cloudflare's `cf_clearance` cookie typically has a 30-minute expiry. Setting
-`REDIS_SESSION_TTL_SECONDS` below 1800 wastes cache hits; setting it above 7200 risks replaying
-expired cookies. TRAWL handles an expired cookie by invalidating the cache and falling back to Tier 3.
+The cache TTL does not extend a provider cookie's expiry. HTTP clearance reuse checks the actual
+cookie expiry and scope before sending it. Rejected clearance falls back to the browser tiers;
+a failed cached browser attempt invalidates the entry before a fresh solve. See
+[Session Cache](/architecture/session-cache) and [Performance & Benchmarks](/getting-started/performance).
 
 ```ini
-REDIS_SESSION_TTL_SECONDS=3600   # default — safe for most sites
-REDIS_SESSION_TTL_SECONDS=1800   # more conservative
+REDIS_SESSION_TTL_SECONDS=3600   # default retention: one hour
+REDIS_SESSION_TTL_SECONDS=1800   # shorter retention: 30 minutes
 ```
 
 ## Scrape Tier Floor
@@ -199,10 +200,10 @@ LOG_LEVEL=info
 
 **Default:** `1`
 
-Number of Camoufox Firefox instances to keep warm. Each instance uses ~350–500 MB RAM under load. Start conservative and raise if you need higher concurrency.
+Number of Camoufox Firefox instances to keep warm. Each instance uses ~350-500 MB RAM under load. Start conservative and raise if you need higher concurrency.
 
 ```ini
-BROWSER_POOL_SIZE=1   # default — recommended for Prowlarr and ordinary scraping
+BROWSER_POOL_SIZE=1   # default - recommended for Prowlarr and ordinary scraping
 BROWSER_POOL_SIZE=3   # concurrent browser solves; allow at least 2 GB RAM
 BROWSER_POOL_SIZE=8   # high-throughput (6+ GB host RAM)
 ```
@@ -218,8 +219,8 @@ Maximum queue wait for a free browser before rejecting with `PoolExhaustedError`
 Lower it for fail-fast client feedback (Prowlarr will see 429s sooner and retry on its own). Raise it for very heavy upstream targets or when you've bumped `BROWSER_POOL_SIZE` higher.
 
 ```ini
-BROWSER_ACQUIRE_TIMEOUT_MS=5000    # fail fast — 429s after 5s
-BROWSER_ACQUIRE_TIMEOUT_MS=15000   # default — bounded queue before HTTP 429
+BROWSER_ACQUIRE_TIMEOUT_MS=5000    # fail fast - 429s after 5s
+BROWSER_ACQUIRE_TIMEOUT_MS=15000   # default - bounded queue before HTTP 429
 BROWSER_ACQUIRE_TIMEOUT_MS=30000   # tolerate longer queueing on slow targets
 ```
 
@@ -311,24 +312,24 @@ BROWSER_HEADFUL_POOL_SIZE=1   # required for DataDome targets, ~380 MB on first 
 
 ### Browser recovery timeouts
 
-| Variable | Default | Purpose |
-| --- | ---: | --- |
-| `BROWSER_STALL_TIMEOUT_MS` | `180000` | Grace period after a request's own timeout before its browser checkout is reclaimed |
-| `BROWSER_CLOSE_TIMEOUT_MS` | `10000` | Maximum wait for a wedged browser or context to close |
-| `BROWSER_LAUNCH_TIMEOUT_MS` | `90000` | Maximum wait for Camoufox to launch |
+| Variable                    |  Default | Purpose                                                                             |
+| --------------------------- | -------: | ----------------------------------------------------------------------------------- |
+| `BROWSER_STALL_TIMEOUT_MS`  | `180000` | Grace period after a request's own timeout before its browser checkout is reclaimed |
+| `BROWSER_CLOSE_TIMEOUT_MS`  |  `10000` | Maximum wait for a wedged browser or context to close                               |
+| `BROWSER_LAUNCH_TIMEOUT_MS` |  `90000` | Maximum wait for Camoufox to launch                                                 |
 
 These bounds keep an unresponsive Firefox process from permanently consuming a pool slot. The defaults are suitable for most installations.
 
 ## Screenshots
 
-Only read when a request sets `screenshot: true` — see [Native API](/api-reference/native-api).
+Only read when a request sets `screenshot: true` - see [Native API](/api-reference/native-api).
 
-| Variable | Default | Purpose |
-| --- | ---: | --- |
-| `SCREENSHOT_SETTLE_MS` | `3000` | Maximum wait for the network to go idle before capturing |
-| `SCREENSHOT_TIMEOUT_MS` | `10000` | Maximum wait for the capture itself |
-| `SCREENSHOT_JPEG_QUALITY` | `60` | JPEG quality, 1–100 |
-| `SCREENSHOT_MAX_BYTES` | `4000000` | Images larger than this are dropped rather than returned |
+| Variable                  |   Default | Purpose                                                  |
+| ------------------------- | --------: | -------------------------------------------------------- |
+| `SCREENSHOT_SETTLE_MS`    |    `3000` | Maximum wait for the network to go idle before capturing |
+| `SCREENSHOT_TIMEOUT_MS`   |   `10000` | Maximum wait for the capture itself                      |
+| `SCREENSHOT_JPEG_QUALITY` |      `60` | JPEG quality, 1-100                                      |
+| `SCREENSHOT_MAX_BYTES`    | `4000000` | Images larger than this are dropped rather than returned |
 
 A screenshot is never worth failing a scrape: exceeding any of these bounds leaves
 `screenshot` unset and logs the reason, and the scrape result is otherwise unchanged.
@@ -337,17 +338,17 @@ you need to force a browser-tier attempt.
 
 ## Console and Network Diagnostics
 
-Only read when a request sets `consoleLogs` or `networkLogs` — see
+Only read when a request sets `consoleLogs` or `networkLogs` - see
 [Native API](/api-reference/native-api). Without those flags no listener is attached and
 nothing is buffered.
 
-| Variable | Default | Purpose |
-| --- | ---: | --- |
-| `DIAGNOSTICS_MAX_CONSOLE_ENTRIES` | `500` | Console messages kept per page |
-| `DIAGNOSTICS_MAX_NETWORK_ENTRIES` | `1000` | Requests kept per page |
-| `DIAGNOSTICS_MAX_STRING_CHARS` | `2000` | Longest single console message or request URL kept |
-| `DIAGNOSTICS_MAX_TOTAL_CHARS` | `1000000` | Total characters kept across both arrays |
-| `DIAGNOSTICS_SIZE_TIMEOUT_MS` | `2000` | Maximum wait for the browser's per-request byte counts |
+| Variable                          |   Default | Purpose                                                |
+| --------------------------------- | --------: | ------------------------------------------------------ |
+| `DIAGNOSTICS_MAX_CONSOLE_ENTRIES` |     `500` | Console messages kept per page                         |
+| `DIAGNOSTICS_MAX_NETWORK_ENTRIES` |    `1000` | Requests kept per page                                 |
+| `DIAGNOSTICS_MAX_STRING_CHARS`    |    `2000` | Longest single console message or request URL kept     |
+| `DIAGNOSTICS_MAX_TOTAL_CHARS`     | `1000000` | Total characters kept across both arrays               |
+| `DIAGNOSTICS_SIZE_TIMEOUT_MS`     |    `2000` | Maximum wait for the browser's per-request byte counts |
 
 Anything past a cap is dropped whole rather than truncated, and the number of dropped
 entries is logged once per scrape. A capture failure leaves the field unset and never
@@ -362,50 +363,50 @@ or forwarding them unless necessary.
 Only read when a request sets `redirectChain`. The tracker records only top-level document URLs;
 subresource redirects are excluded.
 
-| Variable | Default | Purpose |
-| --- | ---: | --- |
-| `REDIRECT_MAX_ENTRIES` | `50` | URLs kept in the redirect chain |
-| `REDIRECT_MAX_URL_CHARS` | `2000` | Longest individual redirect URL kept |
+| Variable                   |   Default | Purpose                                         |
+| -------------------------- | --------: | ----------------------------------------------- |
+| `REDIRECT_MAX_ENTRIES`     |      `50` | URLs kept in the redirect chain                 |
+| `REDIRECT_MAX_URL_CHARS`   |    `2000` | Longest individual redirect URL kept            |
 | `REDIRECT_MAX_TOTAL_CHARS` | `1000000` | Total characters kept across the redirect chain |
 
 ## Response-Body Capture
 
-Only read when a request sets `captureResponses` — see
+Only read when a request sets `captureResponses` - see
 [Native API](/api-reference/native-api). Without patterns no listener is attached and no
 body is read.
 
-| Variable | Default | Purpose |
-| --- | ---: | --- |
-| `CAPTURE_MAX_PATTERNS` | `10` | URL patterns honoured per request |
-| `CAPTURE_MAX_RESPONSES` | `5` | Bodies kept per page, in arrival order |
-| `CAPTURE_MAX_BODY_BYTES` | `5242880` | Bytes kept per body; past it the body is trimmed and flagged `truncated` |
-| `CAPTURE_MAX_TOTAL_BYTES` | `10485760` | Bytes kept across all bodies of one page |
-| `CAPTURE_MAX_READ_BYTES` | `10485760` | Largest body this process will read at all; a larger one is reported with an `error` instead of a trimmed prefix |
-| `CAPTURE_MAX_METADATA_CHARS` | `2000` | Longest captured URL, header name, header value, or error kept |
-| `CAPTURE_BODY_TIMEOUT_MS` | `5000` | Maximum wait for in-flight body reads when the capture is drained |
-| `CAPTURE_SETTLE_MS` | `15000` | Default settle window when a request does not set `settleTimeout` |
-| `CAPTURE_MAX_SETTLE_MS` | `60000` | Ceiling a request may ask for; the request's own time budget also caps it |
-| `CAPTURE_IDLE_FLOOR_MS` | `5000` | Network idle is ignored for this long, so a data fetch on a delayed timer is not mistaken for a quiet page |
+| Variable                     |    Default | Purpose                                                                                                          |
+| ---------------------------- | ---------: | ---------------------------------------------------------------------------------------------------------------- |
+| `CAPTURE_MAX_PATTERNS`       |       `10` | URL patterns honoured per request                                                                                |
+| `CAPTURE_MAX_RESPONSES`      |        `5` | Bodies kept per page, in arrival order                                                                           |
+| `CAPTURE_MAX_BODY_BYTES`     |  `5242880` | Bytes kept per body; past it the body is trimmed and flagged `truncated`                                         |
+| `CAPTURE_MAX_TOTAL_BYTES`    | `10485760` | Bytes kept across all bodies of one page                                                                         |
+| `CAPTURE_MAX_READ_BYTES`     | `10485760` | Largest body this process will read at all; a larger one is reported with an `error` instead of a trimmed prefix |
+| `CAPTURE_MAX_METADATA_CHARS` |     `2000` | Longest captured URL, header name, header value, or error kept                                                   |
+| `CAPTURE_BODY_TIMEOUT_MS`    |     `5000` | Maximum wait for in-flight body reads when the capture is drained                                                |
+| `CAPTURE_SETTLE_MS`          |    `15000` | Default settle window when a request does not set `settleTimeout`                                                |
+| `CAPTURE_MAX_SETTLE_MS`      |    `60000` | Ceiling a request may ask for; the request's own time budget also caps it                                        |
+| `CAPTURE_IDLE_FLOOR_MS`      |     `5000` | Network idle is ignored for this long, so a data fetch on a delayed timer is not mistaken for a quiet page       |
 
 A response that matched but whose body could not be read is still returned, with `body`
 null and `error` set, so "nothing matched" stays distinguishable from "matched, retrieval
 failed".
 
-A body read cannot be cut short once it has started — the browser API returns whole bodies
-only — so the budgets above bound what is read, not just what is kept. Only identity-encoded
+A body read cannot be cut short once it has started - the browser API returns whole bodies
+only - so the budgets above bound what is read, not just what is kept. Only identity-encoded
 bodies with a valid `Content-Length` are read. Compressed or unknown-size bodies are
 returned with `body: null` and an error. Declared sizes are reserved cumulatively before
 reads start, so concurrent responses cannot exceed the total read budget.
 
 ## Blocked-Outcome Evidence
 
-Only retained when a request sets `blockedEvidence: true` — see
+Only retained when a request sets `blockedEvidence: true` - see
 [Native API](/api-reference/native-api#blocked-outcome-evidence). Without it the failure
 path captures no additional image or response data. Only the last wall is kept per request,
 and its markup, screenshot size and screenshot time are all bounded.
 
-| Variable | Default | Purpose |
-| --- | ---: | --- |
+| Variable                          |  Default | Purpose                                                                                        |
+| --------------------------------- | -------: | ---------------------------------------------------------------------------------------------- |
 | `BLOCKED_EVIDENCE_MAX_HTML_CHARS` | `512000` | Characters of the wall kept; past it `html` is the head of the page and `htmlTruncated` is set |
 
 The wall is truncated rather than dropped: unlike a stylesheet or an image, the head of a
@@ -416,17 +417,17 @@ logging, persisting or publicly exposing them unless that is explicitly intended
 
 ## Favicons
 
-Only read when a request sets `favicons: true` — see
+Only read when a request sets `favicons: true` - see
 [Native API](/api-reference/native-api#favicons). Without it no icon is resolved and no
 request is made.
 
-| Variable | Default | Purpose |
-| --- | ---: | --- |
-| `FAVICON_MAX_ENTRIES` | `8` | Icons fetched per page, apex first then declared in document order |
-| `FAVICON_MAX_BYTES` | `524288` | Largest single icon kept. Declared oversize bodies are refused; unknown-size bodies are streamed and cancelled when they cross the cap |
-| `FAVICON_MAX_METADATA_CHARS` | `8192` | Maximum characters kept for an icon URL, content type, or error message |
-| `FAVICON_FETCH_TIMEOUT_MS` | `5000` | Maximum wait for one icon |
-| `FAVICON_TIMEOUT_MS` | `20000` | Ceiling on the whole collection; the request's own remaining `maxTimeout` also caps it, and collection is skipped once that budget is spent |
+| Variable                     |  Default | Purpose                                                                                                                                     |
+| ---------------------------- | -------: | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FAVICON_MAX_ENTRIES`        |      `8` | Icons fetched per page, apex first then declared in document order                                                                          |
+| `FAVICON_MAX_BYTES`          | `524288` | Largest single icon kept. Declared oversize bodies are refused; unknown-size bodies are streamed and cancelled when they cross the cap      |
+| `FAVICON_MAX_METADATA_CHARS` |   `8192` | Maximum characters kept for an icon URL, content type, or error message                                                                     |
+| `FAVICON_FETCH_TIMEOUT_MS`   |   `5000` | Maximum wait for one icon                                                                                                                   |
+| `FAVICON_TIMEOUT_MS`         |  `20000` | Ceiling on the whole collection; the request's own remaining `maxTimeout` also caps it, and collection is skipped once that budget is spent |
 
 An icon that could not be read is returned with `error` set rather than dropped, and a
 collection failure leaves `favicons` empty and never fails the scrape.
@@ -435,18 +436,18 @@ response must contain the requested favicon collection.
 
 ## MHTML Archives
 
-Only read when a request sets `mhtml: true` — see
+Only read when a request sets `mhtml: true` - see
 [Native API](/api-reference/native-api#mhtml-archives). Without it no subresource body is
 read. The archive keeps many small parts rather than a few large bodies, so it carries
 budgets of its own rather than sharing the response-body ones.
 
-| Variable | Default | Purpose |
-| --- | ---: | --- |
-| `MHTML_MAX_PARTS` | `200` | Subresources archived per page |
-| `MHTML_MAX_PART_BYTES` | `2097152` | Bytes per subresource; a larger one is omitted whole |
-| `MHTML_MAX_TOTAL_CHARS` | `8388608` | Maximum characters in the complete serialized archive, including the rendered root and MIME overhead |
-| `MHTML_MAX_INFLIGHT_READS` | `32` | Subresource bodies read at the same time; a burst past this is omitted rather than held |
-| `MHTML_MAX_OMISSION_RECORDS` | `100` | Omissions listed by URL in the archive; the rest are only counted |
+| Variable                     |   Default | Purpose                                                                                              |
+| ---------------------------- | --------: | ---------------------------------------------------------------------------------------------------- |
+| `MHTML_MAX_PARTS`            |     `200` | Subresources archived per page                                                                       |
+| `MHTML_MAX_PART_BYTES`       | `2097152` | Bytes per subresource; a larger one is omitted whole                                                 |
+| `MHTML_MAX_TOTAL_CHARS`      | `8388608` | Maximum characters in the complete serialized archive, including the rendered root and MIME overhead |
+| `MHTML_MAX_INFLIGHT_READS`   |      `32` | Subresource bodies read at the same time; a burst past this is omitted rather than held              |
+| `MHTML_MAX_OMISSION_RECORDS` |     `100` | Omissions listed by URL in the archive; the rest are only counted                                    |
 
 Bodies are read as they arrive, so a page whose subresources all complete at once is
 bounded by `MHTML_MAX_INFLIGHT_READS` and by the archive budget reserved from each valid
@@ -454,7 +455,7 @@ bounded by `MHTML_MAX_INFLIGHT_READS` and by the archive budget reserved from ea
 unknown-size responses are omitted before reading rather than trusted after allocation.
 When `captureResponses` selects the same resource, both outputs share one browser body read.
 
-A subresource is omitted rather than trimmed — a truncated stylesheet or image is corrupt,
+A subresource is omitted rather than trimmed - a truncated stylesheet or image is corrupt,
 not partial. Every omission is counted in the archive's `X-Trawl-Omitted-Resources` header;
 up to `MHTML_MAX_OMISSION_RECORDS` are listed in its final part. Non-HTML responses, a root
 that cannot fit the total cap, or an assembly failure leave `mhtml` unset and never fail
@@ -467,14 +468,14 @@ Built-in solvers remain the default. Set `CAPTCHA_SOLVER=2captcha` and
 `TWOCAPTCHA_API_KEY` to try a paid fallback after local solving fails. A key by
 itself never enables the service. No additional model or solver SDK is installed.
 
-| Variable | Default | Description |
-| --- | --- | --- |
-| `CAPTCHA_SOLVER` | `none` | `none` or `2captcha` |
-| `TWOCAPTCHA_API_KEY` | unset | Required when selecting 2Captcha; keep it secret |
-| `CAPTCHA_SOLVER_MAX_TASKS` | `1` | Maximum paid task creation attempts per scrape, shared across tiers and proxy retries; range 1-3 |
-| `CAPTCHA_SOLVER_LOCAL_TIMEOUT_MS` | `10000` | Budget offered to a supported built-in solver before fallback; range 1000-30000 ms |
-| `CAPTCHA_SOLVER_TIMEOUT_MS` | `120000` | External operation limit, also capped by the remaining scrape budget; range 1000-180000 ms |
-| `CAPTCHA_SOLVER_PROFILES` | unset | JSON array of hostname-specific task and delivery profiles; up to 64 profiles, 256 KB total |
+| Variable                          | Default  | Description                                                                                      |
+| --------------------------------- | -------- | ------------------------------------------------------------------------------------------------ |
+| `CAPTCHA_SOLVER`                  | `none`   | `none` or `2captcha`                                                                             |
+| `TWOCAPTCHA_API_KEY`              | unset    | Required when selecting 2Captcha; keep it secret                                                 |
+| `CAPTCHA_SOLVER_MAX_TASKS`        | `1`      | Maximum paid task creation attempts per scrape, shared across tiers and proxy retries; range 1-3 |
+| `CAPTCHA_SOLVER_LOCAL_TIMEOUT_MS` | `10000`  | Budget offered to a supported built-in solver before fallback; range 1000-30000 ms               |
+| `CAPTCHA_SOLVER_TIMEOUT_MS`       | `120000` | External operation limit, also capped by the remaining scrape budget; range 1000-180000 ms       |
+| `CAPTCHA_SOLVER_PROFILES`         | unset    | JSON array of hostname-specific task and delivery profiles; up to 64 profiles, 256 KB total      |
 
 ```dotenv
 CAPTCHA_SOLVER=2captcha
@@ -559,15 +560,15 @@ Configured hostnames force otherwise successful HTTP HTML responses through a
 browser so the widget can be inspected; enabling a profile therefore has a
 browser cost even on pages without its widget. `maxTier` still limits execution.
 
-| Input | Meaning |
-| --- | --- |
-| `{ "value": ... }` | Explicit literal task parameter |
-| `{ "selector": "...", "attribute": "..." }` | Unique element's attribute; without an attribute, its input value or text |
-| `{ "selector": "...", "json": true }` | Parse the selected value as JSON |
-| `{ "source": "global", "path": ["config", "key"] }` | Read a named page global; requires page CSP to allow the bridge |
-| `{ "source": "url" }` / `{ "source": "userAgent" }` | Current browser URL / user agent |
-| `{ "source": "screenshot", "selector": "..." }` | PNG crop of one element, at most 100 KB before Base64 encoding |
-| `{ "source": "cookies" }` / `{ "source": "html" }` | Current-site cookies / page HTML; requires `allowSessionData: true` |
+| Input                                               | Meaning                                                                   |
+| --------------------------------------------------- | ------------------------------------------------------------------------- |
+| `{ "value": ... }`                                  | Explicit literal task parameter                                           |
+| `{ "selector": "...", "attribute": "..." }`         | Unique element's attribute; without an attribute, its input value or text |
+| `{ "selector": "...", "json": true }`               | Parse the selected value as JSON                                          |
+| `{ "source": "global", "path": ["config", "key"] }` | Read a named page global; requires page CSP to allow the bridge           |
+| `{ "source": "url" }` / `{ "source": "userAgent" }` | Current browser URL / user agent                                          |
+| `{ "source": "screenshot", "selector": "..." }`     | PNG crop of one element, at most 100 KB before Base64 encoding            |
+| `{ "source": "cookies" }` / `{ "source": "html" }`  | Current-site cookies / page HTML; requires `allowSessionData: true`       |
 
 Where the task supports them, `websiteURL` and `userAgent` default to the current
 browser values. A configured website URL must equal the current page URL.
@@ -660,10 +661,10 @@ See the provider's [reCAPTCHA v2](https://2captcha.com/api-docs/recaptcha-v2),
 TRAWL uses ffmpeg while solving supported CAPTCHA challenges. reCAPTCHA audio is converted before
 speech recognition, and the GeeTest solver uses it during image processing.
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `STT_URL` | — | Optional Whisper/OpenAI-compatible transcription endpoint |
-| `STT_API_KEY` | — | Optional bearer token sent only to `STT_URL` |
+| Variable      | Default  | Purpose                                                      |
+| ------------- | -------- | ------------------------------------------------------------ |
+| `STT_URL`     | -        | Optional Whisper/OpenAI-compatible transcription endpoint    |
+| `STT_API_KEY` | -        | Optional bearer token sent only to `STT_URL`                 |
 | `FFMPEG_PATH` | `ffmpeg` | Executable name or absolute path used by the CAPTCHA solvers |
 
 Without `STT_URL`, reCAPTCHA audio uses Google's public speech-recognition endpoint. When `STT_URL`
@@ -680,7 +681,7 @@ contact the configured STT service. Treat `STT_API_KEY` as a secret and avoid co
 
 These environment-level proxies are escalation pools: direct Tier 1 and cached Tier 2 may complete before they are used. In contrast, the API request-level `proxy` field is a routing guarantee; target traffic for that request never falls back to a direct connection.
 
-**Default:** _(empty — no proxy)_
+**Default:** _(empty - no proxy)_
 
 Datacenter proxy pool used for Tier 3 (fresh challenge solve). TRAWL passes these endpoints to the
 browser and supports HTTP and SOCKS5 forms:
@@ -706,9 +707,9 @@ Leave empty to run Tier 3 without a proxy (your server's real IP is used).
 
 ### `RESIDENTIAL_PROXY_URL`
 
-**Default:** _(empty — Tier 4 disabled)_
+**Default:** _(empty - Tier 4 disabled)_
 
-Residential proxy pool used for Tier 4 (when the datacenter IP is flagged). Same format as `PROXY_URL` — single URL or comma-separated list. Tier 4 is completely skipped if this variable is not set and no per-request `proxy` override is supplied.
+Residential proxy pool used for Tier 4 (when the datacenter IP is flagged). Same format as `PROXY_URL` - single URL or comma-separated list. Tier 4 is completely skipped if this variable is not set and no per-request `proxy` override is supplied.
 
 ```ini
 RESIDENTIAL_PROXY_URL=http://user:pass@residential.example.com:8080
@@ -722,7 +723,7 @@ format. Use the hostname, port, and credentials supplied by the provider.
 
 **Default:** _(empty)_
 
-Alternative to cramming a large proxy list into `PROXY_URL`/`RESIDENTIAL_PROXY_URL` — path to a file with one proxy URL per line (`#` comments allowed). Merged with the corresponding `*_URL` env var if both are set.
+Alternative to cramming a large proxy list into `PROXY_URL`/`RESIDENTIAL_PROXY_URL` - path to a file with one proxy URL per line (`#` comments allowed). Merged with the corresponding `*_URL` env var if both are set.
 
 ```ini
 PROXY_LIST_FILE=/etc/trawl/datacenter-proxies.txt
@@ -762,11 +763,11 @@ The supplied Compose files pass the proxy pool sources and selection policy into
 
 `SCRAPE_PROXY_SELECTION` controls how both datacenter and residential pools choose an endpoint:
 
-| Value | Behavior |
-| --- | --- |
+| Value                | Behavior                                                                                                                                                                            |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `failover` (default) | Keeps a proxy sticky per domain. New domains spread round-robin, and a domain moves only after its proxy is blocked. This best preserves IP continuity for challenge-heavy targets. |
-| `roundrobin` | Chooses the next healthy endpoint whenever a request enters Tier 3 or Tier 4, including repeat requests to the same hostname. |
-| `random` | Randomly chooses a healthy endpoint whenever a request enters Tier 3 or Tier 4. |
+| `roundrobin`         | Chooses the next healthy endpoint whenever a request enters Tier 3 or Tier 4, including repeat requests to the same hostname.                                                       |
+| `random`             | Randomly chooses a healthy endpoint whenever a request enters Tier 3 or Tier 4.                                                                                                     |
 
 Selection happens only when a request actually reaches a proxy-backed tier. A request completed by
 Tier 1 or cached Tier 2 does not advance the pool; use `SCRAPE_MIN_TIER=3` when every scrape must
@@ -781,13 +782,13 @@ two-attempt limit prevents a large list from exhausting the request's `maxTimeou
 
 ### Per-request override
 
-Both `POST /scrape` and `POST /v1` accept an optional `proxy` field in the request body — when present, it's used directly for that request's Tier 3/4 attempts instead of the configured pool (and isn't retried against other pool proxies on failure, since it's caller-supplied):
+Both `POST /scrape` and `POST /v1` accept an optional `proxy` field in the request body - when present, it's used directly for that request's Tier 3/4 attempts instead of the configured pool (and isn't retried against other pool proxies on failure, since it's caller-supplied):
 
 ```json
 { "url": "https://example.com", "proxy": "http://user:pass@my-proxy.example.com:8080" }
 ```
 
-Note: `proxy` on `/v1` is a TRAWL-specific extension — it is not part of the real FlareSolverr v2 contract, so other FlareSolverr-compatible clients simply won't send it.
+Note: `proxy` on `/v1` is a TRAWL-specific extension - it is not part of the real FlareSolverr v2 contract, so other FlareSolverr-compatible clients simply won't send it.
 
 ### Test an endpoint
 

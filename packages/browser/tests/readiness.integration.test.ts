@@ -32,7 +32,7 @@ describe.skipIf(process.env.TRAWL_READINESS_TESTS !== "1")("browser readiness wi
         }
         if (path === "/api/content") return Response.json({ value: "loaded" })
         if (path === "/api/slow") {
-          await Bun.sleep(1100)
+          await Bun.sleep(1600)
           return Response.json({ value: "loaded" })
         }
         return new Response(

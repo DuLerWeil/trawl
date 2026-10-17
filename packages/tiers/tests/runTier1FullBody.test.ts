@@ -8,9 +8,9 @@ const htmlResponse = (html: string) =>
     headers: { "content-type": "text/html" },
   })
 
-describe("runTier1 — full body on success (regression #46)", () => {
+describe("runTier1 - full body on success (regression #46)", () => {
   test("returns the complete html for text responses larger than the 4 KiB detection preview", async () => {
-    // Only closing marker sits at the very end, far past the preview window —
+    // Only closing marker sits at the very end, far past the preview window -
     // a truncated body cannot contain it.
     const filler = `<p>${"x".repeat(100)}</p>\n`.repeat(300)
     const html = `<html><body>${filler}<div id="the-end">done</div></body></html>`

@@ -1,7 +1,7 @@
 name: Publish Baseline
 
 # Builds the `:baseline` (or versioned `*-baseline`) tag of `ghcr.io/.../trawl`
-# from `apps/api/Dockerfile.baseline` (Bun baseline runtime — pre-2013-CPU
+# from `apps/api/Dockerfile.baseline` (Bun baseline runtime - pre-2013-CPU
 # compatible). Same GHCR package as `:latest`, just a different tag.
 #
 # Triggers:
@@ -150,11 +150,11 @@ jobs:
           fi
           # Safety: baseline workflow must never push :latest
           if [[ "${TAG}" == "latest" ]]; then
-            echo "::error::Baseline workflow must not push :latest — use publish.yml instead"
+            echo "::error::Baseline workflow must not push :latest - use publish.yml instead"
             exit 1
           fi
           # Build the -t args. Every baseline build also moves the rolling :baseline
-          # pointer (mirrors how main pushes move :nightly) — unless the computed tag
+          # pointer (mirrors how main pushes move :nightly) - unless the computed tag
           # already IS "baseline" (manual dispatch default), in which case dedupe.
           TAGS="-t ${IMAGE}:${TAG}"
           if [[ "${TAG}" != "baseline" ]]; then

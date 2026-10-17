@@ -12,7 +12,7 @@ name: Publish
 # Lives separately from publish-nightly.yml (dev branch pushes) and
 # publish-baseline.yml (baseline runtime pushes). `v*-baseline` is
 # intentionally excluded so a baseline-only release doesn't also push
-# `:X.Y.Z`/`:latest` — publish-baseline.yml owns that path.
+# `:X.Y.Z`/`:latest` - publish-baseline.yml owns that path.
 #
 # Tag contract:
 #   - push `v*` -> :X.Y.Z + :latest
@@ -22,7 +22,7 @@ name: Publish
 on:
   push:
     tags:
-      # Release tags — pure semver only. `v*-baseline` is intentionally excluded
+      # Release tags - pure semver only. `v*-baseline` is intentionally excluded
       # so a baseline-only release (e.g., `v1.0.0-baseline`) does NOT push `:X.Y.Z`
       # or `:latest` from this workflow; publish-baseline.yml owns that path.
       - "v*"

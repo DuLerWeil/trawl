@@ -30,12 +30,12 @@ docker compose up -d
 
 This starts two containers:
 
-| Container | Purpose                 | Port     |
-| --------- | ----------------------- | -------- |
-| `redis`   | Session cache backend   | internal |
+| Container | Purpose                                       | Port       |
+| --------- | --------------------------------------------- | ---------- |
+| `redis`   | Session cache backend                         | internal   |
 | `trawl`   | Browser pool, API, and optional forward proxy | 8191, 8192 |
 
-The API takes **15–30 seconds** to launch and warm the browser pool. Watch progress:
+The API takes **15-30 seconds** to launch and warm the browser pool. Watch progress:
 
 ```bash
 docker compose logs -f trawl
@@ -48,7 +48,7 @@ You'll see:
 [pool] browser 1/3 ready
 [pool] browser 2/3 ready
 [pool] browser 3/3 ready
-[api] ready — all 3 browsers warm
+[api] ready - all 3 browsers warm
 ```
 
 ## 4. Verify it works
@@ -98,7 +98,7 @@ saved session remains valid.
 
 ## 6. Use the native API (optional)
 
-The `/scrape` endpoint returns a richer response than `/v1` — includes `tier`, `timings`, `sessionCached`, and more:
+The `/scrape` endpoint returns a richer response than `/v1` - includes `tier`, `timings`, `sessionCached`, and more:
 
 ```bash
 curl -s -X POST http://localhost:8191/scrape \

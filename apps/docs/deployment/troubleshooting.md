@@ -7,15 +7,15 @@ description: Common issues and how to fix them.
 
 ## API never becomes ready
 
-**Symptom:** `docker compose logs trawl` shows browser launches but the API never prints `ready — all N browsers warm`.
+**Symptom:** `docker compose logs trawl` shows browser launches but the API never prints `ready - all N browsers warm`.
 
 **Causes:**
 
-1. **Camoufox binary not installed** — The API image normally installs it during publication.
+1. **Camoufox binary not installed** - The API image normally installs it during publication.
    The supplied Compose files use a prebuilt image and have no `build` section, so
    `docker compose build` intentionally does nothing. Pull and recreate the service instead:
    `docker compose pull trawl && docker compose up -d --force-recreate trawl`.
-2. **shm_size too small** — Ensure `shm_size: 1gb` is set on the API service.
+2. **shm_size too small** - Ensure `shm_size: 1gb` is set on the API service.
 
 Redis is optional at runtime. If it is unavailable, TRAWL temporarily disables the Tier 2
 session-cache fast path but can still become ready and scrape through the other tiers. Unless
@@ -23,7 +23,7 @@ session-cache fast path but can still become ready and scrape through the other 
 
 ## Logs report `Tier 2 disabled`
 
-**Symptom:** TRAWL starts, but its logs contain `session cache unavailable — Tier 2 disabled` even
+**Symptom:** TRAWL starts, but its logs contain `session cache unavailable - Tier 2 disabled` even
 though `docker compose exec redis redis-cli ping` returns `PONG`.
 
 The Redis-container check only proves that Redis is healthy now. Verify the configured URL, Docker
@@ -85,7 +85,7 @@ or, on older images, `error: Cannot find package 'memoirist' from '/app/apps/api
 
 **Cause:** A bug in Bun's default "isolated" install linker corrupted `node_modules` during the Docker build, leaving transitive dependencies (`camoufox-js`, `@sinclair/typebox`) missing or broken inside the image ([oven-sh/bun#23524](https://github.com/oven-sh/bun/issues/23524), [oven-sh/bun#29489](https://github.com/oven-sh/bun/issues/29489)).
 
-::: tip Already fixed — just re-pull
+::: tip Already fixed - just re-pull
 This was fixed by switching the image build to `bun install --linker=hoisted`. Every `:latest` and `:baseline` image published after the fix is unaffected. If you're hitting this, re-pull rather than patching your container:
 
 ```bash
@@ -96,13 +96,13 @@ docker compose up -d --force-recreate
 
 ## All requests return Tier 3 (never hitting cache)
 
-**Symptom:** every request takes 10–30s, even for the same domain.
+**Symptom:** every request takes 10-30s, even for the same domain.
 
 **Causes:**
 
-1. **Redis session data is not persisting** — Run `docker compose exec redis redis-cli keys "session:*"` after a successful scrape. If empty, the session cache write is failing. Check API logs for Redis connection errors.
-2. **`REDIS_SESSION_TTL_SECONDS` set too low** — If it's shorter than Cloudflare's challenge interval, the cache expires before the next request.
-3. **Domain key mismatch** — The key is the hostname only. `sub.example.com` and `www.example.com` are separate sessions.
+1. **Redis session data is not persisting** - Run `docker compose exec redis redis-cli keys "session:*"` after a successful scrape. If empty, the session cache write is failing. Check API logs for Redis connection errors.
+2. **`REDIS_SESSION_TTL_SECONDS` set too low** - If it's shorter than Cloudflare's challenge interval, the cache expires before the next request.
+3. **Domain key mismatch** - The key is the hostname only. `sub.example.com` and `www.example.com` are separate sessions.
 
 ## POST /v1 returns HTTP 429 with `status: "error"`
 
@@ -112,8 +112,8 @@ docker compose up -d --force-recreate
 
 **Fixes (in order of preference):**
 
-1. **Raise `BROWSER_ACQUIRE_TIMEOUT_MS`** if your upstream target legitimately takes >5s per scrape — bumps the queue wait before 429 fires.
-2. **Raise `BROWSER_POOL_SIZE`** if you're consistently saturating — each browser uses ~350–500 MB RAM.
+1. **Raise `BROWSER_ACQUIRE_TIMEOUT_MS`** if your upstream target legitimately takes >5s per scrape - bumps the queue wait before 429 fires.
+2. **Raise `BROWSER_POOL_SIZE`** if you're consistently saturating - each browser uses ~350-500 MB RAM.
 3. **Reduce incoming request rate** if you control the client (Prowlarr's indexer interval, etc.).
 
 ## POST /v1 returns `status: "error"` with message `"timeout"`
@@ -122,9 +122,9 @@ docker compose up -d --force-recreate
 
 **Causes:**
 
-1. **Cloudflare introduced a harder challenge** — Some sites use Turnstile or WAF rules that are harder to bypass. Check the API logs for the actual error.
-2. **Pool exhausted** — All browsers are busy. Increase `BROWSER_POOL_SIZE`.
-3. **Proxy not working** — If `PROXY_URL` is configured and invalid, Tier 3 will fail consistently. Test HTTP proxies with `curl --proxy "$PROXY_URL" https://nowsecure.nl`. For SOCKS5, test proxy-side DNS explicitly with `curl --proxy socks5h://host:port https://nowsecure.nl`; TRAWL enables the equivalent Firefox remote-DNS preference automatically.
+1. **Cloudflare introduced a harder challenge** - Some sites use Turnstile or WAF rules that are harder to bypass. Check the API logs for the actual error.
+2. **Pool exhausted** - All browsers are busy. Increase `BROWSER_POOL_SIZE`.
+3. **Proxy not working** - If `PROXY_URL` is configured and invalid, Tier 3 will fail consistently. Test HTTP proxies with `curl --proxy "$PROXY_URL" https://nowsecure.nl`. For SOCKS5, test proxy-side DNS explicitly with `curl --proxy socks5h://host:port https://nowsecure.nl`; TRAWL enables the equivalent Firefox remote-DNS preference automatically.
 
 ## Prowlarr FlareSolverr test fails
 
@@ -160,11 +160,11 @@ settings.
 
 ## High memory usage / OOM kills
 
-Each Camoufox instance uses 350–500 MB, and temporary contexts or rolling replacement create short peaks. If the API is being killed:
+Each Camoufox instance uses 350-500 MB, and temporary contexts or rolling replacement create short peaks. If the API is being killed:
 
 1. Keep `BROWSER_POOL_SIZE=1` for a 1 GB container, or allow at least 2 GB for pool 3
 2. Upgrade the server (more RAM or more cores)
-3. Ensure `shm_size: 1gb` is set — Firefox uses `/dev/shm` heavily
+3. Ensure `shm_size: 1gb` is set - Firefox uses `/dev/shm` heavily
 
 ## Debugging tips
 

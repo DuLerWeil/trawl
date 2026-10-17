@@ -21,10 +21,10 @@ For existing FlareSolverr users, the compatible `/v1` endpoint works with Prowla
 - **Structured extraction and screenshots** - select fields from repeated elements, render JavaScript pages, and capture a viewport, full page, or specific element
 - **Challenge-aware HTTP/HTTPS proxy** - direct forwarding for normal traffic, automatic tier escalation for detected walls, plus WebSockets, binary bodies, and Range/206 support
 - **Local metrics dashboard** - persistent request history, tier outcomes, failure causes, and live updates
-- **Multi-WAF handling** - dedicated Cloudflare, Akamai Bot Manager, and Imperva/Incapsula detection and browser flows
-- **Native captcha solving** - CF Turnstile/Interstitial, reCAPTCHA v2 (free STT), hCaptcha checkbox/audio where available, GeeTest Slide, ALTCHA, Friendly Captcha v1/v2, and CAP proof-of-work
+- **Challenge-aware scraping** - Cloudflare, Akamai, Imperva/Incapsula, DDoS-Guard, AWS WAF, DataDome and Anubis detection, with provider-specific browser flows
+- **Built-in CAPTCHA solving** - Turnstile, reCAPTCHA v2 checkbox/audio, hCaptcha checkbox/audio where available, GeeTest Slide, ALTCHA, Friendly Captcha v1/v2 and CAP proof-of-work. See [challenge support](#challenge-and-captcha-support) for supported variants
 - **Camoufox Firefox** - fingerprint-patched at the C++/Juggler level to reduce automation signals
-- **Session cache** - solved cookies and browser identity stored in Redis; accepted sessions can avoid a fresh solve
+- **Automatic clearance reuse** - replay valid Cloudflare or Anubis clearance cookies and the browser's User-Agent over HTTP for repeat GET/HEAD requests. Rejected clearance, detected JavaScript shells and CAPTCHA widgets fall back to the browser. Direct connections only; named sessions retain their isolated browser state.
 - **FlareSolverr compatible** - works with Prowlarr, Jackett, Sonarr, and the full \*arr ecosystem out of the box
 - **Local solving by default** - no paid solver API required; optional [2Captcha fallback](./apps/docs/getting-started/configuration.md#optional-external-captcha-solver) for reCAPTCHA v2/Enterprise and standalone Turnstile, with site-specific profiles for other documented task types
 
@@ -90,11 +90,69 @@ For existing FlareSolverr users, the compatible `/v1` endpoint works with Prowla
   </table>
 </details>
 
+## Performance
+
+Solve once, reuse clearance automatically. On protected sites that accept the saved cookies and browser identity over HTTP, repeat requests can return without another browser navigation.
+
+| Protected page          | Best verified repeat |
+| ----------------------- | -------------------: |
+| NopeCHA Cloudflare demo |           **879 ms** |
+| 1337x                   |            **85 ms** |
+| EZTV                    |           **473 ms** |
+
+Measured **2026-10-17** on the development build after v1.8.0, using the same machine and network for TRAWL, FlareSolverr and Byparr. These are the fastest verified repeat responses in the sample, not first-visit challenge-solving times. Results vary by target, IP and session state.
+
+See the [full comparison, including medians and CPU/RAM](benchmarks/RESULTS.md), [test setup](benchmarks/README.md) and [performance guide](apps/docs/getting-started/performance.md).
+
 ## Local dashboard
 
 ![TRAWL metrics dashboard showing illustrative request data](apps/docs/public/screenshots/dashboard.png)
 
 The screenshot uses illustrative traffic. Your dashboard at `http://localhost:8191/dashboard` displays only requests handled by your TRAWL instance. See the [metrics guide](apps/docs/api-reference/health-stats.md#local-metrics-dashboard) for setup.
+
+## Challenge and CAPTCHA support
+
+TRAWL detects supported walls, chooses the matching browser flow and checks whether the wall remains before returning content. Embedded widgets use response-token or verified-state checks. These are supported solving paths, not a guarantee that every deployment will accept the result.
+
+| Challenge / CAPTCHA     | Built-in handling                                                                    | Optional 2Captcha handling                                     |
+| ----------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| Cloudflare interstitial | Browser challenge execution, Turnstile interaction and clearance recovery            | Site profile required for supported Turnstile-based challenges |
+| Standalone Turnstile    | Shadow-DOM/frame interaction; checks the response token                              | Automatic fallback for a supported declarative widget          |
+| reCAPTCHA v2            | Checkbox and audio solving                                                           | Automatic fallback for a supported declarative widget          |
+| reCAPTCHA v2 Enterprise | No dedicated Enterprise solver                                                       | Automatic fallback for a supported declarative widget          |
+| reCAPTCHA v3            | No built-in score solver                                                             | Site profile required                                          |
+| hCaptcha                | Checkbox auto-pass and audio where offered; no image-grid solver                     | Not included in the current external task catalogue            |
+| GeeTest                 | Slide puzzle matching and verified-state checks                                      | Site profile required                                          |
+| ALTCHA                  | Native proof-of-work widget                                                          | Site profile required                                          |
+| Friendly Captcha v1/v2  | Native widget execution and response checks                                          | Site profile required                                          |
+| CAP                     | Native proof of work; verifies every visible widget                                  | No catalogue entry                                             |
+| Anubis                  | Native JavaScript proof of work and metarefresh handling                             | No catalogue entry                                             |
+| Akamai Bot Manager      | Supported sensor and press-and-hold flows                                            | No dedicated catalogue entry                                   |
+| Imperva / Incapsula     | Supported sensor challenges; no built-in solver for its own interactive CAPTCHA      | Site profile required                                          |
+| DDoS-Guard              | JavaScript challenge execution and cookie checks                                     | No dedicated catalogue entry                                   |
+| AWS WAF                 | JavaScript token challenges; detects interactive CAPTCHA separately                  | Site profile required for CAPTCHA                              |
+| DataDome                | Device Check through the opt-in headful pool; detects slider CAPTCHA and hard blocks | Site profile required for slider CAPTCHA                       |
+| DuckDuckGo anomaly wall | Detected and reported as requiring CAPTCHA; no built-in image-puzzle solver          | No dedicated catalogue entry                                   |
+
+DataDome browser handling requires `BROWSER_HEADFUL_POOL_SIZE=1`, which adds another browser pool. IP hard blocks may require a different egress IP. Google Search `/sorry/` redirects and supported bot-wall pages are also detected; detection alone does not mean a puzzle can be solved.
+
+### External task catalogue
+
+2Captcha is disabled by default. Enable it with `CAPTCHA_SOLVER=2captcha` and `TWOCAPTCHA_API_KEY`. Automatic fallback supports one declarative reCAPTCHA v2/Enterprise or standalone Turnstile widget per provider on a page, subject to the adapter's callback, CSP and task-budget checks.
+
+Other task types require an exact-hostname profile with task inputs, response delivery and target verification. Recognized SDK markers can produce diagnostic candidates; they do not automatically create paid tasks.
+
+<details>
+  <summary>Additional task types supported through site profiles</summary>
+
+- **Provider tasks:** Arkose/FunCaptcha, Capy, KeyCaptcha, Lemin, CyberSiara, MTCaptcha, CutCaptcha, ATB, Tencent, Prosopo, CaptchaFox, VK, Yidun, Binance, Hunt, TSPD, Basilisk, Alibaba and Yandex SmartCaptcha, alongside the profile-based providers in the table above.
+- **Puzzle and media tasks:** image-to-text, text questions, audio, rotation, coordinates, grids, draw-around, bounding boxes, drag-and-drop, Temu images, SmartCaptcha images, Pazl puzzles and VK images. Generic images and audio are not automatically classified as CAPTCHA.
+
+</details>
+
+External integration is tested with local provider and widget fixtures. Real paid-service acceptance remains unverified. A widget token is not proof that a site's server accepted a form submission, and TRAWL does not submit surrounding forms automatically.
+
+See [browser challenge flows](apps/docs/architecture/tiered-execution.md#tier-3---fresh-challenge-solve) and [external solver configuration](apps/docs/getting-started/configuration.md#optional-external-captcha-solver) for setup and limits.
 
 ## Quick start
 
@@ -111,16 +169,16 @@ docker compose up -d
 curl http://localhost:8191/health
 ```
 
-First boot takes 15–30s while the browser pool warms up. Subsequent starts are fast.
+The browser pool warms at startup. HTTP requests can run while browser capacity becomes ready.
 
 ### NAS app catalogs
 
 Prefer a one-click installation? TRAWL is available from the community app
 catalogs for both TrueNAS and Unraid:
 
-- [TrueNAS Community Apps](https://apps.truenas.com/catalog/trawl_community/) —
+- [TrueNAS Community Apps](https://apps.truenas.com/catalog/trawl_community/) -
   open **Apps → Discover Apps** and search for **TRAWL**.
-- [Unraid Community Apps](https://ca.unraid.net/apps/trawl-1o4q23p06utr4h) —
+- [Unraid Community Apps](https://ca.unraid.net/apps/trawl-1o4q23p06utr4h) -
   open the **Apps** tab and search for **Trawl**.
 
 Thanks to the TrueNAS and Unraid community contributors who packaged and
@@ -139,6 +197,9 @@ curl -X POST http://localhost:8191/v1 \
 ### Native API (`/scrape`)
 
 Returns richer metadata: `tier`, `timings`, `sessionCached`, full cookie list.
+Embedded form widgets are attempted by default; set `solveEmbeddedCaptchas: false` when you
+only need page content. The `/v1` adapter defaults this flag to `false`. Detected access
+challenges still require resolution, and only verified widget solutions appear in `captchasSolved`.
 
 ```bash
 curl -X POST http://localhost:8191/scrape \
@@ -167,7 +228,7 @@ http://trawl:8191            # running via Docker Compose on the same network
 
 Some sites bind their Cloudflare clearance to the solving browser's full connection
 fingerprint. The `/v1` flow can't help there: Prowlarr keeps only the cookie + user-agent
-and **re-fetches the page with its own HTTP client**, which Cloudflare re-challenges — the
+and **re-fetches the page with its own HTTP client**, which Cloudflare re-challenges - the
 cookie isn't portable. For those indexers, enable TRAWL's forward proxy and add it to
 Prowlarr as an **HTTP proxy**:
 
@@ -217,7 +278,7 @@ curl http://<trawl-host>:8191/proxy-ca.crt -o trawl-ca.crt
 docker cp trawl:/data/proxy-ca/ca.crt ./trawl-ca.crt
 ```
 
-#### macOS (system keychain — affects most apps including Safari, curl, wget)
+#### macOS (system keychain - affects most apps including Safari, curl, wget)
 
 ```bash
 sudo security add-trusted-cert -d -r trustRoot \
@@ -229,7 +290,7 @@ sudo security delete-certificate -c "TRAWL MITM Proxy CA" \
   /Library/Keychains/System.keychain
 ```
 
-#### Linux (Debian/Ubuntu — system-wide for curl, wget, apt, etc.)
+#### Linux (Debian/Ubuntu - system-wide for curl, wget, apt, etc.)
 
 ```bash
 sudo cp trawl-ca.crt /usr/local/share/ca-certificates/trawl-ca.crt
@@ -255,7 +316,7 @@ Firefox installations that do not use operating-system roots need a per-profile 
 certutil -A -n "TRAWL MITM" -t "CT,C,C" -i trawl-ca.crt \
   -d sql:$HOME/.mozilla/firefox/<profile-dir>
 # Or via Firefox UI: Settings → Privacy & Security → Certificates → View Certificates →
-# Authorities → Import… → check "Trust this CA to identify websites".
+# Authorities → Import... → check "Trust this CA to identify websites".
 # Profile dir location: about:profiles in Firefox.
 ```
 
@@ -266,7 +327,7 @@ Chrome uses the system trust store on macOS and Windows but has its own on Linux
 ```bash
 # Option A: launch Chrome with --user-data-dir + NSS DB update (same as Firefox).
 # Option B: use Chrome's --ignore-certificate-errors-spki-list=<hash> (per-session, less safe).
-# Option C: add the cert to the system store (above) — Chrome picks it up automatically on
+# Option C: add the cert to the system store (above) - Chrome picks it up automatically on
 # most Linux distros via the nss-tool lookup.
 ```
 
@@ -301,7 +362,7 @@ update-ca-certificates
 LinuxServer runs scripts in `/custom-cont-init.d/` when the container starts. Java clients such as
 JDownloader require the separate `keytool` import described above.
 
-#### JDownloader 2 (Windows / macOS / Linux — manual install)
+#### JDownloader 2 (Windows / macOS / Linux - manual install)
 
 JDownloader bundles its own JRE; the CA must be imported into it.
 
@@ -335,16 +396,16 @@ generate a new root on its next start, so existing clients must install the new 
 Request
   │
   ▼
-Tier 1: Plain HTTP fetch ────── success ──→ return (< 100ms)
+Tier 1: HTTP + clearance ────── success ──→ return
   │ blocked
   ▼
-Tier 2: Cached session ─────── success ──→ return (~500ms)
+Tier 2: Cached session ─────── success ──→ return
   │ cache miss / expired
   ▼
 Tier 3: Fresh challenge solve ─ success ──→ cache + return
   │ IP flagged
   ▼
-Tier 4: Residential proxy ──── success ──→ cache + return (15–45s)
+Tier 4: Residential proxy ──── success ──→ cache + return
   │ failed
   ▼
   error
@@ -352,20 +413,20 @@ Tier 4: Residential proxy ──── success ──→ cache + return (15–45
 
 ## Docker Compose files
 
-| File                         | Description                                              |
-| ---------------------------- | -------------------------------------------------------- |
-| `docker-compose.yml`         | Scraper + Redis (default)                                |
-| `docker-compose.minimal.yml` | Scraper only, no Redis                                   |
-| `docker-compose.prod.yml`    | Production: `restart: always`, memory limit, healthcheck |
+| File                         | Description                                |
+| ---------------------------- | ------------------------------------------ |
+| `docker-compose.yml`         | Scraper + Redis (default)                  |
+| `docker-compose.minimal.yml` | Scraper only, no Redis                     |
+| `docker-compose.prod.yml`    | Production: `restart: always`, healthcheck |
 
 ## Docker images (one GHCR package, two release variants)
 
 | Image tag                          | Built from                     | Runtime                      | Use case                                                   |
 | ---------------------------------- | ------------------------------ | ---------------------------- | ---------------------------------------------------------- |
-| `ghcr.io/germondai/trawl:latest`   | `apps/api/Dockerfile`          | Bun 1.4.2 (modern, AVX2)     | Compact default — Linux fingerprints                       |
+| `ghcr.io/germondai/trawl:latest`   | `apps/api/Dockerfile`          | Bun 1.4.2 (modern, AVX2)     | Compact default - Linux fingerprints                       |
 | `ghcr.io/germondai/trawl:baseline` | `apps/api/Dockerfile.baseline` | Bun 1.4.2 baseline (no AVX2) | Older CPUs / older kernels (Synology NAS, J4125, Atom-era) |
 
-All tags live on the same `ghcr.io/germondai/trawl` package — they share the registry but differ in Dockerfile source or build arguments. Pick whichever tag fits your hardware and output:
+All tags live on the same `ghcr.io/germondai/trawl` package - they share the registry but differ in Dockerfile source or build arguments. Pick whichever tag fits your hardware and output:
 
 ```yaml
 # Modern hardware (most users)
@@ -375,7 +436,7 @@ image: ghcr.io/germondai/trawl:latest
 image: ghcr.io/germondai/trawl:baseline
 ```
 
-Synology note: many Synology NAS units (DSM 7.x on J4125 / older hardware) ship kernel 4.4.x, which Bun's modern runtime can't fully handle. Standard Bun requires kernel 5.1+ (5.6+ recommended); the baseline build degrades gracefully down to kernel 3.10. The `:baseline` tag is published for that case — **confirmed working** on a Synology DS920+ (Celeron J4125, DSM 7.3.2, kernel 4.4.302): the container starts cleanly, `/health` reports healthy, and it solves live Cloudflare challenges via `/v1` (see [#1](https://github.com/germondai/trawl/issues/1)). Published by independent GitHub Actions workflows: pushing a release tag such as `v1.8.0` creates `:1.8.0`, `:latest`, `:1.8.0-baseline`, and `:baseline`; the daily 02:00 UTC nightly build creates `:nightly` and `:nightly-<dev-sha>` from the latest `dev` commit.
+Synology note: many Synology NAS units (DSM 7.x on J4125 / older hardware) ship kernel 4.4.x, which Bun's modern runtime can't fully handle. Standard Bun requires kernel 5.1+ (5.6+ recommended); the baseline build degrades gracefully down to kernel 3.10. The `:baseline` tag is published for that case - **confirmed working** on a Synology DS920+ (Celeron J4125, DSM 7.3.2, kernel 4.4.302): the container starts cleanly, `/health` reports healthy, and it solves live Cloudflare challenges via `/v1` (see [#1](https://github.com/germondai/trawl/issues/1)). Published by independent GitHub Actions workflows: pushing a release tag such as `v1.8.0` creates `:1.8.0`, `:latest`, `:1.8.0-baseline`, and `:baseline`; the daily 02:00 UTC nightly build creates `:nightly` and `:nightly-<dev-sha>` from the latest `dev` commit.
 
 ## Releases & versioning
 
@@ -388,7 +449,7 @@ See the [Releases page](https://github.com/germondai/trawl/releases) for the ful
 history and [CHANGELOG.md](CHANGELOG.md) for what changed in each one.
 
 To publish a specific past commit that had a major fix without waiting for the next tip-of-`main`
-release, tag that exact SHA and push it — `publish.yml` builds off the tag ref, not off `main`'s
+release, tag that exact SHA and push it - `publish.yml` builds off the tag ref, not off `main`'s
 current tip:
 
 ```bash
@@ -423,26 +484,26 @@ for pool and mounted-file examples.
 | `BROWSER_POOL_SIZE`                | `1`                          | Warm Camoufox Firefox instances; raise for concurrent browser solves                    |
 | `LOG_LEVEL`                        | `info`                       | Operational logs: `error`, `warn`, `info`, `debug`, or `silent`                         |
 | `METRICS_DASHBOARD_ENABLED`        | `false`                      | Explicitly enable the local dashboard without a token; bind its port to `127.0.0.1`     |
-| `METRICS_DASHBOARD_TOKEN`          | —                            | Protect the dashboard, JSON endpoint, and live stream with a 32+ character token        |
+| `METRICS_DASHBOARD_TOKEN`          | -                            | Protect the dashboard, JSON endpoint, and live stream with a 32+ character token        |
 | `METRICS_DB_PATH`                  | `/data/metrics/trawl.sqlite` | SQLite path for local metrics history (mount `/data/metrics` persistently)              |
 | `BROWSER_ACQUIRE_TIMEOUT_MS`       | `15000`                      | How long `acquire()` polls for a free browser before HTTP 429 is returned               |
 | `BROWSER_RECYCLE_AFTER_CONTEXTS`   | `8`                          | Rolling-replace after this many Tier 3/4 contexts; set `0` to disable                   |
 | `BROWSER_MAX_CONTENT_PROCESSES`    | `2`                          | Cap Firefox content processes per browser (`dom.ipc.processCount`); lowers RAM/CPU      |
 | `SCRAPE_MIN_TIER`                  | `1`                          | Lowest tier allowed globally (`1` HTTP, `2` cached browser, `3` fresh, `4` residential) |
 | `SESSION_CACHE_DRIVER`             | `redis`                      | Session cache backend: `redis` or single-process `memory`                               |
-| `BROWSER_SESSION_MAX_ENTRIES` | `4` | Maximum named browser contexts per instance; start with `1` for small containers |
-| `BROWSER_SESSION_TTL_SECONDS` | `3600` | Named session idle expiry in seconds; independent of the clearance cache |
+| `BROWSER_SESSION_MAX_ENTRIES`      | `4`                          | Maximum named browser contexts per instance; start with `1` for small containers        |
+| `BROWSER_SESSION_TTL_SECONDS`      | `3600`                       | Named session idle expiry in seconds; independent of the clearance cache                |
 | `REDIS_SESSION_TTL_SECONDS`        | `3600`                       | Redis or in-memory session TTL (seconds)                                                |
 | `MEMORY_SESSION_CACHE_MAX_ENTRIES` | `1000`                       | Maximum LRU-bounded entries for the memory driver                                       |
-| `REDIS_URL`                        | —                            | Redis connection string; empty or unset disables the Redis cache                        |
+| `REDIS_URL`                        | -                            | Redis connection string; empty or unset disables the Redis cache                        |
 | `REDIS_CONNECT_TIMEOUT_MS`         | `5000`                       | Maximum time for each Redis connection attempt                                          |
 | `REDIS_RETRY_DELAY_MS`             | `5000`                       | Delay before reconnecting after startup failure; `0` disables retry                     |
 | `SCRAPE_PROXY_SELECTION`           | `failover`                   | Pool policy: sticky `failover`, per-request `roundrobin`, or `random`                   |
-| `PROXY_URL`                        | —                            | Optional Tier 3 HTTP or SOCKS5 proxy, or comma-separated pool                           |
-| `PROXY_LIST_FILE`                  | —                            | File containing one Tier 3 proxy URL per line                                           |
-| `RESIDENTIAL_PROXY_URL`            | —                            | Enables Tier 4 proxy escalation                                                         |
-| `RESIDENTIAL_PROXY_LIST_FILE`      | —                            | File containing one Tier 4 proxy URL per line                                           |
-| `STT_URL`                          | —                            | Local Whisper endpoint for reCAPTCHA (optional)                                         |
+| `PROXY_URL`                        | -                            | Optional Tier 3 HTTP or SOCKS5 proxy, or comma-separated pool                           |
+| `PROXY_LIST_FILE`                  | -                            | File containing one Tier 3 proxy URL per line                                           |
+| `RESIDENTIAL_PROXY_URL`            | -                            | Enables Tier 4 proxy escalation                                                         |
+| `RESIDENTIAL_PROXY_LIST_FILE`      | -                            | File containing one Tier 4 proxy URL per line                                           |
+| `STT_URL`                          | -                            | Local Whisper endpoint for reCAPTCHA (optional)                                         |
 | `PORT`                             | `8191`                       | API listen port                                                                         |
 | `MITM_ENABLED`                     | `false`                      | Enable the challenge-bypassing HTTP/HTTPS proxy                                         |
 | `MITM_PORT`                        | `8192`                       | Forward-proxy listen port                                                               |
@@ -459,7 +520,7 @@ old-to-new mapping and Redis opt-in behavior.
 ## Stack
 
 Built on a modern, fast-by-default stack: Bun + Elysia for the API, Redis for caching,
-Camoufox (hardened Firefox) for browser automation, and Nuxt for the web UI — no legacy
+Camoufox (hardened Firefox) for browser automation, and Nuxt for the web UI - no legacy
 Node/Express baggage.
 
 | Layer         | Technology                         |

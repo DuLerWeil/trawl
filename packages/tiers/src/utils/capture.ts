@@ -33,11 +33,14 @@ export interface CaptureOptions extends ResponseCaptureOptions {
   sessionStorage?: Map<string, [string, string][]>
   budget?: RequestBudget
   externalCaptcha?: ExternalCaptchaSession
+  solveEmbeddedCaptchas?: boolean
   followMetaRefresh?: boolean
   screenshotFullPage?: boolean
   screenshotWaitForSelector?: string
   screenshotSelector?: string
   contentWaitForSelector?: string
+  /** Tier 1 observed Anubis; cached pages use the same readiness check as fresh solves. */
+  anubisDetected?: boolean
   consoleLogs?: boolean
   networkLogs?: boolean
   redirectChain?: boolean

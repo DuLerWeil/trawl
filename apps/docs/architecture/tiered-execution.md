@@ -1,32 +1,37 @@
 ---
 title: Tiered Execution
-description: How TRAWL escalates through four tiers — from a plain fetch to a residential proxy solve.
+description: How TRAWL escalates through four tiers - from a plain fetch to a residential proxy solve.
 ---
 
 # Tiered Execution
 
-Every scrape request runs through a four-tier waterfall. Each tier is only tried if the previous one fails or is skipped. This means you pay the cheapest cost that works for each request — most requests never need a browser.
+Ordinary scrape requests use a four-tier waterfall, subject to request limits and proxy policy.
+Each tier is tried only when earlier work fails or is skipped. Named browser sessions use their
+own retained context and bypass the shared clearance cache.
 
 ```
 Request
   │
   ▼
-Tier 1: Plain HTTP Fetch ─── success ──→ return (< 100ms)
+Tier 1: HTTP Fetch ───────── success ──→ return
+  │ optional cached clearance + saved browser identity
   │ blocked / needs-js
   ▼
-Tier 2: Cached Session ────── success ──→ return (~500ms)
+Tier 2: Cached Session ────── success ──→ refresh cache, return
   │ blocked / cache miss
   ▼
 Tier 3: Fresh Challenge ───── success ──→ cache cookies, return
   │ IP flagged
   ▼
-Tier 4: Residential Proxy ─── success ──→ cache cookies, return (15–45s)
+Tier 4: Residential Proxy ─── success ──→ cache cookies, return
   │ failed
   ▼
   error
 ```
 
-## Tier 1 — Plain HTTP Fetch
+<span id="tier-1-&#8212;-plain-http-fetch"></span>
+
+## Tier 1 - Plain HTTP Fetch
 
 The cheapest tier. Uses Bun's native `fetch()` with the same Firefox navigation header set the Camoufox browser tiers send:
 
@@ -45,43 +50,71 @@ Priority: u=0, i
 
 **Succeeds for:** sites that serve the requested content without a browser challenge.
 
+Eligible repeat requests send saved Cloudflare or Anubis clearance cookies and the browser's
+User-Agent rather than making an unauthenticated probe. The response is fetched again, not
+served from a body cache. Rejected clearance falls back to the browser tiers. This requires
+a direct GET/HEAD request, verified TLS and matching origin provenance; see
+[Session Cache](/architecture/session-cache#automatic-http-clearance-reuse) for eligibility and fallback.
+
 **Escalates for:** recognized Cloudflare, Akamai, or Imperva challenge responses and blocked status codes such as 403 or 429. Detection uses provider-specific headers and HTML markers.
 
 **Skip with:** `skipHttp: true` in the request body, or deployment-wide `SCRAPE_MIN_TIER=2`.
 Use `maxTier: 1` to cap execution at Tier 1 instead.
 
-## Tier 2 — Cached Browser Session
+<span id="tier-2-&#8212;-cached-browser-session"></span>
 
-Reads `session:{hostname}` from Redis. If found, injects the saved cookies into a pooled Firefox context and navigates. When the target accepts the cached protection cookies and browser identity, the site loads without a fresh challenge solve.
+## Tier 2 - Cached Browser Session
+
+Reads `session:{hostname}` from the configured Redis or memory cache. If found, injects the saved
+cookies into a pooled Firefox context and navigates. This path also handles clearance that the
+HTTP tier cannot reuse. When the target accepts the cached cookies and browser identity, the
+site loads without a fresh challenge solve.
 
 **Succeeds for:** previously solved domains whose cached session is still accepted.
 
 **Fails for:** expired or rejected sessions. On failure, TRAWL invalidates the cached session and escalates to Tier 3.
 
-## Tier 3 — Fresh Challenge Solve
+<span id="tier-3-&#8212;-fresh-challenge-solve"></span>
 
-Acquires a browser from the pool (or waits up to `BROWSER_ACQUIRE_TIMEOUT_MS` — default 15s — for one to become available), creates a fresh Camoufox context, and navigates without preloaded cookies. TRAWL identifies the wall and runs the matching Cloudflare, Akamai, or Imperva wait flow until the protected page replaces the interstitial or `maxTimeout` elapses.
+## Tier 3 - Fresh Challenge Solve
+
+Acquires a browser from the pool (or waits up to `BROWSER_ACQUIRE_TIMEOUT_MS`, default 15s,
+within the remaining request budget), creates a fresh Camoufox context and navigates. Ordinary
+solves start without cached cookies; explicitly imported cookies use an isolated context and
+do not enter the shared cache. TRAWL identifies the wall and runs the matching provider flow
+until the protected page replaces it or the request deadline expires.
 
 On success:
-- Extracts all cookies from the page context
-- Writes `session:{hostname} → { cookies, userAgent, savedAt }` to Redis (TTL = `REDIS_SESSION_TTL_SECONDS`)
-- Returns the HTML and cookies to the caller
 
-Uses [Camoufox](https://github.com/daijro/camoufox) — Firefox with fingerprint patching at the C++/Juggler level to reduce common automation signals. Success still depends on the target's challenge variant, IP reputation, and upstream network conditions.
+- Extracts cookies from the page context.
+- Saves eligible shared session state when cookies are available, using the configured cache
+  driver and `REDIS_SESSION_TTL_SECONDS`. Direct, TLS-verified GET/HEAD visits with matching
+  requested and final origins can record `httpOrigin` for later HTTP reuse.
+- Returns the HTML and cookies to the caller.
+
+Uses [Camoufox](https://github.com/daijro/camoufox) - Firefox with fingerprint patching at the C++/Juggler level to reduce common automation signals. Success still depends on the target's challenge variant, IP reputation, and upstream network conditions.
 
 ### Embedded CAPTCHA widgets
 
-Embedded widgets proceed to their own solver after the page loads. Their iframe can remain mounted after completion, so iframe disappearance is not used as proof of success.
+Detected access challenges must clear before content is returned. After the page loads,
+`solveEmbeddedCaptchas` controls attempts on embedded form widgets: native `/scrape` and MCP
+`scrape` default to `true`; FlareSolverr-compatible `/v1` defaults to `false`. Set it to `false`
+when only page content is needed, or `true` to request widget attempts. These are best-effort
+attempts within the request deadline, reserving two seconds for document capture.
 
-| Provider | Attempted path | Confirmation |
-| --- | --- | --- |
-| Turnstile | Existing shadow-DOM or frame checkbox interaction | Widget response token |
-| reCAPTCHA v2 | Checkbox or audio challenge | Existing response/checked-state checks |
-| hCaptcha | Checkbox auto-pass; audio where the site offers it | Checked checkbox state; image grids remain unsupported |
-| GeeTest slide | Piece texture matching with screenshot fallback; up to three recalculated puzzles | Explicit verified widget state, never just a closed popup |
-| ALTCHA | Native component verification or checkbox | Verified state/response |
-| Friendly Captcha | Native component or provider-frame start | Completed response |
-| CAP | Native component or its shadow control | Component response token |
+Only verified widget solutions appear in `captchasSolved`. An iframe can remain mounted after
+completion, so iframe disappearance is not used as proof of success. See the
+[native API](/api-reference/native-api#embedded-captcha-widgets) for request semantics.
+
+| Provider         | Attempted path                                                                    | Confirmation                                              |
+| ---------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Turnstile        | Existing shadow-DOM or frame checkbox interaction                                 | Widget response token                                     |
+| reCAPTCHA v2     | Checkbox or audio challenge                                                       | Existing response/checked-state checks                    |
+| hCaptcha         | Checkbox auto-pass; audio where the site offers it                                | Checked checkbox state; image grids remain unsupported    |
+| GeeTest slide    | Piece texture matching with screenshot fallback; up to three recalculated puzzles | Explicit verified widget state, never just a closed popup |
+| ALTCHA           | Native component verification or checkbox                                         | Verified state/response                                   |
+| Friendly Captcha | Native component or provider-frame start                                          | Completed response                                        |
+| CAP              | Native component or its shadow control                                            | Component response token                                  |
 
 CAP uses the installed widget's own PoW implementation, browser proxy and outbound policy. It adds no solver dependency or external paid service. Component readiness and offscreen controls are handled within the request budget. Visible CAP widgets are solved sequentially within the shared budget, and all must have a response before completion is reported. The solver does not submit the surrounding form.
 
@@ -99,18 +132,18 @@ Tier 3 and Tier 4 also detect and resolve supported Imperva/Incapsula WAF challe
 
 Detection checks active challenge frames and sensor bootstrap shells. Cookie names in article text, inactive HTML examples, and ordinary Imperva CDN headers alone do not trigger browser escalation.
 
-**Caveat:** unlike Turnstile, Imperva's script sometimes layers in TLS/JA3 and behavioral checks beyond plain cookie generation, and its obfuscation changes periodically — success isn't guaranteed at the same rate as Cloudflare. Some Imperva deployments also show a visible interactive CAPTCHA widget (distinct from hCaptcha/reCAPTCHA) instead of the passive sensor-only path; that variant isn't solved yet.
+**Caveat:** unlike Turnstile, Imperva's script sometimes layers in TLS/JA3 and behavioral checks beyond plain cookie generation, and its obfuscation changes periodically - success isn't guaranteed at the same rate as Cloudflare. Some Imperva deployments also show a visible interactive CAPTCHA widget (distinct from hCaptcha/reCAPTCHA) instead of the passive sensor-only path; that variant isn't solved yet.
 
 ### DataDome challenges
 
 Tier 3 and Tier 4 detect the three DataDome responses. All of them arrive through
 `captcha-delivery.com`:
 
-| Response | Marker | TRAWL action |
-| --- | --- | --- |
-| Device Check | `i.js` script, `dd.rt = 'i'` | Runs `packages/tiers/src/utils/datadomeWait.ts` and waits for a new `datadome` cookie |
-| Slider CAPTCHA | `c.js` script, `dd.rt = 'c'` | Reports `datadome-captcha-required`. No solver yet |
-| Hard block | `t=bv` on the challenge URL | Reports the IP as blocked and escalates to Tier 4 |
+| Response       | Marker                       | TRAWL action                                                                          |
+| -------------- | ---------------------------- | ------------------------------------------------------------------------------------- |
+| Device Check   | `i.js` script, `dd.rt = 'i'` | Runs `packages/tiers/src/utils/datadomeWait.ts` and waits for a new `datadome` cookie |
+| Slider CAPTCHA | `c.js` script, `dd.rt = 'c'` | Reports `datadome-captcha-required`. No solver yet                                    |
+| Hard block     | `t=bv` on the challenge URL  | Reports the IP as blocked and escalates to Tier 4                                     |
 
 The block-only `x-dd-b` response header lets the MITM proxy escalate before the body arrives.
 
@@ -124,7 +157,9 @@ is warmed during startup.
 The sub-pool is off by default: set `BROWSER_HEADFUL_POOL_SIZE=1` to scrape DataDome
 targets. See [Configuration](/getting-started/configuration).
 
-## Tier 4 — Residential Proxy Escalation
+<span id="tier-4-&#8212;-residential-proxy-escalation"></span>
+
+## Tier 4 - Residential Proxy Escalation
 
 Same as Tier 3 but launches the browser with `RESIDENTIAL_PROXY_URL` set as the proxy. Only triggered when:
 
@@ -141,18 +176,25 @@ The orchestrator (`packages/tiers/src/orchestrator.ts`) controls escalation. You
 { "url": "...", "maxTier": 2 }
 ```
 
-This runs Tier 1, then Tier 2, then returns an error if both fail — never launching a fresh browser solve.
+This runs Tier 1, then Tier 2, then returns an error if both fail - never launching a fresh browser solve.
 
-## Timing reference
+## Reading tier timings
 
-| Tier | Typical time | Browser used              |
-| ---- | ------------ | ------------------------- |
-| 1    | 50–150ms     | No                        |
-| 2    | 400–700ms    | Yes (warm)                |
-| 3    | Challenge-dependent | Yes (fresh solve)    |
-| 4    | 15–45s       | Yes (fresh solve + proxy) |
+| Tier | Work performed                                        | Browser used   |
+| ---- | ----------------------------------------------------- | -------------- |
+| 1    | HTTP fetch, optionally with eligible cached clearance | No             |
+| 2    | Navigate with cached cookies and browser identity     | Yes, warm pool |
+| 3    | Fresh context and challenge solving                   | Yes, warm pool |
+| 4    | Browser solve through the configured proxy            | Yes, warm pool |
 
-Anubis uses the site's own JavaScript for proof of work. TRAWL polls a small browser DOM summary every 300 ms, respects the remaining request budget, and rejects denial pages or unresolved verification endpoints. Expired cached sessions escalate to a fresh browser context. PoW CPU and memory usage depend on the target policy and browser worker count; a 1 GiB limit is not sufficient for every public deployment.
+Latency depends on the target, network, clearance acceptance and challenge variant. A fast
+Tier 1 repeat is not a measurement of first-visit challenge solving. See
+[Performance & Benchmarks](/getting-started/performance) for recorded first/repeat results
+and CPU/memory measurements instead of fixed per-tier timing estimates.
+
+### Anubis proof of work
+
+Anubis uses the site's own JavaScript for proof of work. TRAWL polls a small browser DOM summary every 300 ms, respects the remaining request budget, and rejects denial pages or unresolved verification endpoints. Supported cached authentication cookies can enable direct HTTP reuse; rejected clearance returns to the browser tiers. PoW CPU and memory usage depend on the target policy and browser worker count; a 1 GiB limit is not sufficient for every public deployment.
 
 A closed Anubis browser page may be retried once for GET or HEAD within the original timeout. If the container cgroup reports a new OOM kill, TRAWL stops instead of repeating the expensive solve. On systems without cgroup counters, recovery remains limited to one retry. POST requests are never replayed.
 

@@ -37,7 +37,7 @@ afterEach(() => {
   // Per-test teardown is handled by the returned `restore` closure in each test.
 })
 
-describe("runTier1 — POST support", () => {
+describe("runTier1 - POST support", () => {
   test("reports the same fingerprint UA that the orchestrator sends", async () => {
     const restore = installFetchMock()
     try {
@@ -137,7 +137,7 @@ describe("runTier1 — POST support", () => {
       expect(recorded[0].url).toBe("https://example.com/login")
       expect(recorded[0].init?.method).toBe("POST")
       expect(recorded[0].init?.body).toBe("user=a&pw=b")
-      // Caller-supplied Content-Type must be passed through untouched — no
+      // Caller-supplied Content-Type must be passed through untouched - no
       // auto-injection at the tier level.
       const h = recorded[0].init?.headers as Record<string, string>
       expect(h?.["Content-Type"] ?? h?.["content-type"]).toBe("application/x-www-form-urlencoded")
@@ -152,14 +152,14 @@ describe("runTier1 — POST support", () => {
       await runTier1("https://example.com/x", undefined, "GET", "ignored=by-design")
       expect(recorded).toHaveLength(1)
       expect(recorded[0].init?.method).toBe("GET")
-      // Spec: `method === "POST" ? body : undefined` — GET + body is ignored.
+      // Spec: `method === "POST" ? body : undefined` - GET + body is ignored.
       expect(recorded[0].init?.body).toBeUndefined()
     } finally {
       restore()
     }
   })
 
-  test("caller headers are spread LAST and therefore can override Fingerprint defaults — the reserved-name denylist at the orchestrator level is what prevents UA spoofing in production", async () => {
+  test("caller headers are spread LAST and therefore can override Fingerprint defaults - the reserved-name denylist at the orchestrator level is what prevents UA spoofing in production", async () => {
     const restore = installFetchMock()
     try {
       // This demonstrates the tier's pass-through behaviour: a non-reserved
@@ -171,7 +171,7 @@ describe("runTier1 — POST support", () => {
 
       await runTier1("https://example.com/x", cleaned)
       const h = recorded[0].init?.headers as Record<string, string>
-      // After sanitisation, only Accept survived — so tier1's FINGERPRINT UA wins.
+      // After sanitisation, only Accept survived - so tier1's FINGERPRINT UA wins.
       expect(h?.["User-Agent"] ?? h?.["user-agent"]).not.toBe("evil-spider/1.0")
       expect(h?.["User-Agent"] ?? h?.["user-agent"]).toBeTruthy()
     } finally {
