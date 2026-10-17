@@ -106,7 +106,7 @@ function showTrendTooltip(point, data, clientX, clientY) {
   tooltip.replaceChildren();
   const start = new Date(point.minute);
   const end = new Date(start.getTime() + data.bucketMs);
-  tooltip.append(element('strong', '', start.toLocaleString() + ' – ' + end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })));
+  tooltip.append(element('strong', '', start.toLocaleString() + ' - ' + end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })));
   detailLine(tooltip, 'Requests', number(point.requests));
   detailLine(tooltip, 'Successful', number(point.requests - point.failures));
   detailLine(tooltip, 'Failed', number(point.failures));
@@ -225,7 +225,7 @@ function drawFailures() {
   );
   drawRows('recent', entries.map(item => [
     new Date(item.at).toLocaleString(), item.domain, item.source,
-    item.tier ?? '—', item.tierStatus ?? '—', item.statusCode ?? '—', item.category, item.severity
+    item.tier ?? '-', item.tierStatus ?? '-', item.statusCode ?? '-', item.category, item.severity
   ]), query ? 'No matching failures' : 'No failures recorded');
 }
 
@@ -242,8 +242,8 @@ function render(data) {
   ]), 'No failing domains');
   drawFailures();
   drawRows('events', data.recentEvents.map(item => [
-    new Date(item.at).toLocaleString(), item.domain, item.source, item.tier ?? '—',
-    item.statusCode ?? '—', number(item.durationMs) + ' ms', item.success ? 'Success' : (item.category ?? 'Failure')
+    new Date(item.at).toLocaleString(), item.domain, item.source, item.tier ?? '-',
+    item.statusCode ?? '-', number(item.durationMs) + ' ms', item.success ? 'Success' : (item.category ?? 'Failure')
   ]), 'No requests recorded in this period');
   byId('history-note').textContent = 'Hostnames only · local history' + (data.startedAt ? ' since ' + new Date(data.startedAt).toLocaleString() : ' starts with the first request') + ' · ' + number(data.retainedEvents) + ' retained events · no remote telemetry';
   byId('updated').textContent = 'Updated ' + new Date().toLocaleTimeString();

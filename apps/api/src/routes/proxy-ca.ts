@@ -13,7 +13,7 @@ export function proxyCaRoute() {
     const path = join(MITM_CA_DIR, "ca.crt")
     if (!existsSync(path)) {
       set.status = 503
-      return "CA not generated yet — start the proxy first"
+      return "CA not generated yet - start the proxy first"
     }
     set.headers["content-type"] = "application/x-pem-file"
     set.headers["content-disposition"] = 'attachment; filename="trawl-proxy-ca.crt"'

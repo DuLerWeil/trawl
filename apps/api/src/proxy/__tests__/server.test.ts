@@ -16,7 +16,7 @@ describe("always-scrape Tier 0 policy", () => {
   })
 })
 
-describe("writeResponseFromBuffer — Set-Cookie newline folding", () => {
+describe("writeResponseFromBuffer - Set-Cookie newline folding", () => {
   test("emits one Set-Cookie line per cookie when Playwright newline-folds them", () => {
     // Playwright's response.allHeaders() joins multiple Set-Cookie values with \n.
     // A bare value after the fold creates a 'malformed MIME header line' error in
@@ -47,7 +47,7 @@ describe("writeResponseFromBuffer — Set-Cookie newline folding", () => {
     expect(cookieLines[0]).toContain("session-id=abc")
     expect(cookieLines[1]).toContain("session-id-time=")
 
-    // No bare continuation line — the Expires comma must not produce a split.
+    // No bare continuation line - the Expires comma must not produce a split.
     const malformed = lines.filter((l) => /^session-id-time=/.test(l))
     expect(malformed).toHaveLength(0)
   })
