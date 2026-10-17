@@ -25,7 +25,7 @@ Before an ordinary HTTP request, TRAWL checks whether the saved session can be r
 
 Cookie domain, path, expiry and secure flags are checked before sending. Same-origin redirects
 can update cookies; a cross-origin redirect returns to the browser path before credentials are
-forwarded. Legacy entries without origin provenance remain usable by Tier 2.
+forwarded. Sessions without HTTP origin provenance can still use the browser path.
 
 The HTTP attempt receives at most five seconds or one third of the remaining request budget,
 whichever is smaller. Rejected clearance, recognized challenge walls, detected JavaScript shells
@@ -35,6 +35,26 @@ the cached cookies and browser identity without keeping another browser page ope
 Anubis replay recognizes the default authentication cookie names, including their optional
 settings suffix. Test and referrer cookies do not qualify. Custom cookie names and clearance
 bound to a browser connection retain browser fallback.
+
+## Proxy-bound browser reuse
+
+Sessions established through a configured datacenter or residential proxy retain an opaque
+identity for that proxy. Tier 2 resolves it against the current proxy configuration and opens a
+temporary context on the same pooled browser, with the original proxy, cookies and User-Agent.
+Optional external CAPTCHA tasks use the same proxy during cached browser requests.
+The context closes when the request finishes or times out. Direct sessions retain their shared
+pooled-context path.
+
+Proxy credentials are not copied into the cache. Removing the proxy, changing its credentials or
+putting it in cooldown invalidates reuse of its cached session. Proxied cookies are never eligible
+for direct HTTP clearance replay, and explicit per-request proxies and named sessions retain their
+existing isolation rules.
+
+The same proxy endpoint must still provide a stable exit IP for IP-bound clearance. If the site
+rejects the cached session, TRAWL invalidates it and attempts a fresh solve as before.
+
+Pool selection policies apply when entering Tier 3 or Tier 4. A Tier 2 cache hit retains the
+original healthy proxy, including when fresh solves use round-robin or random selection.
 
 ## Cache driver
 
@@ -60,7 +80,11 @@ interface. Redis is not required for reuse in a single API process.
 
 ## Storage format
 
-Key: `session:{hostname}` (e.g. `session:nowsecure.nl`)
+Key: `session:v2:{hostname}` (e.g. `session:v2:nowsecure.nl`)
+
+Older Redis entries under `session:{hostname}` are ignored because their proxy origin cannot be
+established safely. The first browser request after upgrading repopulates the cache; old entries
+expire with their existing TTL.
 
 Value (JSON):
 
@@ -69,6 +93,7 @@ interface SessionData {
   cookies: Cookie[]
   userAgent: string
   savedAt: number     // unix timestamp ms
+  proxyId?: string    // SHA-256 identity of the configured proxy, absent for direct sessions
   httpOrigin?: string // verified direct origin eligible for HTTP reuse
 }
 ```
@@ -85,9 +110,9 @@ The key is the **hostname only**, without a path, port or protocol. Pages on tha
 cache entry, while cookie scope still controls which cookies are sent:
 
 ```
-https://example.com/        → session:example.com
-https://example.com/page    → session:example.com  (same key)
-https://sub.example.com/    → session:sub.example.com  (different key)
+https://example.com/        → session:v2:example.com
+https://example.com/page    → session:v2:example.com  (same key)
+https://sub.example.com/    → session:v2:sub.example.com  (different key)
 ```
 
 Subdomains have separate entries. HTTP replay additionally requires an exact match of scheme,
@@ -148,8 +173,8 @@ configured Redis endpoint becomes unavailable.
 import { RedisClient } from 'bun'
 
 const redis = new RedisClient('redis://localhost:6379')
-await redis.set('session:example.com', JSON.stringify(data), 'EX', 3600)
-const raw = await redis.get('session:example.com')
+await redis.set('session:v2:example.com', JSON.stringify(data), 'EX', 3600)
+const raw = await redis.get('session:v2:example.com')
 ```
 
 ## In-memory

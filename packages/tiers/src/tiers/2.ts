@@ -1,5 +1,5 @@
 import type { BrowserHandle } from "@trawl/browser"
-import { closeTemporaryContext } from "@trawl/browser"
+import { closeTemporaryContext, newFreshContext } from "@trawl/browser"
 import type { Cookie, SessionData } from "@trawl/types"
 import { capturePageFavicons } from "../favicons"
 import { solvePageCaptchas } from "../solvers"
@@ -40,9 +40,11 @@ async function runTier2Task(
   validateOutboundUrl?: OutboundUrlValidator,
   screenshot?: boolean,
   capture: CaptureOptions = {},
+  proxyUrl?: string,
 ): Promise<Tier2Result> {
   const start = Date.now()
-  const activeContext = handle.context
+  let activeContext = handle.context
+  let openingContext: ReturnType<typeof newFreshContext> | undefined
   let page: Awaited<ReturnType<typeof activeContext.newPage>> | undefined
   let openingPage: ReturnType<typeof activeContext.newPage> | undefined
 
@@ -51,14 +53,24 @@ async function runTier2Task(
   let cleanup: Promise<void> | undefined
   const close = () =>
     (cleanup ??= closeTemporaryContext(
-      openingPage ?? page,
+      proxyUrl ? openingContext : (openingPage ?? page),
       handle.requestBrowserReplacement,
       "tier2 page cleanup timed out",
     ))
   let disown = () => {}
   try {
-    openingPage = activeContext.newPage()
+    budget.check()
     disown = budget.own(close)
+    if (proxyUrl) {
+      openingContext = newFreshContext(handle.browser, {
+        proxy: proxyUrl,
+        onCreated: handle.noteTemporaryContext,
+        requestReplacement: handle.requestBrowserReplacement,
+      })
+      activeContext = await openingContext
+      budget.check()
+    }
+    openingPage = activeContext.newPage()
     page = await openingPage
     budget.check()
     page.setDefaultTimeout?.(Math.max(1, budget.remaining()))
@@ -216,12 +228,16 @@ async function runTier2Task(
     const solveRemaining = Math.max(0, budget.remaining() - 2000)
     let captchasSolved: string[] = []
     if (capture.solveEmbeddedCaptchas !== false && budget.remaining() > 5000) {
-      const result = await solvePageCaptchas(page, solveRemaining, budget.signal, capture.externalCaptcha).catch(
-        () => ({
-          attempted: [],
-          solved: [],
-        }),
-      )
+      const result = await solvePageCaptchas(
+        page,
+        solveRemaining,
+        budget.signal,
+        capture.externalCaptcha,
+        proxyUrl,
+      ).catch(() => ({
+        attempted: [],
+        solved: [],
+      }))
       captchasSolved = result.solved
     }
 

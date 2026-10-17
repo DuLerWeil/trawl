@@ -65,8 +65,9 @@ Use `maxTier: 1` to cap execution at Tier 1 instead.
 
 ## Tier 2 - Cached Browser Session
 
-Reads `session:{hostname}` from the configured Redis or memory cache. If found, injects the saved
-cookies into a pooled Firefox context and navigates. This path also handles clearance that the
+Reads `session:v2:{hostname}` from the configured Redis or memory cache. If found, injects the saved
+cookies into a pooled Firefox context and navigates. Proxy-bound sessions use an isolated temporary
+context on the same browser through their original configured proxy. This path also handles clearance that the
 HTTP tier cannot reuse. When the target accepts the cached cookies and browser identity, the
 site loads without a fresh challenge solve.
 

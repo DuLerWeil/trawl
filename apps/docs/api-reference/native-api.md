@@ -111,7 +111,7 @@ interface ScrapeResult {
   timings: TierResult[]        // per-tier attempt history
   totalMs: number
   captchasSolved?: string[]    // captcha types solved on the page itself (e.g. ['turnstile'])
-  proxyUsed?: boolean          // true if the winning tier routed through a proxy (Tier 3 datacenter pool or Tier 4 residential pool/override)
+  proxyUsed?: boolean          // true if the winning tier routed through a proxy, including cached Tier 2 reuse
   screenshot?: string          // base64 JPEG of the viewport, only when requested and a browser tier served the page
   consoleLogs?: ConsoleLogEntry[]  // console messages, only when requested and a browser tier served the page
   networkLogs?: NetworkLogEntry[]  // resource timings, same presence rules as consoleLogs
