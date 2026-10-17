@@ -40,7 +40,7 @@ export class MemorySessionCache implements SessionCacheStore {
   }
 
   async connect(): Promise<void> {
-    // No-op — nothing to connect to.
+    // No-op - nothing to connect to.
   }
 
   close(): void {
