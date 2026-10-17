@@ -8,7 +8,7 @@ describe("ProxyPool", () => {
   test("round-robins across proxies for different domains", () => {
     const pool = new ProxyPool(["http://p1:8080", "http://p2:8080", "http://p3:8080"])
     const picks = [pool.next("a.com"), pool.next("b.com"), pool.next("c.com"), pool.next("d.com")]
-    // 3 proxies, 4 picks (one new domain each) — round-robin wraps back to the first proxy
+    // 3 proxies, 4 picks (one new domain each) - round-robin wraps back to the first proxy
     expect(picks).toEqual(["http://p1:8080", "http://p2:8080", "http://p3:8080", "http://p1:8080"])
   })
 

@@ -125,7 +125,7 @@ async function transcribeGoogle(audioUrl: string, signal?: AbortSignal): Promise
             const cleaned = clean(t)
             console.log("[stt] raw transcript:", JSON.stringify(t), "→", JSON.stringify(cleaned))
             if (cleaned) return cleaned
-            // transcript exists but cleaned to empty — try next rate
+            // transcript exists but cleaned to empty - try next rate
           }
         } catch {}
       }

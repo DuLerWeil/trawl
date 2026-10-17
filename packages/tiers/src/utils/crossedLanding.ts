@@ -166,7 +166,7 @@ export function createCrossedLandingGuard(
         // Independent egresses agreeing on the same off-host landing is a redirect only a
         // browser performs, not one connection that reached the wrong origin.
         console.log(
-          `[crossed-landing] ${requested} -> ${landed} seen from ${egresses.size} egresses — accepting as a real redirect`,
+          `[crossed-landing] ${requested} -> ${landed} seen from ${egresses.size} egresses - accepting as a real redirect`,
         )
         return null
       }

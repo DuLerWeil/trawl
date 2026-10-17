@@ -18,7 +18,7 @@ const encodingCases: EncodingCase[] = [
   },
 ]
 
-describe("runTier1 — encoded response bodies", () => {
+describe("runTier1 - encoded response bodies", () => {
   test.each(encodingCases)(
     "preserves $encoding representation bytes while decoding html",
     async ({ encoding, encode }) => {

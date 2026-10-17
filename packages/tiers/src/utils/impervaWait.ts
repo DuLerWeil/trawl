@@ -68,7 +68,7 @@ export async function waitForImpervaResolution(
         // Sensor cookie set but still on the challenge page - Imperva's redirect
         // sometimes doesn't auto-fire (unlike CF). Navigate ourselves after a grace period.
         if (originalUrl && Date.now() - sensorCookieAt > 5000) {
-          console.log("[imperva] sensor cookie set but still on challenge page — navigating to original URL")
+          console.log("[imperva] sensor cookie set but still on challenge page - navigating to original URL")
           await page
             .goto(originalUrl, { waitUntil: "domcontentloaded", timeout: Math.max(1, Math.min(15000, remaining())) })
             .catch(() => {})
@@ -81,7 +81,7 @@ export async function waitForImpervaResolution(
         }
       }
     } catch {
-      // Page is mid-navigation — keep polling
+      // Page is mid-navigation - keep polling
     }
 
     await sleep(Math.min(300, remaining()))

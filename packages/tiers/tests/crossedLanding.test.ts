@@ -30,7 +30,7 @@ afterAll(() => {
   wrongOrigin.stop(true)
 })
 
-// `localhost` and `127.0.0.1` are the same machine but different hosts — the requested URL
+// `localhost` and `127.0.0.1` are the same machine but different hosts - the requested URL
 // uses one, the redirect lands on the other.
 const requestedUrl = `http://localhost:${requestedOrigin.port}/elsewhere`
 const landedHost = "127.0.0.1"

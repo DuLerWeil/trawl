@@ -89,7 +89,7 @@ export async function waitForChallengeResolution(
         }
         // CF auto-redirect normally fires within 2-3s. If it hasn't, navigate ourselves.
         if (originalUrl && Date.now() - cfClearanceAt > 5000) {
-          console.log("[challenge] cf_clearance set but still on challenge page — navigating to original URL")
+          console.log("[challenge] cf_clearance set but still on challenge page - navigating to original URL")
           await page
             .goto(originalUrl, {
               waitUntil: "domcontentloaded",
@@ -108,7 +108,7 @@ export async function waitForChallengeResolution(
         if (await attemptTurnstileClick(page).catch(() => false)) lastClickAttempt = now
       }
     } catch {
-      // Page is mid-navigation — keep polling
+      // Page is mid-navigation - keep polling
     }
 
     await new Promise((r) => setTimeout(r, 300))
