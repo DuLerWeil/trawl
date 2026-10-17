@@ -7,6 +7,7 @@ image=${1:-trawl-smoke}
 # Separate processes keep each suite's browser and Bun memory independent.
 for suite in \
   apps/api/src/browserSessions.integration.test.ts \
+  apps/api/src/proxySessions.integration.test.ts \
   packages/browser/tests/metaRefresh.integration.test.ts \
   packages/browser/tests/rawText.integration.test.ts \
   packages/browser/tests/readiness.integration.test.ts
@@ -23,7 +24,9 @@ do
     -e BROWSER_BLOCK_ADS=false \
     -e TRAWL_BROWSER_SESSION_TESTS=1 -e TRAWL_BROWSER_TESTS=1 \
     -e TRAWL_RAW_TEXT_TESTS=1 -e TRAWL_READINESS_TESTS=1 \
+    -e TRAWL_PROXY_SESSION_TESTS=1 \
     -v "$repo_root/packages/browser/tests:/app/packages/browser/tests:ro" \
     -v "$repo_root/apps/api/src/browserSessions.integration.test.ts:/app/apps/api/src/browserSessions.integration.test.ts:ro" \
+    -v "$repo_root/apps/api/src/proxySessions.integration.test.ts:/app/apps/api/src/proxySessions.integration.test.ts:ro" \
     --entrypoint bun "$image" test "$suite"
 done

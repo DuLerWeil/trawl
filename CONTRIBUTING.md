@@ -64,6 +64,14 @@ TRAWL_BROWSER_TESTS=1 CAMOUFOX_INSTALL_DIR=/path/to/camoufox bun test packages/b
 
 `CAMOUFOX_INSTALL_DIR` must contain the extracted browser bundle and its `version.json`.
 
+Cached proxy-session integration tests cover `/scrape` and `/v1`, original proxy/cookie identity,
+external solver proxy propagation, context cleanup on deadline and the direct-session fast path.
+They use owned HTTP and provider fixtures without paid requests:
+
+```bash
+TRAWL_PROXY_SESSION_TESTS=1 CAMOUFOX_INSTALL_DIR=/path/to/camoufox bun test apps/api/src/proxySessions.integration.test.ts
+```
+
 Raw text browser integration tests use owned HTTP fixtures and a local forward proxy:
 
 ```bash
