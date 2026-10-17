@@ -91,6 +91,8 @@ This does not bypass interstitial checks or submit forms.
 Widget solving is best effort and leaves time within `maxTimeout` to capture the loaded page.
 A successful scrape confirms page delivery, not that every embedded widget was solved.
 Only verified solutions appear in `captchasSolved`; an empty token is never reported as solved.
+For Turnstile, a token in a response field removed by a callback still counts as observed.
+Widget disappearance alone is not treated as a solution.
 The FlareSolverr `/v1` adapter defaults this flag to `false` for page-access compatibility.
 
 Captured response bodies, headers, console messages, URLs, blocked-page HTML, screenshots,

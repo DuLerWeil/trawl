@@ -25,6 +25,17 @@ function fixture(anubisContent = true, documentHtml = html) {
     url: () => "https://fixture.example/",
     frames: () => [],
     isClosed: () => false,
+    evaluateHandle: async () => ({
+      evaluate: async (read: any) =>
+        read({
+          verified() {
+            verifications.push(performance.now())
+            return true
+          },
+          disconnect() {},
+        }),
+      dispose: async () => {},
+    }),
     evaluate: async (fn: unknown) => {
       const source = String(fn)
       if (source.includes("anubis_challenge")) return { ready: true, content: anubisContent }

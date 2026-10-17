@@ -95,7 +95,7 @@ describe.skipIf(process.env.TRAWL_EXTERNAL_CAPTCHA_TESTS !== "1")("external CAPT
         body: JSON.stringify(
           route === "/scrape"
             ? { url: url("/turnstile"), skipHttp: true, maxTier: 3, maxTimeout: 20000 }
-            : { cmd: "request.get", url: url("/turnstile"), maxTimeout: 20000 },
+            : { cmd: "request.get", url: url("/turnstile"), maxTimeout: 20000, solveEmbeddedCaptchas: true },
         ),
       })
       const result = await response.json()

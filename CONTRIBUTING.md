@@ -72,6 +72,13 @@ They use owned HTTP and provider fixtures without paid requests:
 TRAWL_PROXY_SESSION_TESTS=1 CAMOUFOX_INSTALL_DIR=/path/to/camoufox bun test apps/api/src/proxySessions.integration.test.ts
 ```
 
+Turnstile lifecycle tests use owned widgets to check consumed tokens, removal without
+a solution, cancellation, and both API routes in cached and fresh browser sessions:
+
+```bash
+TRAWL_TURNSTILE_TESTS=1 CAMOUFOX_INSTALL_DIR=/path/to/camoufox bun test apps/api/src/turnstile.integration.test.ts
+```
+
 Raw text browser integration tests use owned HTTP fixtures and a local forward proxy:
 
 ```bash
