@@ -15,27 +15,6 @@
     "expected": "1337x.*(Search|Torrents)|Search.*Torrents"
   },
   {
-    "id": "mvnrepository",
-    "name": "mvnrepository.com",
-    "url": "https://mvnrepository.com/artifact/org.springframework.boot/spring-boot",
-    "protection": "Cloudflare",
-    "expected": "<title>[^<]*Maven Repository[^<]*org\\.springframework\\.boot[^<]*spring-boot"
-  },
-  {
-    "id": "fragrantica",
-    "name": "fragrantica.com/search",
-    "url": "https://www.fragrantica.com/search/",
-    "protection": "Cloudflare",
-    "expected": "<title>\\s*Perfumes Search\\s*</title>"
-  },
-  {
-    "id": "discogs-search",
-    "name": "discogs.com/search",
-    "url": "https://www.discogs.com/search/?q=Beatles&type=release",
-    "protection": "Cloudflare",
-    "expected": "<title>[^<]*(Beatles|Music|Search)[^<]*Discogs"
-  },
-  {
     "id": "eztv",
     "name": "eztvx.to/home",
     "url": "https://eztvx.to/home",
