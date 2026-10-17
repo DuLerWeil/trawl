@@ -81,9 +81,7 @@ describe("FlareSolverr request adapter", () => {
     await runTier1(request.url, request.headers, request.method, request.body)
     expect(tier1Init?.method).toBe("POST")
     expect(tier1Init?.body).toBe(PROWLARR_2_5_2_REQUEST.postData)
-    expect((tier1Init?.headers as Record<string, string> | undefined)?.["Content-Type"]).toBe(
-      "application/x-www-form-urlencoded",
-    )
+    expect(new Headers(tier1Init?.headers).get("content-type")).toBe("application/x-www-form-urlencoded")
 
     const browserOverride = routeContinueOverrides(
       {
