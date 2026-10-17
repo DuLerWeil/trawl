@@ -23,7 +23,7 @@ interface FlareSolverrRequest {
   returnOnlyCookies?: boolean // omit solution.response
   solveEmbeddedCaptchas?: boolean  // TRAWL extension, default false
   returnScreenshot?: boolean  // include solution.screenshot
-  maxTimeout?: number   // milliseconds, default 60000
+  maxTimeout?: number   // milliseconds, default SCRAPE_MAX_TIMEOUT_MS (60000)
   postData?: string     // body for request.post
   headers?: Record<string, string>
   proxy?: string | { url: string; username?: string; password?: string }
@@ -36,7 +36,7 @@ interface FlareSolverrRequest {
 | ------------ | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `cmd`        | string | No       | `"request.get"` or `"request.post"` (default `"request.get"`)                                                                                                                                                                                                                                                            |
 | `url`        | string | Yes      | The URL to scrape                                                                                                                                                                                                                                                                                                        |
-| `maxTimeout` | number | No       | Max wait in ms (default 60000)                                                                                                                                                                                                                                                                                           |
+| `maxTimeout` | number | No       | Max wait in ms (default `SCRAPE_MAX_TIMEOUT_MS`, initially 60000); explicit values take precedence                                                                                                                                                                                                                                                                                           |
 | `postData`   | string | No       | POST body (only for `request.post`); defaults to form encoding when no content-type header is supplied. On native `/scrape` this field is named `body`.                                                                                                                                                                  |
 | `headers`    | object | No       | Custom headers forwarded to the target across all tiers - see [Custom Headers](/api-reference/custom-headers). For Prowlarr compatibility, `contentType` is accepted as `Content-Type`; serialized `contentLength` is ignored and recalculated by the HTTP client. An explicit standard `Content-Type` takes precedence. |
 | `proxy`      | string | No       | Per-request proxy override for Tier 3/4; with a session, set it on `sessions.create` instead, see [Configuration § Proxies](/getting-started/configuration#proxies)                                                                                                                                                      |

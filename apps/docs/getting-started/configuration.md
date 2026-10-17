@@ -118,6 +118,25 @@ REDIS_SESSION_TTL_SECONDS=3600   # default retention: one hour
 REDIS_SESSION_TTL_SECONDS=1800   # shorter retention: 30 minutes
 ```
 
+## Scrape Timeout
+
+### `SCRAPE_MAX_TIMEOUT_MS`
+
+**Default:** `60000` (60 seconds)
+
+Default total scrape deadline in milliseconds for `/scrape`, FlareSolverr `/v1`, MCP tools
+and MITM scraper fallbacks. A request's explicit `maxTimeout` takes precedence, whether
+shorter or longer. This setting supplies a default rather than a deployment-wide ceiling.
+
+```ini
+SCRAPE_MAX_TIMEOUT_MS=120000
+```
+
+Accepts integers from `1` to `2147483647`, the largest supported timer delay. Unset or blank
+values use 60 seconds; invalid values stop startup. The deadline includes HTTP requests,
+browser acquisition, navigation, solving and capture. Cleanup remains separately bounded.
+Direct proxy Tier 0 forwarding retains its existing network timeouts.
+
 ## Scrape Tier Floor
 
 ### `SCRAPE_MIN_TIER`

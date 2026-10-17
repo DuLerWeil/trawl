@@ -59,6 +59,9 @@ Set the latter to `false` to read page HTML without attempting optional form tok
 access challenges are still resolved. Browser-only tools start at
 Tier 2 and accept a `maxTier` from 2 through 4.
 
+When `maxTimeout` is omitted, tools use `SCRAPE_MAX_TIMEOUT_MS` (default `60000`).
+An explicit value takes precedence. See [scrape timeout configuration](/getting-started/configuration#scrape-max-timeout-ms).
+
 `read` defaults to Markdown and a 50,000-character response. Set `format` to
 `text` for plain text, or set `maxCharacters` to a value from 1 through 100,000.
 Its structured metadata includes the title and, when detected, the byline,

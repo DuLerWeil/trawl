@@ -18,6 +18,7 @@ description: Enable and configure TRAWL's challenge-bypassing HTTP/HTTPS proxy.
 | `MITM_ESCALATE_429` | `false` | Try scraping after an unrecognized proxy HTTP 429 response |
 | `MITM_DEBUG`         | `false`          | Logs proxied requests and tier attempts                  |
 | `SCRAPE_MIN_TIER`    | `1`              | Lowest tier once a request enters the scraper ladder     |
+| `SCRAPE_MAX_TIMEOUT_MS` | `60000` | Default total deadline in milliseconds for scraper fallbacks |
 | `SCRAPE_PROXY_SELECTION` | `failover`   | Tier 3/4 pool policy: failover, round-robin, or random   |
 
 Example:
@@ -31,12 +32,16 @@ MITM_MAX_TIER=4
 MITM_ALWAYS_SCRAPE=false
 MITM_ESCALATE_429=false
 SCRAPE_MIN_TIER=1
+SCRAPE_MAX_TIMEOUT_MS=60000
 SCRAPE_PROXY_SELECTION=failover
 MITM_DEBUG=false
 ```
 
 Use `127.0.0.1` for a local installation. Docker clients on a bridge network normally require
 `0.0.0.0`; restrict access with container networking or a host firewall.
+
+`SCRAPE_MAX_TIMEOUT_MS` applies once a proxy request enters the scraper ladder. It does not
+change direct Tier 0 forwarding timeouts. See [scrape timeout configuration](/getting-started/configuration#scrape-max-timeout-ms).
 
 `MITM_MAX_TIER=3` prevents proxy requests from consuming a configured residential Tier 4
 proxy. An empty or invalid value uses the normal maximum of Tier 4.
