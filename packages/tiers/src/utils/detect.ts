@@ -18,6 +18,10 @@ export type ChallengeType =
   | "friendly-captcha"
   | "none"
 
+export function isCloudflareErrorUrl(url: string): boolean {
+  return /\/cdn-cgi\/error\/|error=1020|error=1015/.test(url)
+}
+
 export function hasCloudflareChallengeHeader(headers: Record<string, string> = {}): boolean {
   const cfMitigated = Object.entries(headers).find(([name]) => name.toLowerCase() === "cf-mitigated")?.[1]
   return cfMitigated?.toLowerCase() === "challenge"

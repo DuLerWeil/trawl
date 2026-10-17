@@ -90,6 +90,7 @@ async function runBrowserTierTask<T extends 3 | 4>(
       : undefined
     budget.check()
     page.setDefaultTimeout?.(Math.max(1, budget.remaining()))
+    await capture.externalCaptcha?.preparePage(page)
     await installOutboundPolicy(page, validateOutboundUrl)
     const initialCookies = snapshotChallengeCookies(await context.cookies())
     if ((extraHeaders && Object.keys(extraHeaders).length > 0) || method === "POST") {

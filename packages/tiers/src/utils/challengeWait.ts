@@ -3,7 +3,7 @@
 // Navigates manually if cf_clearance is set but redirect hasn't fired after 5s.
 
 import type { Frame, Page } from "patchright"
-import { isCloudflarePage } from "./detect"
+import { isCloudflareErrorUrl, isCloudflarePage } from "./detect"
 
 export const CF_CHALLENGE_TITLE = /just a moment|verify you are human|please wait|one more step|attention required/i
 
@@ -55,7 +55,7 @@ export async function waitForChallengeResolution(
         inactiveSamples = 0
       }
 
-      if (/\/cdn-cgi\/error\/|error=1020|error=1015/.test(url)) return "ip-blocked"
+      if (isCloudflareErrorUrl(url)) return "ip-blocked"
 
       // Two observations prevent a transient normal title/DOM during navigation from
       // declaring a challenge solved. This also applies before the first active sample.

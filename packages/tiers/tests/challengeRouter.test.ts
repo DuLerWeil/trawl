@@ -265,3 +265,80 @@ test("DataDome IP blocks do not create paid profile tasks", async () => {
   ).toEqual({ challengeType: "datadome", resolution: "ip-blocked" })
   expect(solves).toBe(0)
 })
+
+test("a managed Cloudflare render can recover rejected clearance, but not a hard error page", async () => {
+  let url = "https://example.test/owned"
+  let solves = 0
+  let waits = 0
+  const external = {
+    discover: async () => ["cloudflare-challenge"],
+    supports: () => true,
+    localBudget: () => 10,
+    solveProfiles: async () => {
+      solves++
+      return ["cloudflare-challenge:2captcha"]
+    },
+  } as unknown as ExternalCaptchaSession
+  const page = { url: () => url, content: async () => "<html><body>Owned content</body></html>" } as Page
+  const waiters = { cloudflare: async () => (++waits === 1 ? "ip-blocked" : "ok") } as unknown as Parameters<
+    typeof routeChallengeWait
+  >[5]
+  const run = () =>
+    routeChallengeWait(
+      page,
+      '<form id="challenge-form"></form>',
+      { "cf-mitigated": "challenge" },
+      10000,
+      url,
+      waiters,
+      403,
+      undefined,
+      () => ({}),
+      external,
+    )
+  expect(await run()).toEqual({
+    challengeType: "none",
+    resolution: "ok",
+    captchasSolved: ["cloudflare-challenge:2captcha"],
+  })
+  expect(solves).toBe(1)
+  for (const path of ["/cdn-cgi/error/1020", "/?error=1015"]) {
+    url = `https://example.test${path}`
+    waits = 0
+    expect((await run()).resolution).toBe("ip-blocked")
+    expect(solves).toBe(1)
+  }
+})
+
+test("an incomplete managed render retains the unused local wait without reporting a solve", async () => {
+  const waits: number[] = []
+  const external = {
+    discover: async () => ["cloudflare-challenge"],
+    supports: () => true,
+    localBudget: () => 10,
+    solveProfiles: async () => [],
+  } as unknown as ExternalCaptchaSession
+  const page = { content: async () => '<form id="challenge-form"></form>' } as Page
+  const waiters = {
+    cloudflare: async (_page: Page, timeout: number) => {
+      waits.push(timeout)
+      return "timeout"
+    },
+  } as unknown as Parameters<typeof routeChallengeWait>[5]
+  const result = await routeChallengeWait(
+    page,
+    '<form id="challenge-form"></form>',
+    { "cf-mitigated": "challenge" },
+    10000,
+    undefined,
+    waiters,
+    undefined,
+    undefined,
+    () => ({ "cf-mitigated": "challenge" }),
+    external,
+  )
+  expect(result).toEqual({ challengeType: "cloudflare-interstitial", resolution: "timeout" })
+  expect(waits).toHaveLength(2)
+  expect(waits[0]).toBe(10)
+  expect(waits[1]).toBeGreaterThan(9000)
+})
