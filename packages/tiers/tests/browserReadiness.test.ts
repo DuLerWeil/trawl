@@ -203,6 +203,20 @@ describe("browser document readiness", () => {
     expect(site.waits).toContain("networkidle")
   })
 
+  test("ordinary fresh pages wait for delayed JavaScript before capturing content", async () => {
+    const site = fixture()
+    let ready = false
+    site.page.content = async () =>
+      html.replace("</body>", `${ready ? "<article>Loaded by JavaScript</article>" : ""}</body>`)
+    site.page.waitForLoadState = async (state: string) => {
+      site.waits.push(state)
+      if (state === "networkidle") ready = true
+    }
+    const result = await runTier3("https://fixture.example/", site.handle, 6000)
+    expect(result.status).toBe("success")
+    expect(result.html).toContain("<article>Loaded by JavaScript</article>")
+  })
+
   for (const tier of [2, 3, 4] as const) {
     test(`Tier ${tier} returns ready content without an unrelated settle delay`, async () => {
       const site = fixture()

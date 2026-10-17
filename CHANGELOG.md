@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Wait for ordinary Tier 3 JavaScript requests before capturing the document, retaining selector-based readiness and challenge-specific fast paths.
 - Extend direct HTTP clearance reuse to browser-verified Anubis authentication cookies, retaining origin, expiry and browser-fallback checks.
 - Return loaded page content before best-effort embedded CAPTCHA solving exhausts the request budget. Add `solveEmbeddedCaptchas` to native and MCP scraping; `/v1` defaults to page delivery without optional form tokens while retaining access-challenge checks.
 - Reuse browser-verified Cloudflare clearance over HTTP for direct GET/HEAD requests, preserving cookie scope, expiry, rotation and browser identity. Retain browser fallback, TLS verification, proxy isolation, named sessions and CAPTCHA checks.

@@ -209,7 +209,7 @@ async function runBrowserTierTask<T extends 3 | 4>(
       (tier === 3 && challengeType !== "anubis" && !overlapWidgetSettling && !capture.contentWaitForSelector)
     )
       await sleep(PAGE_SETTLE_MS, budget.signal)
-    if (tier === 4) await waitForBrowserLoad(page, capture, budget, 10_000)
+    if (tier === 4 || challengeType === "none") await waitForBrowserLoad(page, capture, budget, 10_000)
 
     // Embedded widgets are best effort; leave time to return the loaded document.
     const solveRemaining = Math.max(0, budget.remaining() - 2000)
