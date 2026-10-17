@@ -20,10 +20,10 @@ COPY apps/docs/package.json        ./apps/docs/
 # multi-stage Docker builds: transitive deps not symlinked (oven-sh/bun#23524,
 # e.g. @sinclair/typebox via elysia) and a store-population race producing
 # EISDIR on freshly-linked packages (oven-sh/bun#29489, e.g. camoufox-js).
-# The `--omit=dev` flag is the modern spelling — `--production` alone leaves workspace
+# The `--omit=dev` flag is the modern spelling - `--production` alone leaves workspace
 # devDeps installed (bun 1.3.x quirk). Prune better-sqlite3 sources + unused impit
 # platform binaries inside this stage so the subsequent COPY --from=deps in stage 3
-# pulls a smaller layer (Docker layers are unions, not diffs — can't shrink post-COPY).
+# pulls a smaller layer (Docker layers are unions, not diffs - can't shrink post-COPY).
 RUN bun install --frozen-lockfile --production --omit=dev --linker=hoisted \
  && find node_modules -path '*/better-sqlite3*/deps' -prune -exec rm -rf {} + \
  && find node_modules -path '*/better-sqlite3*/src'   -prune -exec rm -rf {} + \
@@ -91,7 +91,7 @@ RUN strip --strip-unneeded /opt/camoufox/camoufox /opt/camoufox/camoufox-bin \
 # runtime GitHub dependency + first-launch download latency. The size check fails the
 # build if the download is truncated, so a corrupt file can never be baked in.
 # P3TERX/GeoLite.mmdb retains only its two most recent releases, so a pinned tag 404s
-# within days and every build after that fails on curl exit 22 — which is what happened
+# within days and every build after that fails on curl exit 22 - which is what happened
 # to the 2026.08.07 and 2026.08.19 pins. Track the rolling latest and keep the guarantee
 # that actually matters here (a truncated file is never baked in) with a size floor; the
 # digest of a release that gets deleted cannot be kept current, and it was never a
@@ -164,7 +164,7 @@ COPY package.json      /app/
 
 ENV CAMOUFOX_INSTALL_DIR=/opt/camoufox \
     HOME=/tmp \
-    # Safe Bun runtime knobs — all tested runtime-neutral (no behavior change).
+    # Safe Bun runtime knobs - all tested runtime-neutral (no behavior change).
     BUN_DISABLE_CJS=1 \
     BUN_DEBUG=0 \
     BUN_DISABLE_SOURCEMAPS=1 \
