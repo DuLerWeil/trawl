@@ -19,7 +19,6 @@ services:
       # MITM proxy (only when MITM_ENABLED=true). CA cert at :8191/proxy-ca.crt
       - "${MITM_PORT:-8192}:${MITM_PORT:-8192}"
     shm_size: 1gb
-    mem_limit: 3g
     environment:
       SESSION_CACHE_DRIVER: ${SESSION_CACHE_DRIVER:-redis}
       REDIS_URL: redis://redis:6379
