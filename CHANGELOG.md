@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Extend direct HTTP clearance reuse to browser-verified Anubis authentication cookies, retaining origin, expiry and browser-fallback checks.
+- Return loaded page content before best-effort embedded CAPTCHA solving exhausts the request budget. Add `solveEmbeddedCaptchas` to native and MCP scraping; `/v1` defaults to page delivery without optional form tokens while retaining access-challenge checks.
 - Reuse browser-verified Cloudflare clearance over HTTP for direct GET/HEAD requests, preserving cookie scope, expiry, rotation and browser identity. Retain browser fallback, TLS verification, proxy isolation, named sessions and CAPTCHA checks.
 - Inspect Cloudflare pages and controls immediately while retaining repeated document confirmation, request deadlines and content settling.
 - Click attached Turnstile iframe elements instead of cached page coordinates, and keep embedded widgets separate from interstitial and keyboard-fallback detection.
@@ -25,6 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Skip reCAPTCHA, hCaptcha and Turnstile detection waits for documentation links without widget or SDK markup, and return immediately when checkbox auto-pass is confirmed.
 - Avoid unnecessary GeeTest solver waits when pages only contain demo links or textual references; retain bounded detection for widgets mounted by the SDK.
 
+### Changed
+- Consolidate benchmarks into one current dataset and generated report; normalize punctuation in documentation, templates, comments and messages.
+- Add README performance highlights and a benchmark guide; document automatic HTTP clearance reuse, browser fallback and cache expiry.
+- Publish Cloudflare interstitial page-access comparisons of the selected economy build, FlareSolverr and Byparr, including named sessions and CPU/memory measurements. Verify content and final destinations, show NopeCHA, 1337x and EZTV request timings on the landing page and retain the complete comparison in the report.
+- Remove the fixed RAM limit from production Compose while retaining the existing shared-memory capacity.
+- Refresh the landing page with the dashboard wordmark, MCP tools, browser sessions, challenge support and persistent metrics setup. Publish verified public-site measurements from the development build after v1.8.0 and link documentation consistently.
+- Document built-in challenge handling and optional external CAPTCHA task profiles in the README.
 
 ## [1.8.0] - 2026-10-08
 
@@ -114,8 +123,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refresh compatible transitive dependencies and Redis to `8.10.2`; all direct package, browser, container, and CI dependencies are at their latest mutually compatible versions.
 
 ### Added
-- Optional invalid-certificate loading: `ignoreCertificateErrors: true` on `POST /scrape` loads a page whose TLS certificate fails verification (expired, self-signed, issued for another host) instead of failing the fetch, and reports why verification failed in `ScrapeResult.certificateError`. Off by default and per request: Tier 1 retries only the failed TLS hop without replaying successful requests, Tiers 3 and 4 set it on the temporary context created for that one request, and the pooled contexts every other caller uses stay verified. Tier 2 is skipped for these requests — it replays its session inside the shared pool context, whose TLS policy cannot be changed per request — and is reported as `skipped` in `timings`. Because an unverified connection no longer proves whose page came back, an opted-in request also runs a crossed-landing guard: a scrape that ends on a host the requested URL is not part of is re-checked with a plain HTTP fetch over the same egress, and only when that probe stays on the requested host is the landing refused (`crossed-landing on <host>` in `timings`, the ladder moving to the next tier, and a terminal error naming the refused landing when no tier returns an uncrossed page). An inconclusive or equally off-host probe keeps the page, and the same off-host landing reached from two independent egresses is accepted as a browser-only redirect. The probe shares the request's remaining `maxTimeout` across every redirect and validates every hop against the configured outbound policy.
-- Optional favicon collection: `favicons: true` on `POST /scrape` returns the page's icons in `ScrapeResult.favicons` (`url`, `contentType`, base64 `data`, or `error`). A page may declare several icons — size and device variants, `apple-touch-icon`, `mask-icon` — and the browser renders exactly one; this returns the whole declared set plus the apex `/favicon.ico`, resolved against `document.baseURI` and de-duplicated. Each is fetched with `fetch()` **in page context**, so the requests carry the origin's cookies and the session's challenge clearance rather than arriving as an unauthenticated stranger a bot wall answers 403. Off by default — without the flag nothing is resolved and no request is made. Icon count, streamed body bytes, metadata length, per-fetch time and total collection time are bounded and tunable via `FAVICON_*`, and the request's own remaining `maxTimeout` caps the last of them. An icon that could not be read comes back with its own `error` rather than vanishing, and collection runs after the response listeners are drained so these fetches never land in `networkLogs`, `capturedResponses`, `timings` or the MHTML archive.
+- Optional invalid-certificate loading: `ignoreCertificateErrors: true` on `POST /scrape` loads a page whose TLS certificate fails verification (expired, self-signed, issued for another host) instead of failing the fetch, and reports why verification failed in `ScrapeResult.certificateError`. Off by default and per request: Tier 1 retries only the failed TLS hop without replaying successful requests, Tiers 3 and 4 set it on the temporary context created for that one request, and the pooled contexts every other caller uses stay verified. Tier 2 is skipped for these requests - it replays its session inside the shared pool context, whose TLS policy cannot be changed per request - and is reported as `skipped` in `timings`. Because an unverified connection no longer proves whose page came back, an opted-in request also runs a crossed-landing guard: a scrape that ends on a host the requested URL is not part of is re-checked with a plain HTTP fetch over the same egress, and only when that probe stays on the requested host is the landing refused (`crossed-landing on <host>` in `timings`, the ladder moving to the next tier, and a terminal error naming the refused landing when no tier returns an uncrossed page). An inconclusive or equally off-host probe keeps the page, and the same off-host landing reached from two independent egresses is accepted as a browser-only redirect. The probe shares the request's remaining `maxTimeout` across every redirect and validates every hop against the configured outbound policy.
+- Optional favicon collection: `favicons: true` on `POST /scrape` returns the page's icons in `ScrapeResult.favicons` (`url`, `contentType`, base64 `data`, or `error`). A page may declare several icons - size and device variants, `apple-touch-icon`, `mask-icon` - and the browser renders exactly one; this returns the whole declared set plus the apex `/favicon.ico`, resolved against `document.baseURI` and de-duplicated. Each is fetched with `fetch()` **in page context**, so the requests carry the origin's cookies and the session's challenge clearance rather than arriving as an unauthenticated stranger a bot wall answers 403. Off by default - without the flag nothing is resolved and no request is made. Icon count, streamed body bytes, metadata length, per-fetch time and total collection time are bounded and tunable via `FAVICON_*`, and the request's own remaining `maxTimeout` caps the last of them. An icon that could not be read comes back with its own `error` rather than vanishing, and collection runs after the response listeners are drained so these fetches never land in `networkLogs`, `capturedResponses`, `timings` or the MHTML archive.
 
 ### Fixed
 - Preserve encoded Tier 1 response bodies so MITM clients do not attempt to decompress already-decoded content (#152).
@@ -174,8 +183,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional `MITM_ALWAYS_SCRAPE=true` mode skips the forward proxy's direct Tier 0 probe and routes ordinary HTTP requests immediately into the existing scraper ladder for sites where the probe itself triggers a temporary ban (#93). WebSocket relays remain direct; the mode is off by default and documented as unsuitable for general media/download traffic because it bypasses Tier 0 streaming.
 - **DataDome support.** Detect Device Check, slider CAPTCHA and `t=bv` hard blocks from challenge markers and `x-dd-b`. Device Check uses a dedicated waiter and an optional headful Xvfb pool; the slider is reported as `datadome-captcha-required`. Enable startup-warmed capacity with `BROWSER_HEADFUL_POOL_SIZE=1` (off by default).
 - **AWS WAF Challenge support.** Detect the documented `202` Challenge and `405` CAPTCHA responses from their `x-amzn-waf-action` header, with a conservative two-marker HTML fallback. Silent challenges use a dedicated browser waiter for the domain-matching `aws-waf-token`; interactive CAPTCHA is surfaced as `aws-waf-captcha-required` for a future solver.
-- Optional response-body capture: `captureResponses` on `POST /scrape` takes URL patterns (a substring, or a glob when the pattern contains `*` or `?`) and returns the matching responses' bodies in `ScrapeResult.capturedResponses`, so a page that ships an empty shell and loads its content over a background request is still readable. `settleTimeout` holds the page open after load waiting for a match and `waitForSelector` ends that window early. Off by default — without patterns no listener is attached. Pattern count, body count, per-body bytes and total bytes are bounded and tunable via `CAPTURE_*`; a body over its budget comes back trimmed and flagged `truncated`, a binary or unknown content type comes back base64, and a body that cannot be read carries its own `error` rather than failing the scrape.
-- Optional console, network and redirect-chain capture: `consoleLogs`, `networkLogs` and `redirectChain` on `POST /scrape` return the page's console messages, per-request resource timings, and the URLs the main document walked (`ScrapeResult.consoleLogs` / `networkLogs` / `redirectChain`), captured by the browser tiers (2-4). Each flag is independent and off by default — without it no listener is attached and nothing is buffered. Diagnostics use `DIAGNOSTICS_*` limits and redirect chains use independent `REDIRECT_*` limits; anything past a cap is dropped whole rather than truncated, and a capture failure leaves the field unset rather than failing the scrape.
+- Optional response-body capture: `captureResponses` on `POST /scrape` takes URL patterns (a substring, or a glob when the pattern contains `*` or `?`) and returns the matching responses' bodies in `ScrapeResult.capturedResponses`, so a page that ships an empty shell and loads its content over a background request is still readable. `settleTimeout` holds the page open after load waiting for a match and `waitForSelector` ends that window early. Off by default - without patterns no listener is attached. Pattern count, body count, per-body bytes and total bytes are bounded and tunable via `CAPTURE_*`; a body over its budget comes back trimmed and flagged `truncated`, a binary or unknown content type comes back base64, and a body that cannot be read carries its own `error` rather than failing the scrape.
+- Optional console, network and redirect-chain capture: `consoleLogs`, `networkLogs` and `redirectChain` on `POST /scrape` return the page's console messages, per-request resource timings, and the URLs the main document walked (`ScrapeResult.consoleLogs` / `networkLogs` / `redirectChain`), captured by the browser tiers (2-4). Each flag is independent and off by default - without it no listener is attached and nothing is buffered. Diagnostics use `DIAGNOSTICS_*` limits and redirect chains use independent `REDIRECT_*` limits; anything past a cap is dropped whole rather than truncated, and a capture failure leaves the field unset rather than failing the scrape.
 - Optional viewport screenshot: `screenshot: true` on `POST /scrape` returns a base64 JPEG of the viewport in `ScrapeResult.screenshot`, captured by the browser tiers (2-4) immediately before the HTML read so image and markup describe the same moment. Off by default; a stock request attaches nothing and does no extra work. Settle wait, capture timeout, JPEG quality, and maximum image size are bounded and tunable via `SCREENSHOT_*`, and a capture failure leaves the field unset rather than failing the scrape.
 
 ### Fixed
@@ -258,7 +267,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Per-hostname challenge cache** (`apps/api/src/proxy/challengeCache.ts`): the proxy remembers which hostnames recently returned Cloudflare challenges and sends repeat visits directly to the tiered solver for 5 minutes.
 - **Persistent browser context cache**: solved sessions retain their browser fingerprint, cookies, cache, and storage across proxy requests, with bounded per-proxy reuse and cleanup.
 - **General HTTP/HTTPS proxy support**: CONNECT tunneling, plain HTTP absolute-form requests, WebSocket upgrades, request bodies, redirects, authentication headers, cookies, and HTTP Range/206 responses are forwarded with their required semantics.
-- **`proxySanitizeHeaders()`** (`packages/tiers/src/utils/sanitize.ts`): permissive header sanitizer for the transparent MITM proxy — passes `Authorization`, `Cookie`, `Range`, `User-Agent`, `Referer`, and custom API tokens through, strips only RFC 7230 hop-by-hop headers.
+- **`proxySanitizeHeaders()`** (`packages/tiers/src/utils/sanitize.ts`): permissive header sanitizer for the transparent MITM proxy - passes `Authorization`, `Cookie`, `Range`, `User-Agent`, `Referer`, and custom API tokens through, strips only RFC 7230 hop-by-hop headers.
 - **Raw bytes in `@trawl/tiers`**: `ScrapeResult` and tier results now expose `body?: Uint8Array`, `responseHeaders?: Record<string,string>`, and `contentType?: string` alongside the existing `html` field. The proxy uses these fields to preserve binary content without HTML normalization.
 - **Tier 1 method handling fix**: `runTier1()` now forwards the request body for `PUT`, `PATCH`, `DELETE`, `QUERY` (was only `POST`).
 - **Graceful proxy shutdown** (`shutdownMitmProxy()`): the API captures the proxy handle on startup and `lifecycle.ts` calls `shutdownMitmProxy()` on `SIGTERM`/`SIGINT` before the browser pool shutdown, so in-flight connections drain.
@@ -267,10 +276,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Proxy documentation**: architecture, configuration, client setup, and CA installation guides for operating systems, browsers, Java/JDownloader, containers, and application-specific trust stores.
 
 ### Changed
-- `packages/types/src/index.ts` — `ScrapeResult` extended additively with optional `body`, `responseHeaders`, and `contentType`; native `/scrape` consumers should tolerate these additional fields.
-- `apps/api/src/proxy/server.ts` — `fetchRaw`/`reissue` replaced by `proxyRequest()` (Tier 0 with `scrape()` fallback) for both CONNECT-based HTTPS and plain HTTP traffic.
-- `lifecycle.ts` — `registerLifecycleHandlers()` accepts an optional `{ onShutdown }` callback.
-- `apps/api/src/index.ts` — captures the proxy handle on startup and wires it into `registerLifecycleHandlers`.
+- `packages/types/src/index.ts` - `ScrapeResult` extended additively with optional `body`, `responseHeaders`, and `contentType`; native `/scrape` consumers should tolerate these additional fields.
+- `apps/api/src/proxy/server.ts` - `fetchRaw`/`reissue` replaced by `proxyRequest()` (Tier 0 with `scrape()` fallback) for both CONNECT-based HTTPS and plain HTTP traffic.
+- `lifecycle.ts` - `registerLifecycleHandlers()` accepts an optional `{ onShutdown }` callback.
+- `apps/api/src/index.ts` - captures the proxy handle on startup and wires it into `registerLifecycleHandlers`.
 - All application and internal package versions bumped to `1.2.0`.
 
 ## [1.1.0] - 2026-07-22
@@ -288,15 +297,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.1] - 2026-07-18
 
 ### Changed
-- `packages/browser/src/pool.ts` — renamed Firefox prefs key from `prefs` (silently ignored by camoufox-js@0.11.1) to `firefox_user_prefs` (which camoufox-js maps to Playwright's `firefoxUserPrefs`). The prefs are now actually applied.
-- `packages/browser/src/pool.ts` — added the safe-only subset of Firefox prefs: telemetry off (`datareporting.*`, `toolkit.telemetry.*`, `app.crashreporter`, `breakpad.*`), dead UI features off (`extensions.screenshots.*`, `browser.sessionstore.max_tabs_undo`), dead network services off (`browser.safebrowsing.*`, `extensions.update.*`, `browser.fixup.alternate.*`, `app.normandy.*`, `app.shield.*`, `network.connectivity-service.*`, `network.captive-portal-service.*`, `network.prefetch-next`, `beacon.enabled`), `security.OCSP.enabled: 0`, and tightened network timeouts (`tls-handshake-timeout: 30`, `connection-timeout: 60`, `response.timeout: 120`). None of these touch the JS/CSS fingerprint surface.
-- `apps/api/Dockerfile` — stage-3 prune of apt cache + `/usr/share/{locale,doc,man}` (image-size win, runtime-neutral).
-- `apps/api/Dockerfile` — added 9 Bun runtime ENV flags (`BUN_DISABLE_CJS=1`, `BUN_DEBUG=0`, `BUN_DISABLE_SOURCEMAPS=1`, `BUN_HTTP_KEEPALIVE=0`, `BUN_AGENT_DISABLE=1`, `BUN_INSPECT=0`, `BUN_LOCKFILE_MIGRATION=false`, `MIMALLOC_PURGE_DELAY=0`, `NODE_NO_WARNINGS=1`). All verified runtime-neutral in smoke tests.
-- `packages/browser/package.json` — moved `patchright` + `playwright-core` from `dependencies` to `devDependencies` (build hygiene; camoufox-js bundles both transitively at runtime).
+- `packages/browser/src/pool.ts` - renamed Firefox prefs key from `prefs` (silently ignored by camoufox-js@0.11.1) to `firefox_user_prefs` (which camoufox-js maps to Playwright's `firefoxUserPrefs`). The prefs are now actually applied.
+- `packages/browser/src/pool.ts` - added the safe-only subset of Firefox prefs: telemetry off (`datareporting.*`, `toolkit.telemetry.*`, `app.crashreporter`, `breakpad.*`), dead UI features off (`extensions.screenshots.*`, `browser.sessionstore.max_tabs_undo`), dead network services off (`browser.safebrowsing.*`, `extensions.update.*`, `browser.fixup.alternate.*`, `app.normandy.*`, `app.shield.*`, `network.connectivity-service.*`, `network.captive-portal-service.*`, `network.prefetch-next`, `beacon.enabled`), `security.OCSP.enabled: 0`, and tightened network timeouts (`tls-handshake-timeout: 30`, `connection-timeout: 60`, `response.timeout: 120`). None of these touch the JS/CSS fingerprint surface.
+- `apps/api/Dockerfile` - stage-3 prune of apt cache + `/usr/share/{locale,doc,man}` (image-size win, runtime-neutral).
+- `apps/api/Dockerfile` - added 9 Bun runtime ENV flags (`BUN_DISABLE_CJS=1`, `BUN_DEBUG=0`, `BUN_DISABLE_SOURCEMAPS=1`, `BUN_HTTP_KEEPALIVE=0`, `BUN_AGENT_DISABLE=1`, `BUN_INSPECT=0`, `BUN_LOCKFILE_MIGRATION=false`, `MIMALLOC_PURGE_DELAY=0`, `NODE_NO_WARNINGS=1`). All verified runtime-neutral in smoke tests.
+- `packages/browser/package.json` - moved `patchright` + `playwright-core` from `dependencies` to `devDependencies` (build hygiene; camoufox-js bundles both transitively at runtime).
 - All packages bumped to `1.0.1`.
 
 ### Added
-- `scripts/bench-targets.sh`, `scripts/bench-success-rate.sh`, `scripts/bench-compare.sh` — observability harnesses for measuring CF challenge latency + bypass success rate.
+- `scripts/bench-targets.sh`, `scripts/bench-success-rate.sh`, `scripts/bench-compare.sh` - observability harnesses for measuring CF challenge latency + bypass success rate.
 ## [1.0.0] - 2026-07-10
 
 ### Changed
@@ -308,7 +317,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Evaluated switching the cache backend to [Dragonfly](https://www.dragonflydb.io/) and reverted:
   benchmarking showed Dragonfly only wins throughput when load is spread across multiple
   connections, but `packages/browser`'s `SessionCache` holds a single shared `RedisClient`
-  connection for the process lifetime — so at TRAWL's actual access pattern, plain Redis is
+  connection for the process lifetime - so at TRAWL's actual access pattern, plain Redis is
   faster at every scale tested, regardless of `BROWSER_POOL_SIZE`. Docker Compose configs
   (`docker-compose.yml`, `.full.yml`, `.prod.yml`) now pin `redis:8.8-alpine`; the `redis`
   service name and `REDIS_URL` env var are unchanged from before the Dragonfly experiment.
@@ -355,13 +364,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.5.0] - 2026-07-06
 
 ### Added
-- Native `method` + `body` support across all four scraper tiers — the
+- Native `method` + `body` support across all four scraper tiers - the
   `FlareSolverrRequest.cmd=request.post` body is now actually delivered upstream instead of
   being silently dropped (thanks @whoshoe for the original POST support)
 - `ScrapeRequest.method` accepts the full standard verb set: `GET`, `POST`, `PUT`, `PATCH`,
   `DELETE`, `HEAD`, `OPTIONS`, `TRACE`, `QUERY` (RFC 9341). `CONNECT` is intentionally excluded
   (tunneling verb, inappropriate for a proxy)
-- POST / `*` request bodies are forwarded **uncapped** — operators who want a byte ceiling
+- POST / `*` request bodies are forwarded **uncapped** - operators who want a byte ceiling
   should impose it at their ingress / fronting proxy
 - Body-bearing requests require a `Content-Type` header; the tier functions no longer
   auto-inject `application/x-www-form-urlencoded`, which previously mislabelled JSON / XML
@@ -386,16 +395,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   embedded `@`/`:` characters survive the round-trip.
 
 ### Limitations
-- The Playwright `page.route(url, …)` interceptor only handles the first top-frame GET to that
+- The Playwright `page.route(url, ...)` interceptor only handles the first top-frame GET to that
   exact URL. Server redirects to a different URL, XHR sub-resources, and chained `POST→POST`
   form flows do not have the `postData` override applied
 - No idempotency-key support; transient network failures and pool churn can re-fire a POST
   (separate ticket)
 
 ### Tests
-- `packages/tiers/tests/sanitize.test.ts` — header sanitiser, method allowlist, postData size
+- `packages/tiers/tests/sanitize.test.ts` - header sanitiser, method allowlist, postData size
   cap, Content-Type enforcement
-- `packages/tiers/tests/runTier1Post.test.ts` — tier1 GET/POST round-trip and User-Agent
+- `packages/tiers/tests/runTier1Post.test.ts` - tier1 GET/POST round-trip and User-Agent
   non-override
 - Run via `bun --cwd packages/tiers test`
 
@@ -403,7 +412,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `:baseline` Docker image variant for pre-AVX2 CPUs and older kernels, published to its own
-  GHCR tag — confirmed working on a Synology DS920+ (DSM 7.3.2, kernel 4.4.302), see #1
+  GHCR tag - confirmed working on a Synology DS920+ (DSM 7.3.2, kernel 4.4.302), see #1
 
 ### Fixed
 - Docker healthchecks failing, root-caused to `wget` vs. the runtime image; switched to a
