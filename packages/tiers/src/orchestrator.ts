@@ -70,6 +70,8 @@ export interface OrchestratorDeps {
   // Deployment-wide lower bound for the escalation ladder. API request flags may
   // raise this floor, but never lower it.
   minTier?: TierResult["tier"]
+  // Used only when the request omits maxTimeout.
+  defaultMaxTimeout?: number
   externalCaptcha?: ExternalCaptchaOptions
   onTierAttempt?: (result: TierResult) => void
   validateOutboundUrl?: (url: string) => Promise<void>
@@ -114,7 +116,7 @@ export async function scrape(
   deps: OrchestratorDeps,
   runners: OrchestratorRunners = {},
 ): Promise<ScrapeResult> {
-  const budget = new RequestBudget(req.maxTimeout ?? 60_000)
+  const budget = new RequestBudget(req.maxTimeout ?? deps.defaultMaxTimeout ?? 60_000)
   const attempts: TierResult[] = []
   let ownedHandle: BrowserHandle | undefined
   const releaseOwned = (handle: BrowserHandle) => {
@@ -190,7 +192,7 @@ async function scrapeWithinBudget(
       throw new RequestValidationError("Session TLS policy is fixed at creation", 400)
     req = { ...req, proxy: namedSession.proxy, ignoreCertificateErrors: namedSession.ignoreCertificateErrors }
   }
-  const maxTimeout = req.maxTimeout ?? 60_000
+  const maxTimeout = req.maxTimeout ?? deps.defaultMaxTimeout ?? 60_000
   const maxTier = req.maxTier ?? 4
   if (req.cookies !== undefined) normalizeInputCookies(req.cookies, req.url)
   const importedCookies = Boolean(req.cookies?.length)
