@@ -13,6 +13,7 @@ import {
   getAwsWafAction,
   getDataDomeAction,
   hasAwsWafCaptcha,
+  isCloudflareErrorUrl,
   isCloudflarePage,
 } from "./detect"
 import { waitForImpervaResolution } from "./impervaWait"
@@ -129,10 +130,14 @@ export async function routeChallengeWait(
 ): Promise<{ challengeType: ChallengeType; resolution: Resolution; captchasSolved?: string[] }> {
   const deadline = Date.now() + timeoutMs
   let eligible = false
+  let managedCloudflare = false
   if (external) {
     for (const kind of await external.discover(page, html)) {
       if (signal?.aborted) break
-      if (await external.canSolve(page, kind, proxy)) eligible = true
+      if (kind === "cloudflare-challenge" && external.supports(kind)) {
+        managedCloudflare = true
+        eligible = true
+      } else if (await external.canSolve(page, kind, proxy)) eligible = true
     }
   }
   const result = await routeLocalChallengeWait(
@@ -153,15 +158,18 @@ export async function routeChallengeWait(
     !external ||
     result.resolution === "ok" ||
     result.resolution === "browser-closed" ||
-    result.resolution === "ip-blocked" ||
+    (result.resolution === "ip-blocked" &&
+      (!managedCloudflare || !result.challengeType.startsWith("cloudflare-") || isCloudflareErrorUrl(page.url()))) ||
     signal?.aborted
   )
     return result
   const solved = await external.solveProfiles(page, Math.max(0, deadline - Date.now()), signal, proxy)
-  if (!solved.length || signal?.aborted) return result
+  if (signal?.aborted) return result
+  // A delayed or unsupported render must not shorten the original local wait.
+  if (!solved.length && !(managedCloudflare && result.resolution === "timeout")) return result
   const verified = await routeLocalChallengeWait(
     page,
-    await page.content(),
+    await page.content().catch(() => ""),
     responseHeaders(),
     Math.max(0, deadline - Date.now()),
     originalUrl,
@@ -170,5 +178,5 @@ export async function routeChallengeWait(
     initialCookies,
     responseHeaders,
   )
-  return verified.resolution === "ok" ? { ...verified, captchasSolved: solved } : verified
+  return verified.resolution === "ok" && solved.length ? { ...verified, captchasSolved: solved } : verified
 }

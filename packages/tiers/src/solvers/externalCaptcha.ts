@@ -2,6 +2,7 @@ import type { Frame, Page } from "patchright"
 import { RequestBudget, sleep } from "../utils/deadline"
 import { captchaTask, detectExternalCaptchas } from "./captchaCatalog"
 import { type CaptchaProfile, deliverCaptchaProfile, prepareCaptchaProfile } from "./captchaProfiles"
+import { CloudflareCapture } from "./cloudflareCapture"
 
 export interface ExternalCaptchaOptions {
   apiKey: string
@@ -152,6 +153,18 @@ async function readWidget(page: Page, type: SupportedCaptcha) {
 export class ExternalCaptchaSession {
   private tasks = 0
   private detections = new Map<string, string>()
+  private cloudflare = new WeakMap<Page, CloudflareCapture>()
+
+  async preparePage(page: Page): Promise<void> {
+    if (!this.supports("cloudflare-challenge")) return
+    const capture = new CloudflareCapture()
+    try {
+      await capture.install(page)
+      this.cloudflare.set(page, capture)
+    } catch {
+      this.detections.set("cloudflare-challenge", "capture-unavailable")
+    }
+  }
 
   private profile(kind: string): CaptchaProfile | undefined {
     if (!/^profile:\d+$/.test(kind)) return undefined
@@ -180,11 +193,14 @@ export class ExternalCaptchaSession {
   }
 
   async discover(page: Page, html?: string): Promise<string[]> {
-    for (const kind of detectExternalCaptchas(html ?? (await page.content().catch(() => "")))) {
+    const source = html ?? (await page.content().catch(() => ""))
+    for (const kind of detectExternalCaptchas(source)) {
       if (!this.detections.has(kind))
         this.detections.set(kind, Object.hasOwn(selectors, kind) ? "detected" : "profile-required")
     }
     const ready: string[] = []
+    const capture = this.cloudflare.get(page)
+    const render = await capture?.read(page)
     for (const [index, profile] of (this.options.profiles ?? []).entries()) {
       if (new URL(page.url()).hostname !== profile.hostname) continue
       const kind = `profile:${index}`
@@ -192,6 +208,10 @@ export class ExternalCaptchaSession {
         .evaluate((selector) => document.querySelectorAll(selector).length === 1, profile.selector)
         .catch(() => false)
       if (present) ready.push(kind)
+    }
+    if (capture && (render || /id\s*=\s*["']challenge-form["']/i.test(source))) {
+      ready.push("cloudflare-challenge")
+      this.detections.set("cloudflare-challenge", render ? "ready" : "awaiting-render")
     }
     return ready
   }
@@ -204,7 +224,7 @@ export class ExternalCaptchaSession {
 
   supports(kind: string): boolean {
     return (
-      (Object.hasOwn(selectors, kind) || Boolean(this.profile(kind))) &&
+      (kind === "cloudflare-challenge" || Object.hasOwn(selectors, kind) || Boolean(this.profile(kind))) &&
       this.tasks < this.options.maxTasks &&
       (cooldowns.get(this.options) ?? 0) <= Date.now()
     )
@@ -216,6 +236,7 @@ export class ExternalCaptchaSession {
       const url = new URL(page.url())
       if (!/^https?:$/.test(url.protocol) || url.username || url.password) return false
       proxyFields(proxy)
+      if (kind === "cloudflare-challenge") return Boolean(await this.cloudflare.get(page)?.read(page))
       const profile = this.profile(kind)
       if (profile) {
         const task = await prepareCaptchaProfile(page, profile, proxyFields(proxy))
@@ -260,12 +281,15 @@ export class ExternalCaptchaSession {
         if (!/^https?:$/.test(parsedURL.protocol) || parsedURL.username || parsedURL.password) return false
         const profile = this.profile(kind)
         const fields = proxyFields(proxy)
+        const capture = kind === "cloudflare-challenge" ? this.cloudflare.get(page) : undefined
+        const cloudflare = await capture?.read(page)
+        if (kind === "cloudflare-challenge" && !cloudflare) return false
         const prepared = profile ? await prepareCaptchaProfile(page, profile, fields) : null
-        const widget = profile ? null : await readWidget(page, type)
+        const widget = profile || capture ? null : await readWidget(page, type)
         if (profile && !prepared) return false
-        if ((!profile && !widget) || abort.aborted || page.url() !== websiteURL) return false
+        if ((!profile && !widget && !cloudflare) || abort.aborted || page.url() !== websiteURL) return false
         const taskType =
-          type === "turnstile"
+          type === "turnstile" || cloudflare
             ? "TurnstileTask"
             : type === "recaptcha-v2-enterprise"
               ? "RecaptchaV2EnterpriseTask"
@@ -273,18 +297,25 @@ export class ExternalCaptchaSession {
         const task = prepared ?? {
           type: `${taskType}${proxy ? "" : "Proxyless"}`,
           websiteURL,
-          websiteKey: widget?.sitekey,
+          websiteKey: cloudflare?.websiteKey ?? widget?.sitekey,
           ...fields,
-          ...(type !== "turnstile"
+          ...(cloudflare
             ? {
-                isInvisible: widget?.invisible,
-                ...(type === "recaptcha-v2-enterprise"
-                  ? { enterprisePayload: widget?.dataS ? { s: widget.dataS } : undefined }
-                  : { recaptchaDataSValue: widget?.dataS }),
-                apiDomain: widget?.apiDomain,
-                userAgent: widget?.userAgent,
+                action: cloudflare.action,
+                data: cloudflare.data,
+                pagedata: cloudflare.pagedata,
+                userAgent: cloudflare.userAgent,
               }
-            : { action: widget?.action, data: widget?.data }),
+            : type !== "turnstile"
+              ? {
+                  isInvisible: widget?.invisible,
+                  ...(type === "recaptcha-v2-enterprise"
+                    ? { enterprisePayload: widget?.dataS ? { s: widget.dataS } : undefined }
+                    : { recaptchaDataSValue: widget?.dataS }),
+                  apiDomain: widget?.apiDomain,
+                  userAgent: widget?.userAgent,
+                }
+              : { action: widget?.action, data: widget?.data }),
         }
         const post = async (method: "createTask" | "getTaskResult", body: Record<string, unknown>) => {
           abort.throwIfAborted()
@@ -362,6 +393,15 @@ export class ExternalCaptchaSession {
               this.detections.set(this.label(kind), "identity-mismatch")
               return false
             }
+          }
+          if (capture && cloudflare) {
+            const token = result.solution?.token
+            if (typeof token !== "string" || !token.trim() || token.length > 65536 || page.url() !== websiteURL)
+              return false
+            abort.throwIfAborted()
+            delivering = true
+            state.phase = "delivery"
+            return await capture.deliver(page, cloudflare, token)
           }
           if (profile) {
             const current = await prepareCaptchaProfile(page, profile, fields)

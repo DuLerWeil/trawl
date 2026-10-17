@@ -10,6 +10,7 @@ for suite in \
   apps/api/src/proxySessions.integration.test.ts \
   apps/api/src/turnstile.integration.test.ts \
   apps/api/src/cloudflareFallback.integration.test.ts \
+  apps/api/src/externalCaptcha.integration.test.ts \
   packages/browser/tests/metaRefresh.integration.test.ts \
   packages/browser/tests/rawText.integration.test.ts \
   packages/browser/tests/readiness.integration.test.ts
@@ -29,10 +30,12 @@ do
     -e TRAWL_PROXY_SESSION_TESTS=1 \
     -e TRAWL_TURNSTILE_TESTS=1 \
     -e TRAWL_CLOUDFLARE_FALLBACK_TESTS=1 \
+    -e TRAWL_EXTERNAL_CAPTCHA_TESTS=1 \
     -v "$repo_root/packages/browser/tests:/app/packages/browser/tests:ro" \
     -v "$repo_root/apps/api/src/browserSessions.integration.test.ts:/app/apps/api/src/browserSessions.integration.test.ts:ro" \
     -v "$repo_root/apps/api/src/proxySessions.integration.test.ts:/app/apps/api/src/proxySessions.integration.test.ts:ro" \
     -v "$repo_root/apps/api/src/turnstile.integration.test.ts:/app/apps/api/src/turnstile.integration.test.ts:ro" \
     -v "$repo_root/apps/api/src/cloudflareFallback.integration.test.ts:/app/apps/api/src/cloudflareFallback.integration.test.ts:ro" \
+    -v "$repo_root/apps/api/src/externalCaptcha.integration.test.ts:/app/apps/api/src/externalCaptcha.integration.test.ts:ro" \
     --entrypoint bun "$image" test "$suite"
 done
