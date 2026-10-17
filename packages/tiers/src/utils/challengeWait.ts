@@ -3,7 +3,7 @@
 // Navigates manually if cf_clearance is set but redirect hasn't fired after 5s.
 
 import type { Frame, Page } from "patchright"
-import { hasTurnstile, isCloudflarePage } from "./detect"
+import { isCloudflarePage } from "./detect"
 
 export const CF_CHALLENGE_TITLE = /just a moment|verify you are human|please wait|one more step|attention required/i
 
@@ -31,9 +31,6 @@ export async function waitForChallengeResolution(
     }
   })()
 
-  // Let CF's challenge JS boot up before we start polling
-  await new Promise((r) => setTimeout(r, 300))
-
   while (Date.now() < deadline) {
     try {
       const title = await page.title().catch(() => "")
@@ -45,7 +42,6 @@ export async function waitForChallengeResolution(
       const activeSignal =
         CF_CHALLENGE_TITLE.test(title) ||
         /\/cdn-cgi\/challenge-platform|\/cdn-cgi\/challenge\//i.test(url) ||
-        hasChallengeFrame ||
         isCloudflarePage("", headers)
       const html = activeSignal ? "" : await page.content().catch(() => "")
       const active = activeSignal || isCloudflarePage(html, headers)
@@ -136,29 +132,26 @@ export async function attemptTurnstileClick(page: Page, allowKeyboard = true): P
 
     // C: page-coordinate click - bypasses Fission by clicking on page instead of inside frame
     const frameEl = await frame.frameElement().catch(() => undefined)
-    const box = frameEl
-      ? await frameEl
-          .boundingBox()
-          .catch(() => undefined)
-          .finally(() => frameEl.dispose().catch(() => {}))
-      : undefined
-    if (box && box.width > 20) {
-      const cx = box.x + Math.min(24, box.width * 0.15)
-      const cy = box.y + box.height / 2
-      await page.mouse.move(cx, cy)
-      await new Promise((r) => setTimeout(r, 150))
-      await page.mouse.click(cx, cy)
-      console.log(
-        `[challenge] Turnstile coord-click at (${Math.round(cx)},${Math.round(cy)}) iframe=${Math.round(box.width)}x${Math.round(box.height)}`,
-      )
-      return true
+    if (!frameEl) continue
+    try {
+      const box = await frameEl.boundingBox().catch(() => undefined)
+      if (box && box.width > 20) {
+        await frameEl.click({ position: { x: Math.min(24, box.width * 0.15), y: box.height / 2 }, timeout: 1500 })
+        console.log(`[challenge] Turnstile iframe clicked (${Math.round(box.width)}x${Math.round(box.height)})`)
+        return true
+      }
+    } catch {
+      // The challenge can disappear while the target document is loading.
+    } finally {
+      await frameEl.dispose().catch(() => {})
     }
   }
 
   // D: keyboard Tab → Space - last resort
   if (!allowKeyboard) return false
   const html = await page.content().catch(() => "")
-  if (hasTurnstile(html) || isCloudflarePage(html, {})) {
+  const title = await page.title().catch(() => "")
+  if (CF_CHALLENGE_TITLE.test(title) || /_cf_chl_opt|id=["'](?:challenge-form|turnstile-wrapper)["']/i.test(html)) {
     try {
       await page.keyboard.press("Tab")
       await new Promise((r) => setTimeout(r, 200))

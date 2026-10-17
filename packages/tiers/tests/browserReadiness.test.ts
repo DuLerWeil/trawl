@@ -66,6 +66,29 @@ function fixture(anubisContent = true, documentHtml = html) {
 }
 
 describe("browser document readiness", () => {
+  test("Cloudflare retains content scheduled after the load event", async () => {
+    const site = fixture()
+    let first = true
+    let loadedAt = Infinity
+    site.page.content = async () => {
+      if (first) {
+        first = false
+        return '<html><title>Just a moment...</title><body id="challenge-form">Checking your browser</body></html>'
+      }
+      return html.replace(
+        "</body>",
+        `${performance.now() - loadedAt >= 450 ? "<article>Loaded after onload</article>" : ""}</body>`,
+      )
+    }
+    site.page.waitForLoadState = async () => {
+      await Bun.sleep(600)
+      loadedAt = performance.now()
+    }
+    const result = await runTier3("https://fixture.example/", site.handle, 6000)
+    expect(result.status).toBe("success")
+    expect(result.html).toContain("<article>Loaded after onload</article>")
+  })
+
   test.each([
     ["friendly-captcha", '<div class="frc-captcha"></div>'],
     ["turnstile", '<div class="cf-turnstile"></div>'],

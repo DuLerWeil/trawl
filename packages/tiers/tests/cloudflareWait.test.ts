@@ -21,6 +21,32 @@ function pageFixture() {
   }
 }
 
+test("readable content can finish within a short budget while retaining two observations", async () => {
+  const page = pageFixture()
+  let observations = 0
+  page.title = async () => "Article"
+  page.content = async () => {
+    observations++
+    return destination
+  }
+  expect(await waitForChallengeResolution(page as unknown as Page, 550, page.url())).toBe("ok")
+  expect(observations).toBeGreaterThanOrEqual(2)
+})
+
+test("a challenge appearing after the first readable observation must still clear", async () => {
+  const page = pageFixture()
+  let observations = 0
+  let solved = false
+  page.title = async () => (++observations === 1 || solved ? "Article" : "Just a moment...")
+  page.content = async () => (observations === 1 || solved ? destination : wall)
+  page.keyboard.press = async () => {
+    solved = true
+  }
+  expect(await waitForChallengeResolution(page as unknown as Page, 1600, page.url())).toBe("ok")
+  expect(solved).toBe(true)
+  expect(observations).toBeGreaterThanOrEqual(4)
+})
+
 test("Cloudflare routing reads the latest main-document headers after navigation", async () => {
   const page = pageFixture()
   let navigated = false
@@ -175,6 +201,65 @@ function clickableFrame(click: () => Promise<void>) {
   }
 }
 
+test("an embedded widget frame does not keep a cleared page in the interstitial waiter", async () => {
+  const page = pageFixture()
+  let clicked = false
+  page.title = async () => "Article"
+  page.content = async () => destination.replace("</body>", '<div class="cf-turnstile"></div></body>')
+  page.frames = () => [
+    clickableFrame(async () => {
+      clicked = true
+    }),
+  ]
+  expect(await waitForChallengeResolution(page as unknown as Page, 900, page.url())).toBe("ok")
+  expect(clicked).toBe(false)
+})
+
+test("a detached challenge iframe cannot turn a coordinate fallback into a page click", async () => {
+  let pageClicks = 0
+  let disposed = 0
+  const frame = {
+    url: () => "https://challenges.cloudflare.com/turnstile/widget",
+    evaluateHandle: async () => {
+      throw new Error("Shadow root unavailable")
+    },
+    locator: () => ({ first: () => ({ isVisible: async () => false }) }),
+    frameElement: async () => ({
+      boundingBox: async () => ({ x: 10, y: 100, width: 300, height: 65 }),
+      click: async () => {
+        throw new Error("Element is not attached to the DOM")
+      },
+      dispose: async () => {
+        disposed++
+      },
+    }),
+  }
+  const page = {
+    frames: () => [frame],
+    mouse: {
+      move: async () => {},
+      click: async () => {
+        pageClicks++
+      },
+    },
+  }
+  expect(await attemptTurnstileClick(page as unknown as Page, false)).toBe(false)
+  expect(pageClicks).toBe(0)
+  expect(disposed).toBe(1)
+})
+
+test("a widget on a real page cannot trigger the interstitial keyboard fallback", async () => {
+  const page = pageFixture()
+  let presses = 0
+  page.title = async () => "Article"
+  page.content = async () => destination.replace("</body>", '<div class="cf-turnstile"></div></body>')
+  page.keyboard.press = async () => {
+    presses++
+  }
+  expect(await attemptTurnstileClick(page as unknown as Page)).toBe(false)
+  expect(presses).toBe(0)
+})
+
 test.each(["clicked", "hidden", "detached"])(
   "coordinate fallback releases its iframe handle when %s",
   async (state) => {
@@ -190,6 +275,10 @@ test.each(["clicked", "hidden", "detached"])(
         boundingBox: async () => {
           if (state === "detached") throw new Error("Frame detached")
           return state === "hidden" ? null : { x: 0, y: 0, width: 300, height: 65 }
+        },
+        click: async () => {
+          if (state !== "clicked") throw new Error("Element is not attached to the DOM")
+          clicked++
         },
         dispose: async () => {
           disposed++
