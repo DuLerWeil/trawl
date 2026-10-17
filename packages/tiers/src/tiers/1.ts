@@ -1,7 +1,8 @@
 import { rootCertificates } from "node:tls"
 import { brotliDecompressSync, gunzipSync, inflateSync, zstdDecompressSync } from "node:zlib"
 import { FINGERPRINT } from "@trawl/browser"
-import type { TierResult } from "@trawl/types"
+import type { Cookie, TierResult } from "@trawl/types"
+import { parseHTML } from "linkedom"
 import { anubisInspectionText, detectAnubisPage } from "../utils/anubis"
 import { describeCertificateError, isCertificateError } from "../utils/certificate"
 import type { ChallengeType } from "../utils/detect"
@@ -22,6 +23,7 @@ import {
 } from "../utils/detect"
 import { isGoogleSorryUrl } from "../utils/googleSorry"
 import { normalizeHtml } from "../utils/html"
+import type { HttpSessionCookies } from "../utils/httpSessionCookies"
 import type { OutboundUrlValidator } from "../utils/outboundPolicy"
 import { normalizeProxyError, proxyResponseFailure } from "../utils/proxyFailure"
 import { decodeTextBody, isHtmlContentType, isTextContentType } from "../utils/response"
@@ -40,6 +42,7 @@ export interface Tier1Result extends TierResult {
   // Why a TLS hop's certificate failed verification. Carried onto the unverified
   // retry's result so the fact survives the retry.
   certificateError?: string
+  cookies?: Cookie[]
 }
 
 // Methods that may carry a request body per RFC 7231/9341. CONNECT is excluded
@@ -81,6 +84,7 @@ export async function runTier1(
   ignoreCertificateErrors?: boolean,
   trustedProxyCa?: string,
   signal?: AbortSignal,
+  sessionCookies?: HttpSessionCookies,
 ): Promise<Tier1Result> {
   const start = Date.now()
   let certificateError: string | undefined
@@ -110,11 +114,11 @@ export async function runTier1(
           signal,
           method: currentMethod,
           body: currentBody,
-          headers,
+          headers: sessionCookies ? { ...headers, Cookie: sessionCookies.header(currentUrl) } : headers,
           // Manual redirects let an opted-in request retry only the TLS hop that failed.
           // Restarting from the original URL could submit a successful POST twice when a
           // later redirect target has an invalid certificate.
-          redirect: validateOutboundUrl || ignoreCertificateErrors ? "manual" : "follow",
+          redirect: validateOutboundUrl || ignoreCertificateErrors || sessionCookies ? "manual" : "follow",
           // Tier 1 feeds the MITM proxy, so its body must keep the same encoded
           // representation described by Content-Encoding, validators, and ranges.
           decompress: false,
@@ -131,7 +135,16 @@ export async function runTier1(
         res = await fetchHop(true)
       }
 
-      if (!(validateOutboundUrl || ignoreCertificateErrors) || ![301, 302, 303, 307, 308].includes(res.status)) {
+      try {
+        sessionCookies?.update(res.headers, currentUrl)
+      } catch (error) {
+        await res.body?.cancel()
+        throw error
+      }
+      if (
+        !(validateOutboundUrl || ignoreCertificateErrors || sessionCookies) ||
+        ![301, 302, 303, 307, 308].includes(res.status)
+      ) {
         break
       }
       const location = res.headers.get("location")
@@ -413,12 +426,22 @@ export async function runTier1(
       }
     }
 
+    if (sessionCookies && m !== "HEAD" && isHtmlContentType(contentType) && /<script\b/i.test(previewText)) {
+      const { document } = parseHTML(new TextDecoder().decode(decodedBytes))
+      for (const node of document.querySelectorAll("head, script, style, template, noscript, svg")) node.remove()
+      const text = (document.body?.textContent ?? "").replace(/\s+/g, " ").trim()
+      if (!text || /^loading[.\s]*$/i.test(text)) {
+        return { tier: 1, status: "needs-js", durationMs: Date.now() - start, reason: "javascript-shell" }
+      }
+    }
+
     return {
       tier: 1,
       certificateError,
       status: "success",
       durationMs: Date.now() - start,
       effectiveUrl: res.url,
+      ...(sessionCookies ? { cookies: sessionCookies.snapshot() } : {}),
       // `html` is best-effort text view of the body - only meaningful for text-like
       // content-types. Empty for binary payloads so /scrape consumers see the body
       // is binary via the contentType field. `previewText` is bounded to 64 KiB for

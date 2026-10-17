@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Reuse browser-verified Cloudflare clearance over HTTP for direct GET/HEAD requests, preserving cookie scope, expiry, rotation and browser identity. Retain browser fallback, TLS verification, proxy isolation, named sessions and CAPTCHA checks.
 - Inspect Cloudflare pages and controls immediately while retaining repeated document confirmation, request deadlines and content settling.
 - Click attached Turnstile iframe elements instead of cached page coordinates, and keep embedded widgets separate from interstitial and keyboard-fallback detection.
 - Overlap embedded Turnstile and Friendly Captcha verification with page settling while preserving the original widget discovery window, ordinary JavaScript settling and Cloudflare wall checks.

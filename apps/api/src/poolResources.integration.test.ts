@@ -31,6 +31,18 @@ describe.skipIf(process.env.TRAWL_POOL_RESOURCE_TESTS !== "1")("API browser reso
       port: 0,
       fetch(request) {
         const path = new URL(request.url).pathname
+        if (path === "/clearance-issue")
+          return new Response(body, {
+            headers: { "content-type": "text/html", "set-cookie": "cf_clearance=owned-clearance; Path=/; HttpOnly" },
+          })
+        if (path === "/clearance-required" && !request.headers.get("cookie")?.includes("cf_clearance=owned-clearance"))
+          return new Response(
+            "<html><title>Just a moment...</title><body id=challenge-form>Clearance required</body></html>",
+            {
+              status: 403,
+              headers: { "content-type": "text/html", "cf-mitigated": "challenge" },
+            },
+          )
         if (path === "/akamai-clear" && !request.headers.get("cookie")?.includes("_abck="))
           return new Response(
             '<html><body><div id="sec-if-cpt-container" class="behavioral-content"><button id="progress-button">Press and hold</button></div><script>setTimeout(() => { document.cookie = "_abck=fixture~0~accepted; Path=/"; location.reload() }, 1200)</script></body></html>',
@@ -291,4 +303,46 @@ describe.skipIf(process.env.TRAWL_POOL_RESOURCE_TESTS !== "1")("API browser reso
     const compatibleResult = (await compatible.json()) as { solution: { response: string } }
     expect(compatibleResult.solution.response).toContain("Verified destination")
   }, 30000)
+  test("native and /v1 reuse browser clearance through HTTP while browser outputs and widgets still execute", async () => {
+    const bootstrap = await post("/scrape", { url: url("/clearance-issue"), skipHttp: true, maxTimeout: 15000 })
+    expect(bootstrap.status).toBe(200)
+    const initial = (await bootstrap.json()) as { userAgent: string }
+    const cached = await post("/scrape", { url: url("/clearance-required"), maxTier: 1, maxTimeout: 10000 })
+    const result = (await cached.json()) as { tier: number; sessionCached: boolean; html: string; userAgent: string }
+    expect(cached.status, JSON.stringify(result)).toBe(200)
+    expect(result).toMatchObject({ tier: 1, sessionCached: true, userAgent: initial.userAgent })
+    expect(result.html).toContain("Verified destination")
+
+    const compatible = await post("/v1", { cmd: "request.get", url: url("/clearance-required"), maxTimeout: 10000 })
+    const v1 = (await compatible.json()) as {
+      status: string
+      solution: { response: string; cookies: { name: string; value: string }[]; userAgent: string }
+    }
+    expect(compatible.status).toBe(200)
+    expect(v1.status).toBe("ok")
+    expect(v1.solution.response).toContain("Verified destination")
+    expect(v1.solution.cookies).toContainEqual(
+      expect.objectContaining({ name: "cf_clearance", value: "owned-clearance" }),
+    )
+    expect(v1.solution.userAgent).toBe(initial.userAgent)
+
+    const screenshot = await post("/scrape", {
+      url: url("/clearance-required"),
+      screenshot: true,
+      maxTier: 2,
+      maxTimeout: 10000,
+    })
+    const captured = (await screenshot.json()) as { tier: number; screenshot: string }
+    expect(screenshot.status).toBe(200)
+    expect(captured.tier).toBe(2)
+    expect(captured.screenshot.length).toBeGreaterThan(100)
+
+    const widget = await post("/scrape", { url: url("/embedded-turnstile"), maxTier: 2, maxTimeout: 15000 })
+    const solved = (await widget.json()) as { tier: number; html: string; captchasSolved: string[] }
+    expect(widget.status, JSON.stringify(solved)).toBe(200)
+    expect(solved.tier).toBe(2)
+    expect(solved.captchasSolved).toContain("turnstile")
+    expect(solved.html).toContain("owned-fixture-response-not-a-vendor-token")
+    expect((await ready()).getStats().busy).toBe(0)
+  }, 45000)
 })

@@ -24,7 +24,7 @@ For existing FlareSolverr users, the compatible `/v1` endpoint works with Prowla
 - **Multi-WAF handling** - dedicated Cloudflare, Akamai Bot Manager, and Imperva/Incapsula detection and browser flows
 - **Native captcha solving** - CF Turnstile/Interstitial, reCAPTCHA v2 (free STT), hCaptcha checkbox/audio where available, GeeTest Slide, ALTCHA, Friendly Captcha v1/v2, and CAP proof-of-work
 - **Camoufox Firefox** - fingerprint-patched at the C++/Juggler level to reduce automation signals
-- **Session cache** - solved cookies and browser identity stored in Redis; accepted sessions can avoid a fresh solve
+- **Automatic clearance reuse** - replay valid Cloudflare cookies and the browser's User-Agent over HTTP for repeat GET/HEAD requests. Rejected clearance, detected JavaScript shells and CAPTCHA widgets fall back to the browser. Direct connections only; named sessions retain their isolated browser state.
 - **FlareSolverr compatible** - works with Prowlarr, Jackett, Sonarr, and the full \*arr ecosystem out of the box
 - **Local solving by default** - no paid solver API required; optional [2Captcha fallback](./apps/docs/getting-started/configuration.md#optional-external-captcha-solver) for reCAPTCHA v2/Enterprise and standalone Turnstile, with site-specific profiles for other documented task types
 

@@ -236,6 +236,8 @@ export interface SessionData {
   cookies: Cookie[]
   userAgent: string
   savedAt: number
+  // Origin verified by a direct browser request. Absent on legacy/proxied sessions.
+  httpOrigin?: string
 }
 
 export interface PoolBrowser {
