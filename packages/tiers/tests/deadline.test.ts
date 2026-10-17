@@ -21,6 +21,18 @@ const deps = {
 }
 
 describe("scrape deadline", () => {
+  test("uses the configured default when a request omits maxTimeout", async () => {
+    const configuredDeps = { ...deps, defaultMaxTimeout: 60 }
+    const result = await Promise.race([
+      scrape({ url: `${fixture.url}headers`, maxTier: 1 }, configuredDeps).then(
+        () => "success",
+        (error: Error) => error.message,
+      ),
+      Bun.sleep(350).then(() => "still-running"),
+    ])
+    expect(result).toBe("Scrape deadline exceeded")
+  })
+
   test.each(["headers", "body"])("stops a stalled HTTP %s within the request budget", async (path) => {
     const start = performance.now()
     const operation = scrape({ url: `${fixture.url}${path}`, maxTimeout: 60, maxTier: 1 }, deps)

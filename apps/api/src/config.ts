@@ -74,6 +74,10 @@ export const HEADFUL_POOL_SIZE = nonNegativeInteger(process.env.BROWSER_HEADFUL_
 // Deployment-wide lower bound for every scraper entry point. Invalid values fail
 // closed so a typo cannot unexpectedly re-enable a direct Tier 1 request.
 export const SCRAPE_MIN_TIER = parseScrapeMinTier(process.env.SCRAPE_MIN_TIER)
+export const SCRAPE_MAX_TIMEOUT_MS = Number(process.env.SCRAPE_MAX_TIMEOUT_MS?.trim() || 60_000)
+if (!Number.isInteger(SCRAPE_MAX_TIMEOUT_MS) || SCRAPE_MAX_TIMEOUT_MS < 1 || SCRAPE_MAX_TIMEOUT_MS > 2_147_483_647) {
+  throw new Error("SCRAPE_MAX_TIMEOUT_MS must be an integer from 1 to 2147483647")
+}
 export const SCRAPE_PROXY_SELECTION = parseProxySelection(process.env.SCRAPE_PROXY_SELECTION)
 
 // Optional extra Firefox prefs. Invalid values fail startup.
@@ -116,9 +120,7 @@ if (METRICS_DASHBOARD_TOKEN && METRICS_DASHBOARD_TOKEN.length < 32) {
 // the published port on a trusted loopback interface.
 export const METRICS_DASHBOARD_ENABLED = /^(1|true|yes)$/i.test(process.env.METRICS_DASHBOARD_ENABLED ?? "")
 
-// How long a browser may stay checked out before the pool calls it wedged rather than
-// busy. A scrape's own budget is req.maxTimeout (default 60s), so 3x that is well clear
-// of anything legitimate while still catching a hung checkout within a few minutes.
+// Grace period after a scrape's deadline before reclaiming a hung browser checkout.
 export const STALL_TIMEOUT_MS = positiveInteger(process.env.BROWSER_STALL_TIMEOUT_MS, 180_000)
 // Upper bound on a single browser/context close during a recycle. Camoufox can hang on
 // close when a content process is wedged; past this we abandon the close and relaunch.

@@ -68,7 +68,7 @@ describe("request logging", () => {
       await runLoggedScrape(
         "native",
         { url: "https://user:secret@example.com/page?token=secret" },
-        deps(),
+        { ...deps(), defaultMaxTimeout: 120000 },
         async (_request, tracedDeps) => {
           tracedDeps.onTierAttempt?.(attempt)
           return result
@@ -82,6 +82,7 @@ describe("request logging", () => {
     expect(lines).toHaveLength(3)
     expect(lines[0]).toContain("event=request.start request=abc123 source=native")
     expect(lines[0]).toContain("target=https://example.com/page")
+    expect(lines[0]).toContain("timeoutMs=120000")
     expect(lines.join("\n")).not.toContain("secret")
     expect(lines[1]).toContain("event=tier.complete request=abc123 tier=1 status=success")
     expect(lines[2]).toContain("event=request.success request=abc123")
