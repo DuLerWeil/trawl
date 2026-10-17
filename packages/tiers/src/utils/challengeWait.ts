@@ -19,6 +19,8 @@ export async function waitForChallengeResolution(
   let lastClickAttempt = 0
   let hadChallengeFrame = false
   let cfClearanceAt: number | undefined
+  let clearanceValue: string | undefined
+  let recoveryAttempted = false
   let challengeSeen = false
   let inactiveSamples = 0
 
@@ -70,11 +72,11 @@ export async function waitForChallengeResolution(
         continue
       }
 
-      const cookies: Array<{ name: string; domain: string }> = await page
+      const cookies: Array<{ name: string; domain: string; value?: string }> = await page
         .context()
         .cookies()
         .catch(() => [])
-      const hasDomainClearance = cookies.some(
+      const domainClearance = cookies.find(
         (c) =>
           c.name === "cf_clearance" &&
           targetHost &&
@@ -82,13 +84,16 @@ export async function waitForChallengeResolution(
             c.domain === `.${targetHost}` ||
             targetHost.endsWith(`.${c.domain.replace(/^\./, "")}`)),
       )
-      if (hasDomainClearance && challengeSeen) {
-        if (cfClearanceAt === undefined) {
+      if (domainClearance && challengeSeen) {
+        if (cfClearanceAt === undefined || clearanceValue !== domainClearance.value) {
+          clearanceValue = domainClearance.value
           cfClearanceAt = Date.now()
           console.log("[challenge] cf_clearance obtained")
         }
         // CF auto-redirect normally fires within 2-3s. If it hasn't, navigate ourselves.
         if (originalUrl && Date.now() - cfClearanceAt > 5000) {
+          if (recoveryAttempted) return "ip-blocked"
+          recoveryAttempted = true
           console.log("[challenge] cf_clearance set but still on challenge page - navigating to original URL")
           await page
             .goto(originalUrl, {
