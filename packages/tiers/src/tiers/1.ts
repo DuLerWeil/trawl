@@ -90,18 +90,21 @@ export async function runTier1(
   let certificateError: string | undefined
   try {
     const m = (method ?? "GET").toUpperCase()
-    const headers = {
-      "User-Agent": FINGERPRINT.userAgent,
-      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "Accept-Language": "en-US,en;q=0.9",
-      "Accept-Encoding": "gzip, deflate, br, zstd",
-      "Upgrade-Insecure-Requests": "1",
-      "Sec-Fetch-Dest": "document",
-      "Sec-Fetch-Mode": "navigate",
-      "Sec-Fetch-Site": "none",
-      "Sec-Fetch-User": "?1",
-      Priority: "u=0, i",
-      ...extraHeaders,
+    const headers: Record<string, string> = {
+      "user-agent": FINGERPRINT.userAgent,
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "accept-language": "en-US,en;q=0.9",
+      "accept-encoding": "gzip, deflate, br, zstd",
+      "upgrade-insecure-requests": "1",
+      "sec-fetch-dest": "document",
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-site": "none",
+      "sec-fetch-user": "?1",
+      priority: "u=0, i",
+    }
+    // Replace defaults case-insensitively; fetch combines differently cased keys.
+    for (const [name, value] of Object.entries(extraHeaders ?? {})) {
+      headers[name.toLowerCase()] = value
     }
     let currentUrl = url
     let currentMethod = m
@@ -114,7 +117,7 @@ export async function runTier1(
           signal,
           method: currentMethod,
           body: currentBody,
-          headers: sessionCookies ? { ...headers, Cookie: sessionCookies.header(currentUrl) } : headers,
+          headers: sessionCookies ? { ...headers, cookie: sessionCookies.header(currentUrl) } : headers,
           // Manual redirects let an opted-in request retry only the TLS hop that failed.
           // Restarting from the original URL could submit a successful POST twice when a
           // later redirect target has an invalid certificate.
