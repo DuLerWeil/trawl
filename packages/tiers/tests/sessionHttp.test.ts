@@ -27,6 +27,33 @@ function cached(cookies = [clearance()]): SessionData {
 }
 
 describe("HTTP clearance boundaries", () => {
+  test.each([
+    "techaro.lol-anubis-auth",
+    "techaro.lol-anubis",
+    "techaro.lol-anubis-a1b2c3d4",
+    "techaro.lol-anubis-auth-a1b2c3d4",
+  ])("accepts browser-verified Anubis auth cookie %s with the same origin restrictions", (name) => {
+    const session = cached([clearance("example.test", { name })])
+    expect(HttpSessionCookies.from(session, "https://example.test/")?.header("https://example.test/")).toBe(
+      `${name}=verified`,
+    )
+    expect(HttpSessionCookies.from(session, "https://other.test/")).toBeUndefined()
+    expect(HttpSessionCookies.from({ ...session, httpOrigin: undefined }, "https://example.test/")).toBeUndefined()
+    expect(
+      HttpSessionCookies.from(cached([clearance("example.test", { name, expires: 1 })]), "https://example.test/"),
+    ).toBeUndefined()
+  })
+
+  test.each([
+    "techaro.lol-anubis-cookie-verification",
+    "techaro.lol-anubis-original-referer",
+    "techaro.lol-anubis-cookie-verification-a1b2c3d4",
+  ])("does not treat %s as Anubis clearance", (name) => {
+    expect(
+      HttpSessionCookies.from(cached([clearance("example.test", { name })]), "https://example.test/"),
+    ).toBeUndefined()
+  })
+
   test("honors host-only/domain cookies, paths, expiry, secure transport and longest path first", () => {
     const jar = HttpSessionCookies.from(
       cached([
@@ -148,6 +175,10 @@ describe("HTTP clearance fallback", () => {
   const success = { status: "success" as const, durationMs: 1, html, effectiveUrl: "https://example.test/" }
 
   test.each([
+    [
+      "rejected Anubis clearance",
+      '<html><script id="anubis_challenge" type="application/json">{}</script><title>Making sure you are not a bot!</title></html>',
+    ],
     ["rejected clearance", "<html><title>Just a moment...</title><script>window._cf_chl_opt={}</script></html>"],
     ["embedded Turnstile", '<html><body><div class="cf-turnstile" data-sitekey="site"></div></body></html>'],
     [
@@ -256,70 +287,73 @@ describe("HTTP clearance fallback", () => {
   })
 })
 
-test("reuses verified clearance over HTTP without checking out a browser", async () => {
-  const seen: { cookie: string | null; agent: string | null }[] = []
-  server = Bun.serve({
-    port: 0,
-    fetch(request) {
-      seen.push({ cookie: request.headers.get("cookie"), agent: request.headers.get("user-agent") })
-      if (!request.headers.get("cookie")?.includes("cf_clearance=verified")) {
-        return new Response("<html><title>Just a moment...</title><script>window._cf_chl_opt={}</script></html>", {
-          status: 403,
-          headers: { "content-type": "text/html" },
-        })
-      }
-      return new Response(
-        '<html><head><script src="/enhance.js"></script></head><body>Actual destination</body></html>',
-        {
-          headers: { "content-type": "text/html", "set-cookie": "fresh=value; Path=/; HttpOnly" },
-        },
-      )
-    },
-  })
-  const url = `http://127.0.0.1:${server.port}/`
-  let saved: SessionData | undefined
-  let checkouts = 0
-  const deps: OrchestratorDeps = {
-    acquireBrowser: async () => {
-      checkouts++
-      return { fingerprint: { userAgent: "browser-agent" } } as BrowserHandle
-    },
-    releaseBrowser: () => {},
-    loadSession: async () => saved,
-    saveSession: async (_domain, data) => {
-      saved = data
-    },
-    invalidateSession: async () => {
-      saved = undefined
-    },
-  }
-  await scrape({ url, maxTier: 3 }, deps, {
-    tier3: async () => ({
-      tier: 3,
-      status: "success",
-      durationMs: 1,
-      html: "<html><body>Actual destination</body></html>",
-      effectiveUrl: url,
-      userAgent: "browser-agent",
-      cookies: [
-        {
-          name: "cf_clearance",
-          value: "verified",
-          domain: "127.0.0.1",
-          path: "/",
-          expires: Date.now() / 1000 + 3600,
-          secure: false,
-          httpOnly: true,
-        },
-      ],
-    }),
-  })
-  const result = await scrape({ url, maxTier: 1 }, deps)
-  expect(result).toMatchObject({ tier: 1, sessionCached: true, userAgent: "browser-agent" })
-  expect(result.html).toContain("Actual destination")
-  expect(result.cookies.map((cookie) => cookie.name)).toEqual(["cf_clearance", "fresh"])
-  expect(saved?.cookies).toEqual(result.cookies)
-  expect(checkouts).toBe(1)
-  expect(seen).toHaveLength(2)
-  expect(seen[1]).toEqual({ cookie: "cf_clearance=verified", agent: "browser-agent" })
-})
+test.each(["cf_clearance", "techaro.lol-anubis-auth"])(
+  "reuses verified %s over HTTP without checking out a browser",
+  async (name) => {
+    const seen: { cookie: string | null; agent: string | null }[] = []
+    server = Bun.serve({
+      port: 0,
+      fetch(request) {
+        seen.push({ cookie: request.headers.get("cookie"), agent: request.headers.get("user-agent") })
+        if (!request.headers.get("cookie")?.includes(`${name}=verified`)) {
+          return new Response("<html><title>Just a moment...</title><script>window._cf_chl_opt={}</script></html>", {
+            status: 403,
+            headers: { "content-type": "text/html" },
+          })
+        }
+        return new Response(
+          '<html><head><script src="/enhance.js"></script></head><body>Actual destination</body></html>',
+          {
+            headers: { "content-type": "text/html", "set-cookie": "fresh=value; Path=/; HttpOnly" },
+          },
+        )
+      },
+    })
+    const url = `http://127.0.0.1:${server.port}/`
+    let saved: SessionData | undefined
+    let checkouts = 0
+    const deps: OrchestratorDeps = {
+      acquireBrowser: async () => {
+        checkouts++
+        return { fingerprint: { userAgent: "browser-agent" } } as BrowserHandle
+      },
+      releaseBrowser: () => {},
+      loadSession: async () => saved,
+      saveSession: async (_domain, data) => {
+        saved = data
+      },
+      invalidateSession: async () => {
+        saved = undefined
+      },
+    }
+    await scrape({ url, maxTier: 3 }, deps, {
+      tier3: async () => ({
+        tier: 3,
+        status: "success",
+        durationMs: 1,
+        html: "<html><body>Actual destination</body></html>",
+        effectiveUrl: url,
+        userAgent: "browser-agent",
+        cookies: [
+          {
+            name,
+            value: "verified",
+            domain: "127.0.0.1",
+            path: "/",
+            expires: Date.now() / 1000 + 3600,
+            secure: false,
+            httpOnly: true,
+          },
+        ],
+      }),
+    })
+    const result = await scrape({ url, maxTier: 1 }, deps)
+    expect(result).toMatchObject({ tier: 1, sessionCached: true, userAgent: "browser-agent" })
+    expect(result.html).toContain("Actual destination")
+    expect(result.cookies.map((cookie) => cookie.name)).toEqual([name, "fresh"])
+    expect(saved?.cookies).toEqual(result.cookies)
+    expect(checkouts).toBe(1)
+    expect(seen).toHaveLength(2)
+    expect(seen[1]).toEqual({ cookie: `${name}=verified`, agent: "browser-agent" })
+  },
+)

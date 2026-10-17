@@ -29,7 +29,14 @@ export class HttpSessionCookies {
   static from(session: SessionData | undefined, url: string): HttpSessionCookies | undefined {
     const target = new URL(url)
     if (session?.httpOrigin !== target.origin || !session.userAgent || session.cookies.length > 200) return
-    if (!session.cookies.some((cookie) => cookie.name === "cf_clearance" && cookie.value && matches(cookie, target)))
+    if (
+      !session.cookies.some(
+        (cookie) =>
+          (cookie.name === "cf_clearance" || /^techaro\.lol-anubis(?:-auth)?(?:-[a-f0-9]{8})?$/.test(cookie.name)) &&
+          cookie.value &&
+          matches(cookie, target),
+      )
+    )
       return
     return new HttpSessionCookies(target.origin, session.cookies)
   }
