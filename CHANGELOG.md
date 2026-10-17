@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Configure the default scrape deadline with `SCRAPE_MAX_TIMEOUT_MS` across the native API, FlareSolverr API, MCP and proxy scraper fallbacks. Explicit request timeouts take precedence; the default remains 60 seconds (#214).
+
 ### Fixed
 - Limit Cloudflare clearance recovery to one navigation, allow refreshed clearance to finish, and retain time for an available residential fallback instead of exhausting the request in Tier 3 (#219).
 - Recognize embedded Turnstile tokens consumed during widget removal without treating widget disappearance alone as success (#221).

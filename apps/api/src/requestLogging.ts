@@ -21,7 +21,7 @@ export async function runLoggedScrape(
     source,
     method: req.method ?? "GET",
     target: safeUrl(req.url),
-    timeoutMs: req.maxTimeout ?? 60_000,
+    timeoutMs: req.maxTimeout ?? deps.defaultMaxTimeout ?? 60_000,
     maxTier: req.maxTier ?? 4,
     proxy: Boolean(req.proxy),
   })

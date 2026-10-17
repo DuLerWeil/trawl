@@ -22,6 +22,7 @@ import {
   REDIS_SESSION_TTL_SECONDS,
   REDIS_URL,
   residentialProxyPool,
+  SCRAPE_MAX_TIMEOUT_MS,
   SCRAPE_MIN_TIER,
   SESSION_CACHE_DRIVER,
   type SessionCacheDriver,
@@ -277,6 +278,7 @@ export const getDeps = (): OrchestratorDeps => {
     residentialProxyPool,
     trustedProxyCa: localProxyCa,
     minTier: SCRAPE_MIN_TIER,
+    defaultMaxTimeout: SCRAPE_MAX_TIMEOUT_MS,
     externalCaptcha: EXTERNAL_CAPTCHA,
   }
 }

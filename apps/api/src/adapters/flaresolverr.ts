@@ -44,7 +44,7 @@ export function buildScrapeRequestFromFlareSolverr(req: FlareSolverrScrapeReques
     screenshot: req.returnScreenshot,
     solveEmbeddedCaptchas: req.solveEmbeddedCaptchas ?? false,
     skipHttp: req.returnScreenshot || req.returnOnlyCookies || Boolean(req.cookies?.length),
-    maxTimeout: req.maxTimeout ?? 60_000,
+    maxTimeout: req.maxTimeout,
     headers,
     method,
     body: req.postData,
