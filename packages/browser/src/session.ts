@@ -40,7 +40,8 @@ export class SessionCache implements SessionCacheStore {
   }
 
   private key(domain: string): string {
-    return `session:${domain}`
+    // Old entries do not identify their proxy and cannot be replayed safely.
+    return `session:v2:${domain}`
   }
 
   async save(domain: string, data: SessionData): Promise<void> {

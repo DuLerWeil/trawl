@@ -15,7 +15,7 @@ import { DeadlineError, RequestBudget } from "./utils/deadline"
 import { normalizeHtml } from "./utils/html"
 import { HttpSessionCookies } from "./utils/httpSessionCookies"
 import { metaRefreshTarget } from "./utils/metaRefresh"
-import type { ProxyPool } from "./utils/proxyRotator"
+import { type ProxyPool, proxyIdentity } from "./utils/proxyRotator"
 import { isHtmlContentType } from "./utils/response"
 import { RequestValidationError, requireContentTypeForBody, sanitizeHeaders } from "./utils/sanitize"
 
@@ -380,12 +380,20 @@ async function scrapeWithinBudget(
 
   // Tier 1 is the only look at the wall that happens before a browser is checked out, so
   // it is also the only chance to pick the right kind of browser for the tiers below.
-  const session = minTier <= 2 && !explicitProxy ? await deps.loadSession(domain) : undefined
+  let session = minTier <= 2 && !explicitProxy ? await deps.loadSession(domain) : undefined
+  const sessionProxy = session?.proxyId
+    ? (deps.proxyPool?.resolve(session.proxyId) ?? deps.residentialProxyPool?.resolve(session.proxyId))
+    : undefined
+  if (session?.proxyId && !sessionProxy) {
+    await deps.invalidateSession(domain)
+    session = undefined
+  }
   const httpSession =
     minTier === 1 &&
     !ignoreCertificateErrors &&
     !explicitProxy &&
     !deps.proxyPool &&
+    !session?.proxyId &&
     (!req.method || req.method === "GET" || req.method === "HEAD") &&
     !req.screenshot &&
     !req.consoleLogs &&
@@ -539,6 +547,7 @@ async function scrapeWithinBudget(
         deps.validateOutboundUrl,
         req.screenshot,
         capture,
+        sessionProxy,
       )
       if (t2.challenge === "datadome" && !handle.headful) {
         await switchToHeadful()
@@ -553,21 +562,23 @@ async function scrapeWithinBudget(
           deps.validateOutboundUrl,
           req.screenshot,
           capture,
+          sessionProxy,
         )
       }
       // Unreachable while the skip above stands, and kept anyway: every tier that can
       // return a page runs the guard, so re-enabling Tier 2 here cannot quietly bypass it.
       const crossed2 = hasUsablePayload(t2)
-        ? await refuseCrossed(t2.effectiveUrl, session.userAgent, undefined)
+        ? await refuseCrossed(t2.effectiveUrl, session.userAgent, sessionProxy)
         : undefined
       emit(crossed2 ? crossedTiming(t2, crossed2) : t2)
       if (hasUsablePayload(t2) && !crossed2) {
         if (t2.cookies && t2.cookies.length > 0) {
           await deps.saveSession(domain, {
+            ...session,
             cookies: t2.cookies,
             userAgent: session.userAgent,
             savedAt: Date.now(),
-            httpOrigin: httpOrigin(t2.effectiveUrl),
+            httpOrigin: sessionProxy ? undefined : httpOrigin(t2.effectiveUrl),
           })
         }
         return {
@@ -582,7 +593,7 @@ async function scrapeWithinBudget(
           totalMs: Date.now() - totalStart,
           captchasSolved: t2.captchasSolved,
           captchaDiagnostics: capture.externalCaptcha?.diagnostics(),
-          proxyUsed: false,
+          proxyUsed: Boolean(sessionProxy),
           certificateError,
           body: t2.body,
           responseHeaders: t2.responseHeaders,
@@ -670,6 +681,7 @@ async function scrapeWithinBudget(
             cookies,
             userAgent: t3.userAgent ?? handle.fingerprint.userAgent,
             savedAt: Date.now(),
+            proxyId: proxy3 ? proxyIdentity(proxy3) : undefined,
             httpOrigin: proxy3 ? undefined : httpOrigin(t3.effectiveUrl),
           })
         }
@@ -773,6 +785,7 @@ async function scrapeWithinBudget(
           cookies,
           userAgent: t4.userAgent ?? handle.fingerprint.userAgent,
           savedAt: Date.now(),
+          proxyId: proxyIdentity(proxy4),
         })
       }
       return {
