@@ -8,8 +8,8 @@ description: Trust TRAWL's generated root CA on operating systems, browsers, Jav
 TRAWL decrypts proxied HTTPS connections to detect challenge pages. On first proxy startup it
 creates:
 
-- `ca.crt` — the root certificate clients install;
-- `ca.key` — the private signing key, which must remain secret.
+- `ca.crt` - the root certificate clients install;
+- `ca.key` - the private signing key, which must remain secret.
 
 Both files live in `MITM_CA_DIR`. Per-host certificates are generated in memory and signed by
 this root. Persist the directory so clients only need to install the root once.

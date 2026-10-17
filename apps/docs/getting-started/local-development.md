@@ -25,7 +25,7 @@ This installs all workspace packages in one pass.
 
 ## 2. Fetch the Camoufox browser
 
-The API uses [Camoufox](https://github.com/daijro/camoufox) — Firefox with fingerprint patching. Fetch the binary once:
+The API uses [Camoufox](https://github.com/daijro/camoufox) - Firefox with fingerprint patching. Fetch the binary once:
 
 ```bash
 bun x camoufox-js fetch
@@ -50,7 +50,7 @@ cp .env.example .env
 
 ## 5. Start each service
 
-**Terminal 1 — API (browser pool + HTTP server):**
+**Terminal 1 - API (browser pool + HTTP server):**
 
 ```bash
 bun run dev:api
@@ -60,14 +60,14 @@ bun run dev:api
 # [api] TRAWL ready on :8191
 ```
 
-**Terminal 2 — web (optional):**
+**Terminal 2 - web (optional):**
 
 ```bash
 bun run dev:web
 # Nuxt ready at http://localhost:3000
 ```
 
-**Terminal 3 — docs (optional):**
+**Terminal 3 - docs (optional):**
 
 ```bash
 bun run dev:docs
@@ -89,9 +89,9 @@ trawl/
 │   ├── web/         Nuxt 4 landing page
 │   └── docs/        VitePress documentation
 ├── packages/
-│   ├── types/       Shared TypeScript interfaces — no runtime logic
+│   ├── types/       Shared TypeScript interfaces - no runtime logic
 │   ├── browser/     BrowserPool + SessionCache
-│   └── tiers/       Tier 1–4 executors + orchestrator
+│   └── tiers/       Tier 1-4 executors + orchestrator
 ├── docker-compose.yml          scraper + Redis (default)
 ├── docker-compose.minimal.yml  scraper only, no Redis
 └── docker-compose.prod.yml     production with restart + healthcheck
@@ -99,7 +99,7 @@ trawl/
 
 ## Cross-package TypeScript
 
-Each package has its own `tsconfig.json` that resolves imports from source — no build step needed:
+Each package has its own `tsconfig.json` that resolves imports from source - no build step needed:
 
 ```json
 {
