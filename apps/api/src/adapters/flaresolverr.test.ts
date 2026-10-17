@@ -21,6 +21,14 @@ afterEach(() => {
 })
 
 describe("FlareSolverr request adapter", () => {
+  test("delivers pages without requiring embedded form tokens unless explicitly requested", () => {
+    const input = { url: "https://example.com/" }
+    expect(buildScrapeRequestFromFlareSolverr(input).solveEmbeddedCaptchas).toBe(false)
+    expect(buildScrapeRequestFromFlareSolverr({ ...input, solveEmbeddedCaptchas: true }).solveEmbeddedCaptchas).toBe(
+      true,
+    )
+  })
+
   test("translates Prowlarr 2.5.2 serialized content metadata", () => {
     const result = buildScrapeRequestFromFlareSolverr(PROWLARR_2_5_2_REQUEST)
 

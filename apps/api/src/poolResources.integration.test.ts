@@ -48,6 +48,14 @@ describe.skipIf(process.env.TRAWL_POOL_RESOURCE_TESTS !== "1")("API browser reso
             '<html><body><div id="sec-if-cpt-container" class="behavioral-content"><button id="progress-button">Press and hold</button></div><script>setTimeout(() => { document.cookie = "_abck=fixture~0~accepted; Path=/"; location.reload() }, 1200)</script></body></html>',
             { status: 403, headers: { "content-type": "text/html" } },
           )
+        if (path === "/unresolved-widget")
+          return new Response(
+            body.replace(
+              "</body>",
+              '<div class="cf-turnstile"></div><input type="hidden" name="cf-turnstile-response" value=""></body>',
+            ),
+            { headers: { "content-type": "text/html" } },
+          )
         if (path === "/embedded-turnstile")
           return new Response(
             '<html><head><title>Contact form</title></head><body><form><div class="cf-turnstile"><iframe src="/cdn-cgi/challenge-platform/turnstile" width="300" height="65"></iframe></div><input name="cf-turnstile-response" type="hidden"><button type="submit">Submit form</button></form><script>document.querySelector("form").onsubmit=e=>{e.preventDefault();document.body.dataset.submitted="true"};window.addEventListener("message",e=>{if(e.origin===location.origin && e.data==="owned-fixture-solved")document.querySelector("input").value="owned-fixture-response-not-a-vendor-token"})</script></body></html>',
@@ -141,6 +149,68 @@ describe.skipIf(process.env.TRAWL_POOL_RESOURCE_TESTS !== "1")("API browser reso
     expect(result.captchasSolved).toContain("turnstile")
     expect(result.html).toContain("owned-fixture-response-not-a-vendor-token")
     expect(result.html).not.toContain('data-submitted="true"')
+    await ready()
+  }, 20000)
+
+  test("page delivery skips optional widgets without skipping access challenges", async () => {
+    for (const route of ["/scrape", "/v1"]) {
+      const start = performance.now()
+      const response = await post(route, {
+        url: url("/unresolved-widget"),
+        maxTimeout: 10000,
+        ...(route === "/scrape" ? { skipHttp: true, solveEmbeddedCaptchas: false } : { cmd: "request.get" }),
+      })
+      const result = (await response.json()) as {
+        html?: string
+        captchasSolved?: string[]
+        solution?: { response: string }
+      }
+      expect(response.status, JSON.stringify(result)).toBe(200)
+      expect(result.html ?? result.solution?.response).toContain("Verified destination")
+      expect(result.html ?? result.solution?.response).not.toContain("owned-fixture-response")
+      expect(result.captchasSolved ?? []).toEqual([])
+      expect(performance.now() - start).toBeLessThan(5000)
+      await ready()
+    }
+    const response = await post("/v1", { cmd: "request.get", url: url("/cf-navigation"), maxTimeout: 10000 })
+    const result = (await response.json()) as { solution: { response: string; url: string; status: number } }
+    expect(response.status).toBe(200)
+    expect(result.solution.url).toBe(url("/final"))
+    expect(result.solution.status).toBe(200)
+    expect(result.solution.response).toContain("Verified destination")
+    await ready()
+  }, 30000)
+
+  test("an unsolved embedded widget leaves time to return native page content", async () => {
+    const bootstrap = await post("/scrape", { url: url("/clearance-issue"), skipHttp: true, maxTimeout: 15000 })
+    expect(bootstrap.status).toBe(200)
+    for (const tier of [3, 2]) {
+      const response = await post("/scrape", {
+        url: url("/unresolved-widget"),
+        skipHttp: true,
+        maxTimeout: 9000,
+        maxTier: tier,
+        ...(tier === 3 ? { cookies: [{ name: "fixture", value: "fresh" }] } : {}),
+      })
+      const result = (await response.json()) as { tier: number; html: string; captchasSolved?: string[] }
+      expect(response.status, JSON.stringify(result)).toBe(200)
+      expect(result.tier).toBe(tier)
+      expect(result.html).toContain("Verified destination")
+      expect(result.captchasSolved ?? []).toEqual([])
+      await ready()
+    }
+  }, 30000)
+
+  test("v1 can explicitly solve an embedded widget", async () => {
+    const response = await post("/v1", {
+      cmd: "request.get",
+      url: url("/embedded-turnstile"),
+      solveEmbeddedCaptchas: true,
+      maxTimeout: 15000,
+    })
+    const result = (await response.json()) as { solution: { response: string } }
+    expect(response.status, JSON.stringify(result)).toBe(200)
+    expect(result.solution.response).toContain("owned-fixture-response-not-a-vendor-token")
     await ready()
   }, 20000)
 

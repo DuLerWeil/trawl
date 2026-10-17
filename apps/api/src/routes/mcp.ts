@@ -26,6 +26,7 @@ type McpScrapeInput = Pick<
   | "maxTimeout"
   | "maxTier"
   | "skipHttp"
+  | "solveEmbeddedCaptchas"
   | "screenshot"
   | "screenshotFullPage"
   | "screenshotWaitForSelector"
@@ -160,6 +161,7 @@ function createServer(poolReady: () => boolean, runScrape: RunScrape, metricsSto
     maxTimeout?: number
     maxTier?: 1 | 2 | 3 | 4
     skipHttp?: boolean
+    solveEmbeddedCaptchas?: boolean
   }) => {
     try {
       const result = await runSafe(input)
@@ -191,6 +193,10 @@ function createServer(poolReady: () => boolean, runScrape: RunScrape, metricsSto
     inputSchema: z.strictObject({
       ...baseInputShape,
       skipHttp: z.boolean().optional().describe("Skip the plain HTTP tier and start with a browser"),
+      solveEmbeddedCaptchas: z
+        .boolean()
+        .optional()
+        .describe("Attempt embedded form widgets after clearing access challenges; defaults to true"),
     }),
     outputSchema: {
       ...metadataSchema,
