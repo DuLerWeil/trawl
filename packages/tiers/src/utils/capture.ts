@@ -32,6 +32,8 @@ export interface CaptureOptions extends ResponseCaptureOptions {
   sessionContext?: Awaited<ReturnType<typeof import("@trawl/browser").newFreshContext>>
   sessionStorage?: Map<string, [string, string][]>
   budget?: RequestBudget
+  // Shared across Tier 3 retries when a residential fallback is available.
+  cloudflareDeadline?: number
   externalCaptcha?: ExternalCaptchaSession
   solveEmbeddedCaptchas?: boolean
   followMetaRefresh?: boolean

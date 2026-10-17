@@ -95,6 +95,11 @@ export class ProxyPool {
     return this.proxies.length
   }
 
+  hasAvailable(): boolean {
+    const now = Date.now()
+    return this.proxies.some((proxy) => proxy.badUntil <= now)
+  }
+
   resolve(id: string): string | undefined {
     return this.proxies.find((proxy) => proxy.id === id && proxy.badUntil <= Date.now())?.url
   }
