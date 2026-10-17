@@ -219,8 +219,12 @@ A deployment can enable the [external CAPTCHA solver](/getting-started/configura
 It runs after supported built-in solvers inside browser tiers 2-4, using the same
 page and the remaining request deadline. It is not a fifth tier. One shared
 allowance limits paid task creation across all tiers and proxy attempts.
-Automatic fallback handles declarative reCAPTCHA v2/Enterprise and standalone
-Turnstile. Other documented API v2 task types use hostname-bound profiles with
+Automatic fallback handles declarative reCAPTCHA v2/Enterprise, standalone
+Turnstile and supported Turnstile-based Cloudflare Challenge Pages. For the latter,
+an opt-in observer installed before navigation captures document-bound render
+parameters and the original callback. Local solving runs first; the provider
+answer must match the browser identity and the wall must clear before success.
+Other documented API v2 task types use hostname-bound profiles with
 explicit inputs, delivery and a verification selector. A detected SDK marker
 alone never creates a paid task. Profile-enabled hostnames escalate HTTP HTML
 responses to a browser, and WAF waiters can use a profile after local resolution

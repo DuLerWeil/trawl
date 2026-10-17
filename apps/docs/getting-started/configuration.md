@@ -513,10 +513,36 @@ widget's Google or recaptcha.net API domain. Enterprise `data-s` is sent inside
 `enterprisePayload`.
 
 A restrictive script CSP or missing named callback prevents task creation.
-Anonymous callbacks, explicitly rendered widgets, multiple widgets, reCAPTCHA v3
-and Cloudflare interstitials require a site-specific profile. Existing local
+Anonymous callbacks, explicitly rendered standalone widgets, multiple widgets and
+reCAPTCHA v3 require a site-specific profile. Existing local
 solvers, including hCaptcha, remain available. A token delivered to a field is
 reported as `delivered`, not as proof of target-server acceptance.
+
+### Cloudflare Challenge Pages
+
+When external solving is enabled, TRAWL installs a page-scoped observer before
+navigation in fresh browser tiers 3 and 4, including named browser sessions.
+For Turnstile-based Challenge Pages with `#challenge-form`, it captures the render
+call's `sitekey`, `action`, `cData`, `chlPageData` and callback together with the
+browser's actual user agent. These values are document-specific; no static site
+profile is required. The original render still runs so local solving gets its
+first attempt. Delayed SDK initialization is supported within the local wait.
+
+After the local attempt, a complete pending render can create a `TurnstileTask`
+using the browser's explicit proxy, or a `TurnstileTaskProxyless` without one.
+The returned token is delivered to the captured callback in the same document.
+Reloading, rendering a replacement widget, reset, expiration or local completion
+invalidates the captured answer. A provider user agent that differs from the
+browser is rejected rather than partially changing the browser identity.
+
+TRAWL then checks for readable content and absence of the challenge before
+reporting `cloudflare-challenge:2captcha` in `captchasSolved`. A token, callback
+return or `cf_clearance` cookie alone is insufficient. Hard error pages such as
+1020/1015 do not create paid tasks. Missing render parameters retain local
+handling and tier fallback; not every Cloudflare challenge exposes this flow.
+The same allowance, cooldowns and request deadline apply as for other external
+tasks. Keep enough time for both the provider's five-second polling interval and
+target verification. No additional browser or background polling loop is used.
 
 ### Provider task catalogue
 
@@ -651,7 +677,7 @@ proxy-required tasks are skipped without an explicit supported proxy. Tasks with
 no proxy variant are skipped when a browser proxy is configured.
 
 Enabling this feature sends the full target URL, sitekey, supported widget
-parameters, the reCAPTCHA browser user agent and explicit proxy credentials to 2Captcha. Browser session cookies
+parameters, the reCAPTCHA or Cloudflare browser user agent and explicit proxy credentials to 2Captcha. Browser session cookies
 and page content are sent only by explicitly configured profile inputs with
 `allowSessionData: true`. Image/audio tasks send their configured media. Provider API traffic uses the server's network
 route, rather than the browser's per-context proxy. TRAWL does not log the API key,

@@ -26,7 +26,7 @@ For existing FlareSolverr users, the compatible `/v1` endpoint works with Prowla
 - **Camoufox Firefox** - fingerprint-patched at the C++/Juggler level to reduce automation signals
 - **Automatic clearance reuse** - replay valid Cloudflare or Anubis clearance cookies and the browser's User-Agent over HTTP for repeat GET/HEAD requests. Rejected clearance, detected JavaScript shells and CAPTCHA widgets fall back to the browser. Direct connections only; named sessions retain their isolated browser state.
 - **FlareSolverr compatible** - works with Prowlarr, Jackett, Sonarr, and the full \*arr ecosystem out of the box
-- **Local solving by default** - no paid solver API required; optional [2Captcha fallback](./apps/docs/getting-started/configuration.md#optional-external-captcha-solver) for reCAPTCHA v2/Enterprise and standalone Turnstile, with site-specific profiles for other documented task types
+- **Local solving by default** - no paid solver API required; optional [2Captcha fallback](./apps/docs/getting-started/configuration.md#optional-external-captcha-solver) for reCAPTCHA v2/Enterprise, standalone Turnstile and supported Cloudflare Challenge Pages, with site-specific profiles for other documented task types
 
 ## Sponsors
 
@@ -116,7 +116,7 @@ TRAWL detects supported walls, chooses the matching browser flow and checks whet
 
 | Challenge / CAPTCHA     | Built-in handling                                                                    | Optional 2Captcha handling                                     |
 | ----------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| Cloudflare interstitial | Browser challenge execution, Turnstile interaction and clearance recovery            | Site profile required for supported Turnstile-based challenges |
+| Cloudflare interstitial | Browser challenge execution, Turnstile interaction and clearance recovery            | Automatic fallback for captured Turnstile Challenge Pages       |
 | Standalone Turnstile    | Shadow-DOM/frame interaction; checks the response token                              | Automatic fallback for a supported declarative widget          |
 | reCAPTCHA v2            | Checkbox and audio solving                                                           | Automatic fallback for a supported declarative widget          |
 | reCAPTCHA v2 Enterprise | No dedicated Enterprise solver                                                       | Automatic fallback for a supported declarative widget          |
@@ -139,6 +139,8 @@ DataDome browser handling requires `BROWSER_HEADFUL_POOL_SIZE=1`, which adds ano
 ### External task catalogue
 
 2Captcha is disabled by default. Enable it with `CAPTCHA_SOLVER=2captcha` and `TWOCAPTCHA_API_KEY`. Automatic fallback supports one declarative reCAPTCHA v2/Enterprise or standalone Turnstile widget per provider on a page, subject to the adapter's callback, CSP and task-budget checks.
+
+Supported Cloudflare Challenge Pages also work without a profile: TRAWL captures the dynamic Turnstile render parameters before initialization, tries local resolution first and delivers the external answer to the original callback. Navigation, replaced parameters or a different provider user agent invalidate the answer. A token or clearance cookie alone does not prove that the target page is accessible.
 
 Other task types require an exact-hostname profile with task inputs, response delivery and target verification. Recognized SDK markers can produce diagnostic candidates; they do not automatically create paid tasks.
 
