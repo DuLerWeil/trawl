@@ -1,5 +1,5 @@
 import { PoolExhaustedError } from "@trawl/browser"
-import { type OrchestratorDeps, ScrapeError, scrape } from "@trawl/tiers"
+import { type OrchestratorDeps, ScrapeError, scrape, withRequestId } from "@trawl/tiers"
 import type { ScrapeRequest, ScrapeResult, TierResult } from "@trawl/types"
 import { applyDomainProfile, refreshDomainProfile } from "./domainProfile"
 import { log, requestId, safeMessage, safeUrl } from "./logger"
@@ -56,7 +56,7 @@ export async function runLoggedScrape(
   }
 
   try {
-    const result = await runScrape(req, tracedDeps)
+    const result = await withRequestId(id, () => runScrape(req, tracedDeps))
     metricsStore.record({
       source,
       url: req.url,

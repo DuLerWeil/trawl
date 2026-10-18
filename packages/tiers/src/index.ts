@@ -42,6 +42,7 @@ export {
 } from "./utils/detect"
 export { isGoogleSorryUrl } from "./utils/googleSorry"
 export { normalizeProxy, ProxyPool, type ProxySelection } from "./utils/proxyRotator"
+export { withRequestId } from "./utils/requestScope"
 export { isHtmlContentType } from "./utils/response"
 export {
   isValidMethod,
