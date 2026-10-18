@@ -64,6 +64,12 @@ function quote(value: string): string {
   return /^[A-Za-z0-9._:/-]+$/.test(value) ? value : JSON.stringify(value)
 }
 
+// Decision lines are debug-only; mirror apps/api's LOG_LEVEL gate without
+// importing the API logger into this package.
+function debugEnabled(): boolean {
+  return (process.env.LOG_LEVEL ?? "info").trim().toLowerCase() === "debug"
+}
+
 function describeRequest(request: BlockableRequest): { type: string; url?: string } {
   try {
     return { type: request.resourceType(), url: request.url?.() }
@@ -82,6 +88,7 @@ export function installResourceBlocker(page: BlockablePage): { disable: () => vo
   const requestId = currentRequestId()
 
   const logDecision = (action: "allow" | "block", request: BlockableRequest, reason?: string) => {
+    if (!debugEnabled()) return
     const { type, url } = describeRequest(request)
     const fields = ["level=debug", "scope=resource-block", `event=resource.${action}`]
     if (requestId) fields.push(`request=${requestId}`)

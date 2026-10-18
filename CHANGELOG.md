@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configure the default scrape deadline with `SCRAPE_MAX_TIMEOUT_MS` across the native API, FlareSolverr API, MCP and proxy scraper fallbacks. Explicit request timeouts take precedence; the default remains 60 seconds (#214).
 
 ### Fixed
+- Honor `LOG_LEVEL` for resource-block decision logs so debug lines no longer appear at `info`.
 - Separate invisible reCAPTCHA v3 scripts from visible v2 challenge shells so ordinary pages are not mistaken for CAPTCHA challenges.
 - Replay browser-verified session cookies over HTTP for any origin, not only Cloudflare and Anubis challenges.
 - Automatically capture Turnstile render parameters on Cloudflare Challenge Pages for the opt-in 2Captcha fallback, without a site profile. Preserve local solving, browser user agent, explicit proxy routing and shared task limits; reject expired or replaced challenges and verify that the wall clears after callback delivery (#220).
