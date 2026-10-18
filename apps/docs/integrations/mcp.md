@@ -54,7 +54,10 @@ TRAWL exposes a small set of purpose-specific, read-only tools:
 | `scrape_url` | Backwards-compatible alias for `scrape`                                    |
 
 Every tool requires a public HTTP(S) `url` and optionally accepts `maxTimeout`
-and `maxTier`. `scrape` also accepts `skipHttp` and `solveEmbeddedCaptchas` (default `true`).
+and `maxTier`. Pass `sessionId` to reuse an existing [browser session](/api-reference/browser-sessions)
+created through the native API. Perform authentication through `/scrape` first; MCP does not
+expose a POST login tool or accept credentials directly.
+`scrape` also accepts `skipHttp` and `solveEmbeddedCaptchas` (default `true`).
 Set the latter to `false` to read page HTML without attempting optional form tokens;
 access challenges are still resolved. Browser-only tools start at
 Tier 2 and accept a `maxTier` from 2 through 4.
@@ -121,8 +124,8 @@ tokens or personal data, so treat this explicit diagnostic tool as sensitive.
 
 Private, loopback, link-local, and reserved destinations are rejected, including
 redirect destinations and browser-loaded subresources. Request
-headers, bodies, cookies, session IDs, and explicit proxies cannot be supplied by
-the model.
+headers, bodies, cookies and explicit proxies cannot be supplied by the model.
+An existing session ID grants access to that session's state; share it only with trusted clients.
 
 Cookies, request headers, response bodies captured from background APIs, explicit
 proxy details, browser identity and session data are never returned by these MCP
