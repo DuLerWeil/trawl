@@ -1,10 +1,19 @@
 import { PoolExhaustedError } from "@trawl/browser"
 import { type OrchestratorDeps, ScrapeError, scrape } from "@trawl/tiers"
 import type { ScrapeRequest, ScrapeResult, TierResult } from "@trawl/types"
+import { applyDomainProfile, refreshDomainProfile } from "./domainProfile"
 import { log, requestId, safeMessage, safeUrl } from "./logger"
 import { type MetricsStore, metrics } from "./metrics"
 
 export type ScrapeSource = "native" | "flaresolverr" | "mcp" | "proxy"
+
+function hostnameOf(url: string): string | undefined {
+  try {
+    return new URL(url).hostname
+  } catch {
+    return undefined
+  }
+}
 
 export async function runLoggedScrape(
   source: ScrapeSource,
@@ -15,6 +24,10 @@ export async function runLoggedScrape(
   metricsStore: MetricsStore = metrics,
 ): Promise<ScrapeResult> {
   const started = Date.now()
+  const domain = hostnameOf(req.url)
+  // Apply the learned per-domain profile: skip stages that keep losing for this host.
+  req = applyDomainProfile(req, domain)
+
   log("info", "scrape", {
     event: "request.start",
     request: id,
@@ -65,9 +78,14 @@ export async function runLoggedScrape(
       proxyUsed: result.proxyUsed,
       captchas: result.captchasSolved?.join(","),
     })
+    refreshDomainProfile(domain, result.timings, {
+      resultTier: result.tier,
+      sessionCached: result.sessionCached,
+    })
     return result
   } catch (error) {
     const last = error instanceof ScrapeError ? error.timings.at(-1) : undefined
+    if (error instanceof ScrapeError) refreshDomainProfile(domain, error.timings, { failure: true })
     metricsStore.record({ source, url: req.url, durationMs: Date.now() - started, error })
     log(error instanceof PoolExhaustedError ? "warn" : "error", "scrape", {
       event: "request.failure",

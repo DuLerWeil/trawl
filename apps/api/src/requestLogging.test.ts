@@ -1,6 +1,6 @@
 import { describe, expect, spyOn, test } from "bun:test"
 import type { OrchestratorDeps } from "@trawl/tiers"
-import type { ScrapeResult } from "@trawl/types"
+import type { ScrapeRequest, ScrapeResult, TierResult } from "@trawl/types"
 import { MetricsStore } from "./metrics"
 import { runLoggedScrape } from "./requestLogging"
 
@@ -86,5 +86,57 @@ describe("request logging", () => {
     expect(lines.join("\n")).not.toContain("secret")
     expect(lines[1]).toContain("event=tier.complete request=abc123 tier=1 status=success")
     expect(lines[2]).toContain("event=request.success request=abc123")
+  })
+
+  test("a fresh browser solve resets the Tier 1 needs-js streak for the next HTTP replay", async () => {
+    const target = "https://learn-cache-regression.test/page"
+    const seen: ScrapeRequest[] = []
+    const timings = (): TierResult[] => [
+      { tier: 1, status: "needs-js", durationMs: 5 },
+      { tier: 2, status: "success", durationMs: 10 },
+    ]
+    const result = (sessionCached: boolean): ScrapeResult => ({
+      url: target,
+      html: "ok",
+      cookies: [],
+      userAgent: "test",
+      statusCode: 200,
+      tier: 2,
+      sessionCached,
+      timings: timings(),
+      totalMs: 15,
+    })
+    const run = (outcome: ScrapeResult) =>
+      runLoggedScrape(
+        "native",
+        { url: target },
+        deps(),
+        async (request) => {
+          seen.push(request)
+          return outcome
+        },
+        "learn",
+        new MetricsStore(),
+      )
+
+    const output = spyOn(console, "log").mockImplementation(() => {})
+    try {
+      // A cold session with a successful browser solve earned a fresh clearance, so the
+      // next request must try Tier 1 again instead of skipping it.
+      await run(result(false))
+      await run(result(true))
+      await run(result(true))
+      await run(result(true))
+    } finally {
+      output.mockRestore()
+    }
+
+    expect(seen).toHaveLength(4)
+    expect(seen[0]?.skipHttp).toBeFalsy()
+    // A cached-session success does not reset the streak...
+    expect(seen[1]?.skipHttp).toBeFalsy()
+    expect(seen[2]?.skipHttp).toBeFalsy()
+    // ...so two consecutive needs-js outcomes skip Tier 1 again.
+    expect(seen[3]?.skipHttp).toBe(true)
   })
 })
