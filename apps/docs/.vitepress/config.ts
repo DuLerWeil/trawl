@@ -42,6 +42,7 @@ export default defineConfig({
         items: [
           { text: "Quick Start", link: "/getting-started/quick-start" },
           { text: "Configuration", link: "/getting-started/configuration" },
+          { text: "Challenge & CAPTCHA Support", link: "/getting-started/challenge-support" },
           { text: "Performance & Benchmarks", link: "/getting-started/performance" },
           { text: "Local Development", link: "/getting-started/local-development" },
         ],
