@@ -139,7 +139,7 @@ export const residentialProxyPool = ProxyPool.fromEnv(
   SCRAPE_PROXY_SELECTION,
 )
 
-// ── MITM forward-proxy mode ────────────────────────────────────────────────────
+// MITM forward-proxy mode
 // Direct HTTP(S) forwarding with browser escalation for supported challenges.
 // Fingerprint-bound clearances must be reused through this proxy, not a separate client.
 export const MITM_ENABLED = /^(1|true|yes)$/i.test(process.env.MITM_ENABLED ?? "")

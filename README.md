@@ -114,25 +114,25 @@ The screenshot uses illustrative traffic. Your dashboard at `http://localhost:81
 
 TRAWL detects supported walls, chooses the matching browser flow and checks whether the wall remains before returning content. Embedded widgets use response-token or verified-state checks. These are supported solving paths, not a guarantee that every deployment will accept the result.
 
-| Challenge / CAPTCHA     | Built-in handling                                                                    | Optional 2Captcha handling                                     |
-| ----------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| Cloudflare interstitial | Browser challenge execution, Turnstile interaction and clearance recovery            | Automatic fallback for captured Turnstile Challenge Pages       |
-| Standalone Turnstile    | Shadow-DOM/frame interaction; checks the response token                              | Automatic fallback for a supported declarative widget          |
-| reCAPTCHA v2            | Checkbox and audio solving                                                           | Automatic fallback for a supported declarative widget          |
-| reCAPTCHA v2 Enterprise | No dedicated Enterprise solver                                                       | Automatic fallback for a supported declarative widget          |
-| reCAPTCHA v3            | No built-in score solver                                                             | Site profile required                                          |
-| hCaptcha                | Checkbox auto-pass and audio where offered; no image-grid solver                     | Not included in the current external task catalogue            |
-| GeeTest                 | Slide puzzle matching and verified-state checks                                      | Site profile required                                          |
-| ALTCHA                  | Native proof-of-work widget                                                          | Site profile required                                          |
-| Friendly Captcha v1/v2  | Native widget execution and response checks                                          | Site profile required                                          |
-| CAP                     | Native proof of work; verifies every visible widget                                  | No catalogue entry                                             |
-| Anubis                  | Native JavaScript proof of work and metarefresh handling                             | No catalogue entry                                             |
-| Akamai Bot Manager      | Supported sensor and press-and-hold flows                                            | No dedicated catalogue entry                                   |
-| Imperva / Incapsula     | Supported sensor challenges; no built-in solver for its own interactive CAPTCHA      | Site profile required                                          |
-| DDoS-Guard              | JavaScript challenge execution and cookie checks                                     | No dedicated catalogue entry                                   |
-| AWS WAF                 | JavaScript token challenges; detects interactive CAPTCHA separately                  | Site profile required for CAPTCHA                              |
-| DataDome                | Device Check through the opt-in headful pool; detects slider CAPTCHA and hard blocks | Site profile required for slider CAPTCHA                       |
-| DuckDuckGo anomaly wall | Detected and reported as requiring CAPTCHA; no built-in image-puzzle solver          | No dedicated catalogue entry                                   |
+| Challenge / CAPTCHA     | Built-in handling                                                                    | Optional 2Captcha handling                                |
+| ----------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| Cloudflare interstitial | Browser challenge execution, Turnstile interaction and clearance recovery            | Automatic fallback for captured Turnstile Challenge Pages |
+| Standalone Turnstile    | Shadow-DOM/frame interaction; checks the response token                              | Automatic fallback for a supported declarative widget     |
+| reCAPTCHA v2            | Checkbox and audio solving                                                           | Automatic fallback for a supported declarative widget     |
+| reCAPTCHA v2 Enterprise | No dedicated Enterprise solver                                                       | Automatic fallback for a supported declarative widget     |
+| reCAPTCHA v3            | No built-in score solver                                                             | Site profile required                                     |
+| hCaptcha                | Checkbox auto-pass and audio where offered; no image-grid solver                     | Not included in the current external task catalogue       |
+| GeeTest                 | Slide puzzle matching and verified-state checks                                      | Site profile required                                     |
+| ALTCHA                  | Native proof-of-work widget                                                          | Site profile required                                     |
+| Friendly Captcha v1/v2  | Native widget execution and response checks                                          | Site profile required                                     |
+| CAP                     | Native proof of work; verifies every visible widget                                  | No catalogue entry                                        |
+| Anubis                  | Native JavaScript proof of work and metarefresh handling                             | No catalogue entry                                        |
+| Akamai Bot Manager      | Supported sensor and press-and-hold flows                                            | No dedicated catalogue entry                              |
+| Imperva / Incapsula     | Supported sensor challenges; no built-in solver for its own interactive CAPTCHA      | Site profile required                                     |
+| DDoS-Guard              | JavaScript challenge execution and cookie checks                                     | No dedicated catalogue entry                              |
+| AWS WAF                 | JavaScript token challenges; detects interactive CAPTCHA separately                  | Site profile required for CAPTCHA                         |
+| DataDome                | Device Check through the opt-in headful pool; detects slider CAPTCHA and hard blocks | Site profile required for slider CAPTCHA                  |
+| DuckDuckGo anomaly wall | Detected and reported as requiring CAPTCHA; no built-in image-puzzle solver          | No dedicated catalogue entry                              |
 
 DataDome browser handling requires `BROWSER_HEADFUL_POOL_SIZE=1`, which adds another browser pool. IP hard blocks may require a different egress IP. Google Search `/sorry/` redirects and supported bot-wall pages are also detected; detection alone does not mean a puzzle can be solved.
 
@@ -425,8 +425,8 @@ Tier 4: Residential proxy ──── success ──→ cache + return
 
 | Image tag                          | Built from                     | Runtime                      | Use case                                                   |
 | ---------------------------------- | ------------------------------ | ---------------------------- | ---------------------------------------------------------- |
-| `ghcr.io/germondai/trawl:latest`   | `apps/api/Dockerfile`          | Bun 1.4.2 (modern, AVX2)     | Compact default - Linux fingerprints                       |
-| `ghcr.io/germondai/trawl:baseline` | `apps/api/Dockerfile.baseline` | Bun 1.4.2 baseline (no AVX2) | Older CPUs / older kernels (Synology NAS, J4125, Atom-era) |
+| `ghcr.io/germondai/trawl:latest`   | `apps/api/Dockerfile`          | Bun 1.4.3 (modern, AVX2)     | Compact default - Linux fingerprints                       |
+| `ghcr.io/germondai/trawl:baseline` | `apps/api/Dockerfile.baseline` | Bun 1.4.3 baseline (no AVX2) | Older CPUs / older kernels (Synology NAS, J4125, Atom-era) |
 
 All tags live on the same `ghcr.io/germondai/trawl` package - they share the registry but differ in Dockerfile source or build arguments. Pick whichever tag fits your hardware and output:
 
@@ -438,7 +438,7 @@ image: ghcr.io/germondai/trawl:latest
 image: ghcr.io/germondai/trawl:baseline
 ```
 
-Synology note: many Synology NAS units (DSM 7.x on J4125 / older hardware) ship kernel 4.4.x, which Bun's modern runtime can't fully handle. Standard Bun requires kernel 5.1+ (5.6+ recommended); the baseline build degrades gracefully down to kernel 3.10. The `:baseline` tag is published for that case - **confirmed working** on a Synology DS920+ (Celeron J4125, DSM 7.3.2, kernel 4.4.302): the container starts cleanly, `/health` reports healthy, and it solves live Cloudflare challenges via `/v1` (see [#1](https://github.com/germondai/trawl/issues/1)). Published by independent GitHub Actions workflows: pushing a release tag such as `v1.8.0` creates `:1.8.0`, `:latest`, `:1.8.0-baseline`, and `:baseline`; the daily 02:00 UTC nightly build creates `:nightly` and `:nightly-<dev-sha>` from the latest `dev` commit.
+Synology note: many Synology NAS units (DSM 7.x on J4125 / older hardware) ship kernel 4.4.x, which Bun's modern runtime can't fully handle. Standard Bun requires kernel 5.1+ (5.6+ recommended); the baseline build degrades gracefully down to kernel 3.10. The `:baseline` tag is published for that case - **confirmed working** on a Synology DS920+ (Celeron J4125, DSM 7.3.2, kernel 4.4.302): the container starts cleanly, `/health` reports healthy, and it solves live Cloudflare challenges via `/v1` (see [#1](https://github.com/germondai/trawl/issues/1)). Published by independent GitHub Actions workflows: pushing a release tag such as `v1.9.0` creates `:1.9.0`, `:latest`, `:1.9.0-baseline`, and `:baseline`; the daily 02:00 UTC nightly build creates `:nightly` and `:nightly-<dev-sha>` from the latest `dev` commit.
 
 ## Releases & versioning
 
@@ -492,7 +492,7 @@ for pool and mounted-file examples.
 | `BROWSER_RECYCLE_AFTER_CONTEXTS`   | `8`                          | Rolling-replace after this many Tier 3/4 contexts; set `0` to disable                   |
 | `BROWSER_MAX_CONTENT_PROCESSES`    | `2`                          | Cap Firefox content processes per browser (`dom.ipc.processCount`); lowers RAM/CPU      |
 | `SCRAPE_MIN_TIER`                  | `1`                          | Lowest tier allowed globally (`1` HTTP, `2` cached browser, `3` fresh, `4` residential) |
-| `TIER1_TRANSPORT` | `bun` | Tier 1 HTTP transport: `bun` or opt-in `wreq` Firefox TLS/HTTP2 impersonation |
+| `TIER1_TRANSPORT`                  | `bun`                        | Tier 1 HTTP transport: `bun` or opt-in `wreq` Firefox TLS/HTTP2 impersonation           |
 | `SESSION_CACHE_DRIVER`             | `redis`                      | Session cache backend: `redis` or single-process `memory`                               |
 | `BROWSER_SESSION_MAX_ENTRIES`      | `4`                          | Maximum named browser contexts per instance; start with `1` for small containers        |
 | `BROWSER_SESSION_TTL_SECONDS`      | `3600`                       | Named session idle expiry in seconds; independent of the clearance cache                |
@@ -501,7 +501,7 @@ for pool and mounted-file examples.
 | `REDIS_URL`                        | -                            | Redis connection string; empty or unset disables the Redis cache                        |
 | `REDIS_CONNECT_TIMEOUT_MS`         | `5000`                       | Maximum time for each Redis connection attempt                                          |
 | `REDIS_RETRY_DELAY_MS`             | `5000`                       | Delay before reconnecting after startup failure; `0` disables retry                     |
-| `SCRAPE_PROXY_SELECTION`           | `failover`                   | Fresh Tier 3/4 pool policy: sticky `failover`, `roundrobin`, or `random`                   |
+| `SCRAPE_PROXY_SELECTION`           | `failover`                   | Fresh Tier 3/4 pool policy: sticky `failover`, `roundrobin`, or `random`                |
 | `PROXY_URL`                        | -                            | Optional Tier 3 HTTP or SOCKS5 proxy, or comma-separated pool                           |
 | `PROXY_LIST_FILE`                  | -                            | File containing one Tier 3 proxy URL per line                                           |
 | `RESIDENTIAL_PROXY_URL`            | -                            | Enables Tier 4 proxy escalation                                                         |
