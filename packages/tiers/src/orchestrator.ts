@@ -13,7 +13,7 @@ import { normalizeInputCookies } from "./utils/cookies"
 import { createCrossedLandingGuard, type LandingProbe } from "./utils/crossedLanding"
 import { DeadlineError, RequestBudget } from "./utils/deadline"
 import { normalizeHtml } from "./utils/html"
-import { HttpSessionCookies } from "./utils/httpSessionCookies"
+import { HttpSessionCookies, httpReplayProof } from "./utils/httpSessionCookies"
 import { metaRefreshTarget } from "./utils/metaRefresh"
 import { type ProxyPool, proxyIdentity } from "./utils/proxyRotator"
 import { isHtmlContentType } from "./utils/response"
@@ -439,6 +439,15 @@ async function scrapeWithinBudget(
       httpSession,
       httpTimeout,
     )
+    if (
+      httpSession &&
+      req.method !== "HEAD" &&
+      t1.status === "success" &&
+      !httpSession.matchesDocument(t1.effectiveUrl ?? req.url, t1.html ?? "")
+    ) {
+      t1.status = "needs-js"
+      t1.reason = "session-content-needs-browser"
+    }
     if (req.followMetaRefresh && t1.status === "success" && t1.html && isHtmlContentType(t1.contentType)) {
       const refresh = await metaRefreshTarget(t1.html, t1.effectiveUrl ?? req.url)
       if (refresh) {
@@ -581,6 +590,10 @@ async function scrapeWithinBudget(
             userAgent: session.userAgent,
             savedAt: Date.now(),
             httpOrigin: sessionProxy ? undefined : httpOrigin(t2.effectiveUrl),
+            httpReplay:
+              !sessionProxy && httpOrigin(t2.effectiveUrl) && isHtmlContentType(t2.contentType)
+                ? httpReplayProof(t2.effectiveUrl ?? req.url, t2.html ?? "", t2.cookies)
+                : undefined,
           })
         }
         return {
@@ -689,6 +702,10 @@ async function scrapeWithinBudget(
             savedAt: Date.now(),
             proxyId: proxy3 ? proxyIdentity(proxy3) : undefined,
             httpOrigin: proxy3 ? undefined : httpOrigin(t3.effectiveUrl),
+            httpReplay:
+              !proxy3 && httpOrigin(t3.effectiveUrl) && isHtmlContentType(t3.contentType)
+                ? httpReplayProof(t3.effectiveUrl ?? req.url, t3.html ?? "", cookies)
+                : undefined,
           })
         }
         return {

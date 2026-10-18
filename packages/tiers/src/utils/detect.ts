@@ -103,8 +103,17 @@ export function hasHcaptcha(html: string): boolean {
   return /class="h-captcha"|hcaptcha\.com\/1\/api/i.test(html)
 }
 
+const RECAPTCHA_SCRIPT = /(?:google\.com|recaptcha\.net)\/recaptcha\/(?:api|enterprise)\.js(?:\?[^"'\s<>]*)?/gi
+const RECAPTCHA_V2_SHELL = /class\s*=\s*["'][^"']*\bg-recaptcha\b|recaptcha\/(?:api2|enterprise)\/(?:anchor|bframe)/i
+
 export function hasRecaptcha(html: string): boolean {
-  return /class="g-recaptcha"|google\.com\/recaptcha|recaptcha\.net\/recaptcha/i.test(html)
+  if (RECAPTCHA_V2_SHELL.test(html)) return true
+  for (const [script] of html.matchAll(RECAPTCHA_SCRIPT)) {
+    // A site key selects v3; explicit/onload are v2 modes, even without static markup.
+    const render = /[?&](?:amp;)?render=([^&]*)/i.exec(script)?.[1]
+    if (!render || /^(?:explicit|onload)$/i.test(render)) return true
+  }
+  return false
 }
 
 export function hasCapChallenge(html: string): boolean {

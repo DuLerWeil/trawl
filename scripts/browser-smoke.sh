@@ -8,6 +8,7 @@ image=${1:-trawl-smoke}
 for suite in \
   apps/api/src/browserSessions.integration.test.ts \
   apps/api/src/proxySessions.integration.test.ts \
+  apps/api/src/httpReplay.integration.test.ts \
   apps/api/src/turnstile.integration.test.ts \
   apps/api/src/cloudflareFallback.integration.test.ts \
   apps/api/src/externalCaptcha.integration.test.ts \
@@ -29,12 +30,14 @@ do
     -e TRAWL_BROWSER_SESSION_TESTS=1 -e TRAWL_BROWSER_TESTS=1 \
     -e TRAWL_RAW_TEXT_TESTS=1 -e TRAWL_READINESS_TESTS=1 \
     -e TRAWL_PROXY_SESSION_TESTS=1 \
+    -e TRAWL_HTTP_REPLAY_TESTS=1 \
     -e TRAWL_TURNSTILE_TESTS=1 \
     -e TRAWL_CLOUDFLARE_FALLBACK_TESTS=1 \
     -e TRAWL_EXTERNAL_CAPTCHA_TESTS=1 \
     -v "$repo_root/packages/browser/tests:/app/packages/browser/tests:ro" \
     -v "$repo_root/apps/api/src/browserSessions.integration.test.ts:/app/apps/api/src/browserSessions.integration.test.ts:ro" \
     -v "$repo_root/apps/api/src/proxySessions.integration.test.ts:/app/apps/api/src/proxySessions.integration.test.ts:ro" \
+    -v "$repo_root/apps/api/src/httpReplay.integration.test.ts:/app/apps/api/src/httpReplay.integration.test.ts:ro" \
     -v "$repo_root/apps/api/src/turnstile.integration.test.ts:/app/apps/api/src/turnstile.integration.test.ts:ro" \
     -v "$repo_root/apps/api/src/cloudflareFallback.integration.test.ts:/app/apps/api/src/cloudflareFallback.integration.test.ts:ro" \
     -v "$repo_root/apps/api/src/externalCaptcha.integration.test.ts:/app/apps/api/src/externalCaptcha.integration.test.ts:ro" \

@@ -3,7 +3,7 @@ import type { BrowserHandle } from "@trawl/browser"
 import type { Cookie, ScrapeRequest, SessionData } from "@trawl/types"
 import { type OrchestratorDeps, scrape } from "../src/orchestrator"
 import { runTier1 } from "../src/tiers/1"
-import { HttpSessionCookies } from "../src/utils/httpSessionCookies"
+import { HttpSessionCookies, httpReplayProof } from "../src/utils/httpSessionCookies"
 import { ProxyPool } from "../src/utils/proxyRotator"
 
 let server: ReturnType<typeof Bun.serve> | undefined
@@ -44,13 +44,27 @@ describe("HTTP clearance boundaries", () => {
     ).toBeUndefined()
   })
 
-  test.each([
-    "techaro.lol-anubis-cookie-verification",
-    "techaro.lol-anubis-original-referer",
-    "techaro.lol-anubis-cookie-verification-a1b2c3d4",
-  ])("does not treat %s as Anubis clearance", (name) => {
+  test("does not replay an unverified generic session", () => {
+    const session = cached([clearance("example.test", { name: "session", value: "logged-in" })])
+    expect(HttpSessionCookies.from(session, "https://example.test/")).toBeUndefined()
+  })
+
+  test("generic replay binds document structure and attributes to the verified URL", () => {
+    const html = '<html><body><a href="/correct">Details</a></body></html>'
+    const session = cached([clearance("example.test", { name: "session" })])
+    session.httpReplay = httpReplayProof("https://example.test/", html, session.cookies)
+    const jar = HttpSessionCookies.from(session, "https://example.test/")
+    expect(jar?.matchesDocument("https://example.test/", html)).toBe(true)
+    expect(jar?.matchesDocument("https://example.test/", html.replace("/correct", "/wrong"))).toBe(false)
     expect(
-      HttpSessionCookies.from(cached([clearance("example.test", { name })]), "https://example.test/"),
+      jar?.matchesDocument(
+        "https://example.test/",
+        html.replace("<body>", "<head><title>Different page</title></head><body>"),
+      ),
+    ).toBe(false)
+    expect(HttpSessionCookies.from(session, "https://example.test/other")).toBeUndefined()
+    expect(
+      httpReplayProof("https://example.test/", `<html><body>${"a".repeat(262_144)}</body></html>`, session.cookies),
     ).toBeUndefined()
   })
 
@@ -170,6 +184,54 @@ describe("HTTP clearance boundaries", () => {
   })
 })
 
+test.each([false, true])("generic session replay verifies rendered content (partial=%s)", async (partial) => {
+  const complete = "<html><body><nav>Site navigation</nav><main>Verified application content</main></body></html>"
+  server = Bun.serve({
+    port: 0,
+    fetch(request) {
+      if (!request.headers.get("cookie")?.includes("session=verified"))
+        return new Response("Access denied", { status: 403, headers: { "content-type": "text/html" } })
+      return new Response(
+        partial
+          ? '<html><body><nav>Site navigation</nav><main id="root"></main><script src="/app.js"></script></body></html>'
+          : complete,
+        { headers: { "content-type": "text/html" } },
+      )
+    },
+  })
+  const url = `http://127.0.0.1:${server.port}/`
+  let saved: SessionData | undefined
+  let checkouts = 0
+  const deps: OrchestratorDeps = {
+    acquireBrowser: async () => {
+      checkouts++
+      return { fingerprint: { userAgent: "verified-agent" } } as BrowserHandle
+    },
+    releaseBrowser: () => {},
+    loadSession: async () => saved,
+    saveSession: async (_domain, data) => {
+      saved = data
+    },
+    invalidateSession: async () => {
+      saved = undefined
+    },
+  }
+  const browserResult = {
+    status: "success" as const,
+    durationMs: 1,
+    html: complete,
+    effectiveUrl: url,
+    contentType: "text/html",
+    userAgent: "verified-agent",
+    cookies: [clearance("127.0.0.1", { name: "session", secure: false })],
+  }
+  await scrape({ url }, deps, { tier3: async () => ({ ...browserResult, tier: 3 }) })
+  const result = await scrape({ url }, deps, { tier2: async () => ({ ...browserResult, tier: 2 }) })
+  expect(result.html).toContain("Verified application content")
+  expect(result.tier).toBe(partial ? 2 : 1)
+  expect(checkouts).toBe(partial ? 2 : 1)
+})
+
 describe("HTTP clearance fallback", () => {
   const html = "<html><body>Actual content</body></html>"
   const success = { status: "success" as const, durationMs: 1, html, effectiveUrl: "https://example.test/" }
@@ -212,6 +274,7 @@ describe("HTTP clearance fallback", () => {
     { name: "screenshot", request: { screenshot: true } },
     { name: "content selector", request: { contentWaitForSelector: "#loaded" } },
     { name: "response capture", request: { captureResponses: ["/api/"] } },
+    { name: "network logs", request: { networkLogs: true } },
     { name: "MHTML", request: { mhtml: true } },
     { name: "TLS opt-out", request: { ignoreCertificateErrors: true } },
     { name: "imported cookies", request: { cookies: [{ name: "login", value: "private" }] } },

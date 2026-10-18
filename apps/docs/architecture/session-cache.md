@@ -19,8 +19,9 @@ Before an ordinary HTTP request, TRAWL checks whether the saved session can be r
 - The request is GET or HEAD and permits Tier 1.
 - The connection is direct: no explicit request proxy or configured datacenter proxy pool.
 - TLS verification is enabled.
-- The entry contains the browser's User-Agent, valid Cloudflare `cf_clearance` or supported
-  Anubis authentication cookies, and provenance for the exact requested origin.
+- The entry contains the browser's User-Agent, valid scoped cookies and provenance for the exact
+  requested origin. Cloudflare `cf_clearance` and supported Anubis authentication cookies qualify
+  directly; other sessions also require the document proof described below.
 - The request has no imported cookies, named `sessionId`, browser capture or content-selector wait.
 
 Cookie domain, path, expiry and secure flags are checked before sending. Same-origin redirects
@@ -35,6 +36,20 @@ the cached cookies and browser identity without keeping another browser page ope
 Anubis replay recognizes the default authentication cookie names, including their optional
 settings suffix. Test and referrer cookies do not qualify. Custom cookie names and clearance
 bound to a browser connection retain browser fallback.
+
+## Other direct browser sessions
+
+Sessions without a recognized Cloudflare or Anubis clearance cookie can also use HTTP replay.
+TRAWL records the exact verified URL and a hash of the normalized rendered HTML document. The HTTP response must match this document before returning it.
+A partial JavaScript shell, changed document, different URL, empty body or HTML above 262,144 characters
+retains browser fallback. The original Cloudflare and Anubis paths do not require this comparison.
+
+The API can skip Tier 1 after two consecutive JavaScript-shell or content-mismatch results followed by cached browser
+success for the same URL. Hints expire after 30 minutes and are bounded to 1,000 URLs. HTTP
+success, fresh browser solving or failure clears the hint. Only ordinary direct GET requests
+qualify; explicit `skipHttp`, HTTP-only requests, custom headers, imported cookies, named
+sessions and proxy/TLS overrides retain their requested policy. These hints stay in memory
+and are separate from the persistent session cache.
 
 ## Proxy-bound browser reuse
 
@@ -95,6 +110,7 @@ interface SessionData {
   savedAt: number     // unix timestamp ms
   proxyId?: string    // SHA-256 identity of the configured proxy, absent for direct sessions
   httpOrigin?: string // verified direct origin eligible for HTTP reuse
+  httpReplay?: { url: string; contentHash: string } // optional proof for other sessions
 }
 ```
 
