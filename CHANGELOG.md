@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configure the default scrape deadline with `SCRAPE_MAX_TIMEOUT_MS` across the native API, FlareSolverr API, MCP and proxy scraper fallbacks. Explicit request timeouts take precedence; the default remains 60 seconds (#214).
 
 ### Fixed
+- Encode newly generated MITM certificate serial numbers as positive, canonical DER integers even when random bytes start with zeros, avoiding intermittent rejection by strict TLS clients (#217).
 - Automatically capture Turnstile render parameters on Cloudflare Challenge Pages for the opt-in 2Captcha fallback, without a site profile. Preserve local solving, browser user agent, explicit proxy routing and shared task limits; reject expired or replaced challenges and verify that the wall clears after callback delivery (#220).
 - Limit Cloudflare clearance recovery to one navigation, allow refreshed clearance to finish, and retain time for an available residential fallback instead of exhausting the request in Tier 3 (#219).
 - Recognize embedded Turnstile tokens consumed during widget removal without treating widget disappearance alone as success (#221).

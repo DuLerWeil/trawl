@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test"
+import { afterEach, describe, expect, spyOn, test } from "bun:test"
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -28,6 +28,19 @@ describe("MitmCa certificates", () => {
     expect(authorityKeyIdentifier(leafAki)).toBe(rootSki.subjectKeyIdentifier as string)
     expect(existsSync(join(dir, ".ca.lock"))).toBe(false)
 
+    verifyStrict(dir, ca.caCertPem, leafPem)
+  })
+
+  test("leaf serials remain valid DER when random bytes start with zeros", () => {
+    const dir = temporaryDirectory()
+    const ca = new MitmCa(dir)
+    const random = spyOn(forge.random, "getBytesSync").mockReturnValueOnce(`\x00\x68${"\x00".repeat(14)}`)
+    let leafPem: string
+    try {
+      leafPem = ca.leafCertPem("example.test")
+    } finally {
+      random.mockRestore()
+    }
     verifyStrict(dir, ca.caCertPem, leafPem)
   })
 
