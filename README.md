@@ -5,28 +5,21 @@
   </a>
 </h1>
 
-## **Welcome** to <a href="https://trawl.germondai.com" target="_blank">**TRAWL**</a>! 👋
+Self-hosted web scraping for applications and AI agents. Get page content through an API or MCP, with built-in handling for supported browser challenges and CAPTCHAs.
 
-Self-hosted web scraping for applications and AI agents. Fetch pages through the native API, or connect an MCP client to read clean Markdown, extract structured data, capture screenshots, and inspect browser activity.
+TRAWL starts with HTTP, reuses verified clearance and opens Camoufox when a browser is needed. Repeat requests fetch fresh content without repeating a full solve whenever the site accepts the saved session.
 
-TRAWL starts with a fast HTTP request, reuses solved browser sessions, and escalates to Camoufox and an optional residential proxy when a site requires more work. It handles supported JavaScript challenges and CAPTCHAs, and gives you a local dashboard to see what succeeded, failed, and took time.
-
-For existing FlareSolverr users, the compatible `/v1` endpoint works with Prowlarr and other \*arr tools. TRAWL's adaptive routing and session reuse are designed for faster, more reliable requests; [selected same-machine benchmarks](https://trawl.germondai.com/#compare) show faster responses than FlareSolverr and Byparr, with results varying by site and session state.
+[Website](https://trawl.germondai.com) · [Documentation](https://docs.trawl.germondai.com) · [Latest release](https://github.com/germondai/trawl/releases/latest)
 
 ## Features
 
-- **Isolated browser sessions** - preserve login cookies and localStorage across native API, MCP and FlareSolverr requests, with capacity limits and automatic idle expiry. [Session API](https://docs.trawl.germondai.com/api-reference/browser-sessions).
-- **MCP tools for AI agents** - read pages as Markdown or text, scrape HTML, extract JSON records, capture screenshots, and inspect browser diagnostics from known public URLs
-- **4-tier execution** - plain HTTP fetch → cached browser session → fresh challenge solve → optional residential proxy
-- **Structured extraction and screenshots** - select fields from repeated elements, render JavaScript pages, and capture a viewport, full page, or specific element
-- **Challenge-aware HTTP/HTTPS proxy** - direct forwarding for normal traffic, automatic tier escalation for detected walls, plus WebSockets, binary bodies, and Range/206 support
-- **Local metrics dashboard** - persistent request history, tier outcomes, failure causes, and live updates
-- **Challenge-aware scraping** - Cloudflare, Akamai, Imperva/Incapsula, DDoS-Guard, AWS WAF, DataDome and Anubis detection, with provider-specific browser flows
-- **Built-in CAPTCHA solving** - Turnstile, reCAPTCHA v2 checkbox/audio, hCaptcha checkbox/audio where available, GeeTest Slide, ALTCHA, Friendly Captcha v1/v2 and CAP proof-of-work. See [challenge support](#challenge-and-captcha-support) for supported variants
-- **Camoufox Firefox** - fingerprint-patched at the C++/Juggler level to reduce automation signals
-- **Automatic clearance reuse** - replay valid Cloudflare or Anubis clearance cookies and the browser's User-Agent over HTTP for repeat GET/HEAD requests. Rejected clearance, detected JavaScript shells and CAPTCHA widgets fall back to the browser. Direct connections only; named sessions retain their isolated browser state.
-- **FlareSolverr compatible** - works with Prowlarr, Jackett, Sonarr, and the full \*arr ecosystem out of the box
-- **Local solving by default** - no paid solver API required; optional [2Captcha fallback](./apps/docs/getting-started/configuration.md#optional-external-captcha-solver) for reCAPTCHA v2/Enterprise, standalone Turnstile and supported Cloudflare Challenge Pages, with site-specific profiles for other documented task types
+- **Challenge handling:** Cloudflare, Anubis, Akamai, Imperva, DDoS-Guard and supported AWS WAF and DataDome flows. Built-in CAPTCHA paths include Turnstile, reCAPTCHA v2, hCaptcha, GeeTest Slide, ALTCHA, Friendly Captcha and CAP. [Coverage and limits](apps/docs/getting-started/challenge-support.md).
+- **Fast repeat requests:** automatic HTTP clearance reuse, Redis or in-memory caching, and browser fallback when required. No named session is needed for shared clearance reuse.
+- **MCP for agents:** read Markdown, scrape HTML, extract structured JSON, capture screenshots and inspect browser activity from known URLs.
+- **Isolated browser sessions:** retain cookies, localStorage, sessionStorage and browser identity across native API, MCP and FlareSolverr-compatible requests.
+- **API and forward proxy:** use `/scrape`, the FlareSolverr-compatible `/v1` endpoint, or a challenge-aware HTTP/HTTPS proxy with WebSockets and Range support.
+- **Local dashboard:** persistent request history, tier outcomes, failure causes and live updates.
+- **Local solving by default:** optional 2Captcha fallback and opt-in Firefox TLS/HTTP2 impersonation; Bun fetch remains the default HTTP transport.
 
 ## Sponsors
 
@@ -70,470 +63,177 @@ For existing FlareSolverr users, the compatible `/v1` endpoint works with Prowla
         • <code>TRAWL40</code> - 40% off to ISP (Static) Proxies
       </td>
     </tr>
-    <tr>
-      <td width="30%" align="center" valign="middle">
-        <a href="https://www.thordata.com/?ls=dtw&lk=dtw" target="_blank">
-          <img width="1254" height="1254" alt="Thordata" src="https://github.com/user-attachments/assets/32a5d8db-24c9-4779-b309-bdfdb32589f6" />
-        </a>
-      </td>
-      <td valign="middle">
-        <b><a href="https://www.thordata.com/?ls=dtw&lk=dtw" target="_blank">Thordata</a></b> - Premium Residential Proxies for Data Collection.<br><br>
-        <a href="https://www.thordata.com/?ls=dtw&lk=dtw" target="_blank">Thordata</a> helps developers build reliable scraping, automation, and AI data workflows with high-quality residential IPs.<br><br>
-        🌍 100M+ real IPs | 195+ countries<br>
-        🔄 Rotating & sticky sessions | Precise geo-targeting<br>
-        ⚡ High concurrency | Stable connections<br><br>
-        Reduce blocks and collect data at scale with confidence.<br><br>
-        <b>🎁 <a href="https://trawl.germondai.com" target="_blank">TRAWL</a> users:</b><br>
-        • 3-day free trial + 10% OFF Code: <code>TRAWL10</code>
-      </td>
-    </tr>
   </table>
 </details>
 
 ## Performance
 
-Solve once, reuse clearance automatically. On protected sites that accept the saved cookies and browser identity over HTTP, repeat requests can return without another browser navigation.
+Selected same-machine comparisons show faster first and repeat responses than FlareSolverr and Byparr on the default Cloudflare workload:
 
-| Protected page          | Best verified repeat |
-| ----------------------- | -------------------: |
-| NopeCHA Cloudflare demo |           **879 ms** |
-| 1337x                   |            **85 ms** |
-| EZTV                    |           **473 ms** |
+| Protected page          | Best first | Best repeat |
+| ----------------------- | ---------: | ----------: |
+| NopeCHA Cloudflare demo |  **6.0 s** |  **879 ms** |
+| 1337x                   |  **3.8 s** |   **85 ms** |
+| EZTV                    |  **4.6 s** |  **473 ms** |
 
-Measured **2026-10-17** on the development build after v1.8.0, using the same machine and network for TRAWL, FlareSolverr and Byparr. These are the fastest verified repeat responses in the sample, not first-visit challenge-solving times. Results vary by target, IP and session state.
+Measured **2026-10-17** on a development build after v1.8.0. These are verified minima from the recorded sample. First requests used a warm browser with an empty target cache; repeats are fresh fetches with reusable clearance. Results vary by site, IP and session state.
 
-See the [full comparison, including medians and CPU/RAM](benchmarks/RESULTS.md), [test setup](benchmarks/README.md) and [performance guide](apps/docs/getting-started/performance.md).
-
-## Local dashboard
-
-![TRAWL metrics dashboard showing illustrative request data](apps/docs/public/screenshots/dashboard.png)
-
-The screenshot uses illustrative traffic. Your dashboard at `http://localhost:8191/dashboard` displays only requests handled by your TRAWL instance. See the [metrics guide](apps/docs/api-reference/health-stats.md#local-metrics-dashboard) for setup.
-
-## Challenge and CAPTCHA support
-
-TRAWL detects supported walls, chooses the matching browser flow and checks whether the wall remains before returning content. Embedded widgets use response-token or verified-state checks. These are supported solving paths, not a guarantee that every deployment will accept the result.
-
-| Challenge / CAPTCHA     | Built-in handling                                                                    | Optional 2Captcha handling                                |
-| ----------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------- |
-| Cloudflare interstitial | Browser challenge execution, Turnstile interaction and clearance recovery            | Automatic fallback for captured Turnstile Challenge Pages |
-| Standalone Turnstile    | Shadow-DOM/frame interaction; checks the response token                              | Automatic fallback for a supported declarative widget     |
-| reCAPTCHA v2            | Checkbox and audio solving                                                           | Automatic fallback for a supported declarative widget     |
-| reCAPTCHA v2 Enterprise | No dedicated Enterprise solver                                                       | Automatic fallback for a supported declarative widget     |
-| reCAPTCHA v3            | No built-in score solver                                                             | Site profile required                                     |
-| hCaptcha                | Checkbox auto-pass and audio where offered; no image-grid solver                     | Not included in the current external task catalogue       |
-| GeeTest                 | Slide puzzle matching and verified-state checks                                      | Site profile required                                     |
-| ALTCHA                  | Native proof-of-work widget                                                          | Site profile required                                     |
-| Friendly Captcha v1/v2  | Native widget execution and response checks                                          | Site profile required                                     |
-| CAP                     | Native proof of work; verifies every visible widget                                  | No catalogue entry                                        |
-| Anubis                  | Native JavaScript proof of work and metarefresh handling                             | No catalogue entry                                        |
-| Akamai Bot Manager      | Supported sensor and press-and-hold flows                                            | No dedicated catalogue entry                              |
-| Imperva / Incapsula     | Supported sensor challenges; no built-in solver for its own interactive CAPTCHA      | Site profile required                                     |
-| DDoS-Guard              | JavaScript challenge execution and cookie checks                                     | No dedicated catalogue entry                              |
-| AWS WAF                 | JavaScript token challenges; detects interactive CAPTCHA separately                  | Site profile required for CAPTCHA                         |
-| DataDome                | Device Check through the opt-in headful pool; detects slider CAPTCHA and hard blocks | Site profile required for slider CAPTCHA                  |
-| DuckDuckGo anomaly wall | Detected and reported as requiring CAPTCHA; no built-in image-puzzle solver          | No dedicated catalogue entry                              |
-
-DataDome browser handling requires `BROWSER_HEADFUL_POOL_SIZE=1`, which adds another browser pool. IP hard blocks may require a different egress IP. Google Search `/sorry/` redirects and supported bot-wall pages are also detected; detection alone does not mean a puzzle can be solved.
-
-### External task catalogue
-
-2Captcha is disabled by default. Enable it with `CAPTCHA_SOLVER=2captcha` and `TWOCAPTCHA_API_KEY`. Automatic fallback supports one declarative reCAPTCHA v2/Enterprise or standalone Turnstile widget per provider on a page, subject to the adapter's callback, CSP and task-budget checks.
-
-Supported Cloudflare Challenge Pages also work without a profile: TRAWL captures the dynamic Turnstile render parameters before initialization, tries local resolution first and delivers the external answer to the original callback. Navigation, replaced parameters or a different provider user agent invalidate the answer. A token or clearance cookie alone does not prove that the target page is accessible.
-
-Other task types require an exact-hostname profile with task inputs, response delivery and target verification. Recognized SDK markers can produce diagnostic candidates; they do not automatically create paid tasks.
-
-<details>
-  <summary>Additional task types supported through site profiles</summary>
-
-- **Provider tasks:** Arkose/FunCaptcha, Capy, KeyCaptcha, Lemin, CyberSiara, MTCaptcha, CutCaptcha, ATB, Tencent, Prosopo, CaptchaFox, VK, Yidun, Binance, Hunt, TSPD, Basilisk, Alibaba and Yandex SmartCaptcha, alongside the profile-based providers in the table above.
-- **Puzzle and media tasks:** image-to-text, text questions, audio, rotation, coordinates, grids, draw-around, bounding boxes, drag-and-drop, Temu images, SmartCaptcha images, Pazl puzzles and VK images. Generic images and audio are not automatically classified as CAPTCHA.
-
-</details>
-
-External integration is tested with local provider and widget fixtures. Real paid-service acceptance remains unverified. A widget token is not proof that a site's server accepted a form submission, and TRAWL does not submit surrounding forms automatically.
-
-See [browser challenge flows](apps/docs/architecture/tiered-execution.md#tier-3---fresh-challenge-solve) and [external solver configuration](apps/docs/getting-started/configuration.md#optional-external-captcha-solver) for setup and limits.
+[Full comparison, medians and CPU/RAM](benchmarks/RESULTS.md) · [Method](benchmarks/README.md) · [Performance guide](apps/docs/getting-started/performance.md)
 
 ## Quick start
 
+Run one browser with MCP, an in-memory clearance cache and persistent dashboard history:
+
 ```bash
-# Clone and configure
-git clone https://github.com/germondai/trawl
-cd trawl
-cp .env.example .env
+docker run -d --name trawl \
+  -p 127.0.0.1:8191:8191 \
+  --shm-size=1gb \
+  -e SESSION_CACHE_DRIVER=memory \
+  -e BROWSER_POOL_SIZE=1 \
+  -e MCP_ENABLED=true \
+  -e METRICS_DASHBOARD_ENABLED=true \
+  -v trawl_metrics:/data/metrics \
+  ghcr.io/germondai/trawl:1.9.0
 
-# Start scraper + Redis
-docker compose up -d
-
-# Verify
 curl http://localhost:8191/health
 ```
 
-The browser pool warms at startup. HTTP requests can run while browser capacity becomes ready.
+Open [the local dashboard](http://localhost:8191/dashboard). Keep the API and MCP endpoint on a trusted network; dashboard history survives container recreation through the mounted volume.
 
-### NAS app catalogs
+For Redis and Compose deployments, see the [quick-start guide](apps/docs/getting-started/quick-start.md) and [Compose examples](apps/docs/deployment/docker-compose.md). Use `:1.9.0-baseline` on older CPUs or NAS hardware.
 
-Prefer a one-click installation? TRAWL is available from the community app
-catalogs for both TrueNAS and Unraid:
+<details>
+<summary>Dashboard preview</summary>
 
-- [TrueNAS Community Apps](https://apps.truenas.com/catalog/trawl_community/) -
-  open **Apps → Discover Apps** and search for **TRAWL**.
-- [Unraid Community Apps](https://ca.unraid.net/apps/trawl-1o4q23p06utr4h) -
-  open the **Apps** tab and search for **Trawl**.
+![TRAWL metrics dashboard showing illustrative request data](apps/docs/public/screenshots/dashboard.png)
 
-Thanks to the TrueNAS and Unraid community contributors who packaged and
-published these integrations.
+The screenshot uses illustrative traffic. Your dashboard shows requests actually handled by your instance. [Metrics setup](apps/docs/api-reference/health-stats.md#local-metrics-dashboard).
+
+</details>
 
 ## API
 
-### FlareSolverr-compatible (`/v1`)
-
-```bash
-curl -X POST http://localhost:8191/v1 \
-  -H 'Content-Type: application/json' \
-  -d '{"cmd":"request.get","url":"https://nowsecure.nl","maxTimeout":60000}'
-```
-
-### Native API (`/scrape`)
-
-Returns richer metadata: `tier`, `timings`, `sessionCached`, full cookie list.
-Embedded form widgets are attempted by default; set `solveEmbeddedCaptchas: false` when you
-only need page content. The `/v1` adapter defaults this flag to `false`. Detected access
-challenges still require resolution, and only verified widget solutions appear in `captchasSolved`.
+### Native scraping
 
 ```bash
 curl -X POST http://localhost:8191/scrape \
   -H 'Content-Type: application/json' \
-  -d '{"url":"https://nowsecure.nl","maxTimeout":60000}'
+  -d '{"url":"https://nopecha.com/demo/cloudflare","solveEmbeddedCaptchas":false}'
 ```
 
-### MCP tools (`/mcp`)
+Returns HTML, cookies, the winning tier and timings. Set `solveEmbeddedCaptchas: false` for page content only; omit it to attempt supported embedded form widgets. Access challenges still need to clear. A delivered page does not by itself prove a form CAPTCHA was solved.
 
-Set `MCP_ENABLED=true` to expose TRAWL's client-independent Streamable HTTP tools
-for readable content, HTML, structured extraction, screenshots and browser diagnostics to any
-MCP-compatible AI application or agent. They load known public URLs; TRAWL does not
-provide web search or ranking. See the
-[MCP integration guide](./apps/docs/integrations/mcp.md).
+[Native API](apps/docs/api-reference/native-api.md) · [Custom headers](apps/docs/api-reference/custom-headers.md)
 
-### Connect Prowlarr / Jackett
-
-Set the FlareSolverr URL to:
-
-```
-http://localhost:8191        # running on the same host
-http://trawl:8191            # running via Docker Compose on the same network
-```
-
-### Challenge-bypassing HTTP/HTTPS proxy
-
-Some sites bind their Cloudflare clearance to the solving browser's full connection
-fingerprint. The `/v1` flow can't help there: Prowlarr keeps only the cookie + user-agent
-and **re-fetches the page with its own HTTP client**, which Cloudflare re-challenges - the
-cookie isn't portable. For those indexers, enable TRAWL's forward proxy and add it to
-Prowlarr as an **HTTP proxy**:
-
-```env
-MITM_ENABLED=true
-MITM_PORT=8192
-MITM_CA_DIR=/data/proxy-ca   # persist the CA (mount a volume)
-MITM_MAX_TIER=4              # cap escalation (e.g. 3 to stay off residential)
-MITM_ALWAYS_SCRAPE=false     # opt in to bypass the proxy's direct Tier 0 probe
-```
-
-By default the listener binds `0.0.0.0` so clients on a Docker bridge network can reach
-it; set `MITM_HOST=127.0.0.1` to restrict it to loopback on a bare-metal host.
-
-1. Install the proxy's CA into the client's trust store so it accepts the per-host certs:
-   `curl http://<trawl-host>:8191/proxy-ca.crt` → add to the Prowlarr container's CA store
-   (e.g. a linuxserver `/custom-cont-init.d` script that copies it to
-   `/usr/local/share/ca-certificates/` and runs `update-ca-certificates`).
-2. Prowlarr → Settings → Indexer Proxies → **HTTP**, host `<trawl-host>`, port `8192`.
-   Give it a tag if only selected indexers should use it.
-
-Ordinary requests use a direct HTTP/TLS path. Small HTML, JSON, and text responses are buffered
-for challenge detection; detected challenges escalate through the same tier pipeline as
-`POST /scrape`. Videos and large binary responses stream directly. Range requests are forwarded
-end to end and can escalate when their response is a detected challenge; WebSocket upgrades use a
-direct relay without browser escalation.
-
-See the complete [proxy documentation](./apps/docs/proxy/overview.md) for routing details,
-supported traffic, limitations, CA installation, and client examples.
-
-> ⚠️ A MITM proxy can impersonate any host to a client that trusts its CA. Only expose it on a
-> private interface (localhost / a private Docker network), never publicly.
-
-### Installing the proxy CA certificate
-
-The proxy self-generates a root CA on first run. Its certificate and private key are persisted
-under `MITM_CA_DIR` (default `/data/proxy-ca`). Per-host certificates are minted and cached
-in memory while TRAWL runs; they do not need separate installation because they are signed by the
-persistent root. Every client that uses the proxy must trust that root. Without it, HTTPS fails with
-`ERR_CERT_AUTHORITY_INVALID` (browsers) or `PKIX path building failed` (Java).
-
-Download the CA once per client:
+### Prowlarr, Jackett and FlareSolverr clients
 
 ```bash
-curl http://<trawl-host>:8191/proxy-ca.crt -o trawl-ca.crt
-# or in a Docker setup where the API isn't reachable from outside:
-docker cp trawl:/data/proxy-ca/ca.crt ./trawl-ca.crt
+curl -X POST http://localhost:8191/v1 \
+  -H 'Content-Type: application/json' \
+  -d '{"cmd":"request.get","url":"https://nopecha.com/demo/cloudflare"}'
 ```
 
-#### macOS (system keychain - affects most apps including Safari, curl, wget)
+Set your client's FlareSolverr URL to `http://trawl:8191` on a shared Docker network, or the TRAWL host address otherwise. `/v1` prioritizes page delivery and skips optional embedded widget solving by default.
+
+[Prowlarr setup](apps/docs/integrations/prowlarr.md) · [Jackett setup](apps/docs/integrations/jackett.md) · [Compatibility reference](apps/docs/api-reference/flaresolvr-compat.md)
+
+### MCP for AI clients
+
+With `MCP_ENABLED=true`, connect your client using **Streamable HTTP** at `http://localhost:8191/mcp` or the TRAWL host address. Tools: `read`, `scrape`, `extract`, `screenshot` and `inspect`, plus the `scrape_url` compatibility alias.
+
+TRAWL loads known public URLs; it does not provide web search. Existing browser sessions can be reused with `sessionId`. [MCP guide](apps/docs/integrations/mcp.md).
+
+### Browser sessions
+
+Create an isolated session and pass its ID on subsequent requests:
 
 ```bash
-sudo security add-trusted-cert -d -r trustRoot \
-  -k /Library/Keychains/System.keychain ./trawl-ca.crt
-# Verify
-security find-certificate -c "TRAWL MITM Proxy CA"
-# Remove later
-sudo security delete-certificate -c "TRAWL MITM Proxy CA" \
-  /Library/Keychains/System.keychain
+curl -X POST http://localhost:8191/sessions \
+  -H 'Content-Type: application/json' \
+  -d '{"id":"research"}'
+
+curl -X POST http://localhost:8191/scrape \
+  -H 'Content-Type: application/json' \
+  -d '{"url":"https://nopecha.com/demo/cloudflare","sessionId":"research","solveEmbeddedCaptchas":false}'
+
+curl -X DELETE http://localhost:8191/sessions/research
 ```
 
-#### Linux (Debian/Ubuntu - system-wide for curl, wget, apt, etc.)
+Sessions preserve browser storage between requests and keep login state out of the shared clearance cache. Requests within one session are sequential. Sessions expire when idle and do not survive an API restart; open tabs are closed after each request.
 
-```bash
-sudo cp trawl-ca.crt /usr/local/share/ca-certificates/trawl-ca.crt
-sudo update-ca-certificates
-# Verify
-awk '/BEGIN/{c++} c==2' /etc/ssl/certs/ca-certificates.crt | grep -c "TRAWL MITM"
-```
+[Session API, authentication and lifecycle](apps/docs/api-reference/browser-sessions.md)
 
-#### Linux (RHEL/Fedora/Amazon)
+## Challenge and CAPTCHA support
 
-```bash
-sudo cp trawl-ca.crt /etc/pki/ca-trust/source/anchors/trawl-ca.crt
-sudo update-ca-trust
-```
+TRAWL detects supported walls and runs the matching browser flow before returning content. Coverage includes JavaScript and proof-of-work challenges, interactive controls, and supported CAPTCHA widget variants.
 
-#### Firefox and NSS trust stores
+Some challenges need a particular browser mode, a different egress IP or an external provider. For example, DataDome Device Check uses the opt-in headful pool; built-in hCaptcha support does not include image grids. Passive reCAPTCHA v3 scripts are not treated as blocking widgets.
 
-Firefox installations that do not use operating-system roots need a per-profile NSS import:
+The optional 2Captcha fallback supports captured Cloudflare Challenge Pages and supported declarative Turnstile/reCAPTCHA v2 widgets without a site profile. Other documented tasks require a site profile. It is disabled without a provider key; paid-service acceptance remains unverified.
 
-```bash
-# Firefox 115+ uses a file-backed NSS DB; older versions use the legacy libnssdb format.
-# The certutil command is the same either way.
-certutil -A -n "TRAWL MITM" -t "CT,C,C" -i trawl-ca.crt \
-  -d sql:$HOME/.mozilla/firefox/<profile-dir>
-# Or via Firefox UI: Settings → Privacy & Security → Certificates → View Certificates →
-# Authorities → Import... → check "Trust this CA to identify websites".
-# Profile dir location: about:profiles in Firefox.
-```
+[Full coverage matrix and external task catalogue](apps/docs/getting-started/challenge-support.md) · [Solver configuration](apps/docs/getting-started/configuration.md#optional-external-captcha-solver)
 
-#### Chrome / Chromium (Linux: separate from system trust)
+## HTTP/HTTPS forward proxy
 
-Chrome uses the system trust store on macOS and Windows but has its own on Linux:
+Enable `MITM_ENABLED=true` and point your HTTP-compatible client at port `8192`. Normal traffic is forwarded directly; detected challenge responses escalate through TRAWL's browser tiers. HTTPS clients must trust the generated TRAWL CA. Keep the proxy private and persist its CA directory.
 
-```bash
-# Option A: launch Chrome with --user-data-dir + NSS DB update (same as Firefox).
-# Option B: use Chrome's --ignore-certificate-errors-spki-list=<hash> (per-session, less safe).
-# Option C: add the cert to the system store (above) - Chrome picks it up automatically on
-# most Linux distros via the nss-tool lookup.
-```
+[Proxy setup](apps/docs/proxy/overview.md) · [Install the CA](apps/docs/proxy/ca-installation.md) · [Prowlarr and other clients](apps/docs/proxy/client-setup.md)
 
-#### Java (including JDownloader)
+## Docker images
 
-```bash
-# Find the JRE cacerts file for your client.
-#   JDownloader:    <install>/jre/lib/security/cacerts
-keytool -importcert -alias trawl -file trawl-ca.crt \
-  -keystore "<path-to-cacerts>" -storepass changeit
-# If `keytool` reports "Certificate already exists in keystore", use -delete first:
-#   keytool -delete -alias trawl -keystore "<path-to-cacerts>" -storepass changeit
-```
+| Tags                             | Use case                             |
+| -------------------------------- | ------------------------------------ |
+| `:latest`, `:1.9.0`              | Standard release for modern hardware |
+| `:baseline`, `:1.9.0-baseline`   | Older x86 CPUs and NAS kernels       |
+| `:nightly`, `:nightly-<dev-sha>` | Development builds from `dev`        |
 
-Prowlarr, Sonarr, and Radarr are .NET applications, not Java applications. For their
-**Docker-based installations**, add the CA to the container's Linux system trust store. A common
-LinuxServer pattern is a `/custom-cont-init.d` script:
+All tags use `ghcr.io/germondai/trawl`. Both release variants are published for Linux AMD64 and ARM64. [Standalone containers and source builds](apps/docs/deployment/standalone.md).
 
-```yaml
-# In the client's Compose service:
-volumes:
-  - ./trawl-ca.crt:/config/trawl-ca.crt:ro
-  - ./install-trawl-ca.sh:/custom-cont-init.d/50-install-trawl-ca:ro
-```
+<details>
+<summary>Compose variants and NAS app catalogs</summary>
 
-```bash
-#!/usr/bin/with-contenv bash
-cp /config/trawl-ca.crt /usr/local/share/ca-certificates/trawl-ca.crt
-update-ca-certificates
-```
+- [docker-compose.yml](docker-compose.yml): scraper and Redis.
+- [docker-compose.minimal.yml](docker-compose.minimal.yml): scraper with in-memory caching.
+- [docker-compose.prod.yml](docker-compose.prod.yml): Redis, restart policy and health checks.
+- [TrueNAS Community Apps](https://apps.truenas.com/catalog/trawl_community/) and [Unraid Community Apps](https://ca.unraid.net/apps/trawl-1o4q23p06utr4h): community-maintained packages.
 
-LinuxServer runs scripts in `/custom-cont-init.d/` when the container starts. Java clients such as
-JDownloader require the separate `keytool` import described above.
-
-#### JDownloader 2 (Windows / macOS / Linux - manual install)
-
-JDownloader bundles its own JRE; the CA must be imported into it.
-
-1. Find the JRE: `Settings → Advanced → Java Path` (in JDownloader) or look in the install dir:
-   - Windows: `C:\Program Files\JDownloader 2\jre\lib\security\cacerts`
-   - macOS: `/Applications/JDownloader 2.app/Contents/app/jre/lib/security/cacerts`
-   - Linux: `<install>/jre/lib/security/cacerts`
-2. Run the `keytool -importcert` command above against that file.
-3. Restart JDownloader.
-
-#### Windows (system trust store)
-
-```powershell
-# Run PowerShell as Administrator.
-Import-Certificate -FilePath .\trawl-ca.crt `
-  -CertStoreLocation Cert:\LocalMachine\Root
-# Remove later
-Get-ChildItem Cert:\LocalMachine\Root | Where-Object { $_.Subject -like "*TRAWL MITM*" } | Remove-Item
-```
-
-#### Removing the CA (cleanup)
-
-Every installation method has a symmetric removal path. Search your trust store for
-`TRAWL MITM Proxy CA` (the CA's CN) and delete that entry. The CA certificate and key also live at
-`<MITM_CA_DIR>/ca.crt` and `ca.key` on the TRAWL host. Deleting either causes TRAWL to
-generate a new root on its next start, so existing clients must install the new certificate.
-
-## Tiers
-
-```
-Request
-  │
-  ▼
-Tier 1: HTTP + clearance ────── success ──→ return
-  │ blocked
-  ▼
-Tier 2: Cached session ─────── success ──→ return
-  │ cache miss / expired
-  ▼
-Tier 3: Fresh challenge solve ─ success ──→ cache + return
-  │ IP flagged
-  ▼
-Tier 4: Residential proxy ──── success ──→ cache + return
-  │ failed
-  ▼
-  error
-```
-
-## Docker Compose files
-
-| File                         | Description                                |
-| ---------------------------- | ------------------------------------------ |
-| `docker-compose.yml`         | Scraper + Redis (default)                  |
-| `docker-compose.minimal.yml` | Scraper only, no Redis                     |
-| `docker-compose.prod.yml`    | Production: `restart: always`, healthcheck |
-
-## Docker images (one GHCR package, two release variants)
-
-| Image tag                          | Built from                     | Runtime                      | Use case                                                   |
-| ---------------------------------- | ------------------------------ | ---------------------------- | ---------------------------------------------------------- |
-| `ghcr.io/germondai/trawl:latest`   | `apps/api/Dockerfile`          | Bun 1.4.3 (modern, AVX2)     | Compact default - Linux fingerprints                       |
-| `ghcr.io/germondai/trawl:baseline` | `apps/api/Dockerfile.baseline` | Bun 1.4.3 baseline (no AVX2) | Older CPUs / older kernels (Synology NAS, J4125, Atom-era) |
-
-All tags live on the same `ghcr.io/germondai/trawl` package - they share the registry but differ in Dockerfile source or build arguments. Pick whichever tag fits your hardware and output:
-
-```yaml
-# Modern hardware (most users)
-image: ghcr.io/germondai/trawl:latest
-
-# Older CPUs without AVX2 / Synology / older kernels
-image: ghcr.io/germondai/trawl:baseline
-```
-
-Synology note: many Synology NAS units (DSM 7.x on J4125 / older hardware) ship kernel 4.4.x, which Bun's modern runtime can't fully handle. Standard Bun requires kernel 5.1+ (5.6+ recommended); the baseline build degrades gracefully down to kernel 3.10. The `:baseline` tag is published for that case - **confirmed working** on a Synology DS920+ (Celeron J4125, DSM 7.3.2, kernel 4.4.302): the container starts cleanly, `/health` reports healthy, and it solves live Cloudflare challenges via `/v1` (see [#1](https://github.com/germondai/trawl/issues/1)). Published by independent GitHub Actions workflows: pushing a release tag such as `v1.9.0` creates `:1.9.0`, `:latest`, `:1.9.0-baseline`, and `:baseline`; the daily 02:00 UTC nightly build creates `:nightly` and `:nightly-<dev-sha>` from the latest `dev` commit.
-
-## Releases & versioning
-
-TRAWL follows [Semantic Versioning](https://semver.org/). Pushing a `v`-prefixed git tag (e.g.
-`v1.0.0`) triggers `publish.yml`, which builds and pushes the matching un-prefixed Docker tag
-(`ghcr.io/germondai/trawl:1.0.0`) alongside `:latest`. The moving `:nightly` tag and immutable
-`:nightly-<shortsha>` tags are built from the latest verified `dev` revision every day at 02:00 UTC
-or on manual dispatch; branch pushes do not publish images.
-See the [Releases page](https://github.com/germondai/trawl/releases) for the full version
-history and [CHANGELOG.md](CHANGELOG.md) for what changed in each one.
-
-To publish a specific past commit that had a major fix without waiting for the next tip-of-`main`
-release, tag that exact SHA and push it - `publish.yml` builds off the tag ref, not off `main`'s
-current tip:
-
-```bash
-git tag -a v1.0.1 <sha> -m "..."
-git push origin v1.0.1
-```
+</details>
 
 ## Configuration
 
-TRAWL supports HTTP proxies, authenticated HTTP proxies, and SOCKS5 proxies. The standard Compose
-files read proxy settings from the local `.env` file:
+| Setting                               | Default | Purpose                                                   |
+| ------------------------------------- | ------- | --------------------------------------------------------- |
+| `BROWSER_POOL_SIZE`                   | `1`     | Warm browsers available for concurrent work               |
+| `SESSION_CACHE_DRIVER`                | `redis` | Choose Redis or single-process `memory` caching           |
+| `SCRAPE_MAX_TIMEOUT_MS`               | `60000` | Default scrape deadline; request timeouts take precedence |
+| `TIER1_TRANSPORT`                     | `bun`   | Set `wreq` for optional Firefox TLS/HTTP2 impersonation   |
+| `BROWSER_SESSION_MAX_ENTRIES`         | `4`     | Maximum named browser sessions per instance               |
+| `PROXY_URL` / `RESIDENTIAL_PROXY_URL` | unset   | Optional upstream proxies and proxy pools                 |
 
-```ini
-# Optional Tier 3 datacenter proxy
-PROXY_URL=http://user:pass@datacenter.example.com:8080
+[All settings](apps/docs/getting-started/configuration.md) · [Environment example](.env.example) · [Upgrade guide](apps/docs/deployment/configuration-migration.md)
 
-# Optional Tier 4 residential proxy
-RESIDENTIAL_PROXY_URL=socks5://user:pass@residential.example.com:1080
-```
+## Documentation and development
 
-```bash
-docker compose up -d
-```
+- [Architecture and tier routing](apps/docs/architecture/tiered-execution.md)
+- [Clearance cache and HTTP reuse](apps/docs/architecture/session-cache.md)
+- [Browser pool and resource management](apps/docs/architecture/browser-pool.md)
+- [Troubleshooting](apps/docs/deployment/troubleshooting.md)
+- [Release history](CHANGELOG.md)
+- [Contributing and local development](CONTRIBUTING.md)
 
-Leave either value empty to disable that proxy tier. Multiple endpoints can be separated with
-commas; larger pools can use the corresponding `*_LIST_FILE` variable. See
-[Configuration → Proxies](./apps/docs/getting-started/configuration.md#proxies)
-for pool and mounted-file examples.
+<details>
+<summary>Monorepo structure and stack</summary>
 
-| Variable                           | Default                      | Description                                                                             |
-| ---------------------------------- | ---------------------------- | --------------------------------------------------------------------------------------- |
-| `BROWSER_POOL_SIZE`                | `1`                          | Warm Camoufox Firefox instances; raise for concurrent browser solves                    |
-| `LOG_LEVEL`                        | `info`                       | Operational logs: `error`, `warn`, `info`, `debug`, or `silent`                         |
-| `METRICS_DASHBOARD_ENABLED`        | `false`                      | Explicitly enable the local dashboard without a token; bind its port to `127.0.0.1`     |
-| `METRICS_DASHBOARD_TOKEN`          | -                            | Protect the dashboard, JSON endpoint, and live stream with a 32+ character token        |
-| `METRICS_DB_PATH`                  | `/data/metrics/trawl.sqlite` | SQLite path for local metrics history (mount `/data/metrics` persistently)              |
-| `BROWSER_ACQUIRE_TIMEOUT_MS`       | `15000`                      | How long `acquire()` polls for a free browser before HTTP 429 is returned               |
-| `BROWSER_RECYCLE_AFTER_CONTEXTS`   | `8`                          | Rolling-replace after this many Tier 3/4 contexts; set `0` to disable                   |
-| `BROWSER_MAX_CONTENT_PROCESSES`    | `2`                          | Cap Firefox content processes per browser (`dom.ipc.processCount`); lowers RAM/CPU      |
-| `SCRAPE_MIN_TIER`                  | `1`                          | Lowest tier allowed globally (`1` HTTP, `2` cached browser, `3` fresh, `4` residential) |
-| `TIER1_TRANSPORT`                  | `bun`                        | Tier 1 HTTP transport: `bun` or opt-in `wreq` Firefox TLS/HTTP2 impersonation           |
-| `SESSION_CACHE_DRIVER`             | `redis`                      | Session cache backend: `redis` or single-process `memory`                               |
-| `BROWSER_SESSION_MAX_ENTRIES`      | `4`                          | Maximum named browser contexts per instance; start with `1` for small containers        |
-| `BROWSER_SESSION_TTL_SECONDS`      | `3600`                       | Named session idle expiry in seconds; independent of the clearance cache                |
-| `REDIS_SESSION_TTL_SECONDS`        | `3600`                       | Redis or in-memory session TTL (seconds)                                                |
-| `MEMORY_SESSION_CACHE_MAX_ENTRIES` | `1000`                       | Maximum LRU-bounded entries for the memory driver                                       |
-| `REDIS_URL`                        | -                            | Redis connection string; empty or unset disables the Redis cache                        |
-| `REDIS_CONNECT_TIMEOUT_MS`         | `5000`                       | Maximum time for each Redis connection attempt                                          |
-| `REDIS_RETRY_DELAY_MS`             | `5000`                       | Delay before reconnecting after startup failure; `0` disables retry                     |
-| `SCRAPE_PROXY_SELECTION`           | `failover`                   | Fresh Tier 3/4 pool policy: sticky `failover`, `roundrobin`, or `random`                |
-| `PROXY_URL`                        | -                            | Optional Tier 3 HTTP or SOCKS5 proxy, or comma-separated pool                           |
-| `PROXY_LIST_FILE`                  | -                            | File containing one Tier 3 proxy URL per line                                           |
-| `RESIDENTIAL_PROXY_URL`            | -                            | Enables Tier 4 proxy escalation                                                         |
-| `RESIDENTIAL_PROXY_LIST_FILE`      | -                            | File containing one Tier 4 proxy URL per line                                           |
-| `STT_URL`                          | -                            | Local Whisper endpoint for reCAPTCHA (optional)                                         |
-| `PORT`                             | `8191`                       | API listen port                                                                         |
-| `MITM_ENABLED`                     | `false`                      | Enable the challenge-bypassing HTTP/HTTPS proxy                                         |
-| `MITM_PORT`                        | `8192`                       | Forward-proxy listen port                                                               |
-| `MITM_HOST`                        | `0.0.0.0`                    | Bind address; `127.0.0.1` for loopback-only                                             |
-| `MITM_CA_DIR`                      | `/data/proxy-ca`             | Persistent root CA certificate and private-key directory                                |
-| `MITM_MAX_TIER`                    | `4`                          | Cap escalation used by the proxy (e.g. `3` to stay off residential)                     |
-| `MITM_ALWAYS_SCRAPE`               | `false`                      | Skip proxy Tier 0; disables the direct media/large-file streaming path                  |
-| `MITM_DEBUG`                       | `false`                      | Log one line per proxied request (errors are always logged)                             |
+| Workspace          | Purpose                                            |
+| ------------------ | -------------------------------------------------- |
+| `apps/api`         | Bun + Elysia API, MCP, dashboard and forward proxy |
+| `apps/web`         | Nuxt landing page                                  |
+| `apps/docs`        | VitePress documentation                            |
+| `packages/browser` | Camoufox pool and clearance cache                  |
+| `packages/tiers`   | Routing, browser sessions and challenge solvers    |
+| `packages/types`   | Shared types                                       |
 
-Upgrading from an earlier release requires renaming several environment variables. See the
-[configuration migration guide](apps/docs/deployment/configuration-migration.md) for the complete
-old-to-new mapping and Redis opt-in behavior.
-
-## Stack
-
-Built on a modern, fast-by-default stack: Bun + Elysia for the API, Redis for caching,
-Camoufox (hardened Firefox) for browser automation, and Nuxt for the web UI - no legacy
-Node/Express baggage.
-
-| Layer         | Technology                         |
-| ------------- | ---------------------------------- |
-| Runtime       | Bun                                |
-| API           | Elysia                             |
-| Browser       | Camoufox Firefox (via camoufox-js) |
-| Session cache | Redis 8.8                          |
-| Landing page  | Nuxt 4                             |
-| Documentation | VitePress                          |
+</details>
 
 ## Star History
 
@@ -550,10 +250,6 @@ Node/Express baggage.
 <a href="https://github.com/germondai/trawl/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=germondai/trawl" />
 </a>
-
-## License
-
-[AGPL-3.0](LICENSE)
 
 ---
 

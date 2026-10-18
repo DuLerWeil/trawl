@@ -6,10 +6,15 @@ description: Build and run each TRAWL service as an individual Docker container.
 # Standalone Containers
 
 Each service has its own Dockerfile and can be built and run independently.
+All builds use the **repository root** as their build context, including web and docs.
+
+For deployment platforms, set the build context to `.` and the Dockerfile path to
+`apps/web/Dockerfile` or `apps/docs/Dockerfile`. The shared root `.dockerignore` supports
+tools that relocate the Dockerfile and omit its adjacent `Dockerfile.dockerignore`.
 
 ## Scraper API
 
-The API image is published to GHCR on every push to `main`. Pull it directly - no local build needed.
+The API image is published to GHCR for release tags. Pull it directly - no local build needed.
 
 ```bash
 # Pull
@@ -51,7 +56,7 @@ docker run -d \
 ```
 
 ::: tip Not sure which tag you need?
-Try `:latest` first. If the container exits immediately or crash-loops, switch to `:baseline` - it trades a little raw throughput for compatibility with older CPUs and kernels. Full tag comparison is in the [README](https://github.com/germondai/trawl#docker-images-one-ghcr-package-two-tags).
+Try `:latest` first. If the container exits immediately or crash-loops, switch to `:baseline` for compatibility with older CPUs and kernels. See the [Docker image tags](https://github.com/germondai/trawl#docker-images).
 :::
 
 To build from source instead:
