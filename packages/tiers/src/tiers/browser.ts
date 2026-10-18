@@ -15,6 +15,7 @@ import { trackMainDocumentResponses } from "../utils/mainResponse"
 import { followMetaRefresh } from "../utils/metaRefresh"
 import { isHardNetworkFailure } from "../utils/network"
 import { installOutboundPolicy, type OutboundUrlValidator } from "../utils/outboundPolicy"
+import { installResourceBlocker } from "../utils/resourceBlocker"
 import { isProxyTransportFailure, normalizeProxyError, proxyResponseFailure } from "../utils/proxyFailure"
 import { browserDocumentHtml, captureResponse, isHtmlContentType, isNonHtmlTextContentType } from "../utils/response"
 import type { RouteLike } from "../utils/sanitize"
@@ -92,6 +93,10 @@ async function runBrowserTierTask<T extends 3 | 4>(
     page.setDefaultTimeout?.(Math.max(1, budget.remaining()))
     await capture.externalCaptcha?.preparePage(page)
     await installOutboundPolicy(page, validateOutboundUrl)
+    // Tier 3 solves fresh challenges for a single document - skip decorative subresources
+    // by default. Scripts/XHR/CSS still load (challenge needs them); the blocker lifts
+    // before captcha solving so widget images can fetch.
+    const resourceBlocker = tier === 3 && !screenshot ? installResourceBlocker(page) : undefined
     const initialCookies = snapshotChallengeCookies(await context.cookies())
     if ((extraHeaders && Object.keys(extraHeaders).length > 0) || method === "POST") {
       await page.route(url, (route: RouteLike) => {
@@ -220,6 +225,8 @@ async function runBrowserTierTask<T extends 3 | 4>(
     const solveRemaining = Math.max(0, budget.remaining() - 2000)
     let captchasSolved: string[] = wallCaptchas ?? []
     if (capture.solveEmbeddedCaptchas !== false && budget.remaining() > 5000) {
+      // Captcha solving may need runtime image fetches - reopen what the blocker held back.
+      resourceBlocker?.disable()
       const solveResult = await solvePageCaptchas(
         page,
         solveRemaining,
