@@ -40,18 +40,18 @@ describe("HTTP clearance boundaries", () => {
     expect(HttpSessionCookies.from(session, "https://other.test/")).toBeUndefined()
     expect(HttpSessionCookies.from({ ...session, httpOrigin: undefined }, "https://example.test/")).toBeUndefined()
     expect(
-      HttpSessionCookies.from(cached([clearance("example.test", { name, expires: 1 })]), "https://example.test/"),
-    ).toBeUndefined()
+      HttpSessionCookies.from(
+        cached([clearance("example.test", { name, expires: 1 })]),
+        "https://example.test/",
+      )?.header("https://example.test/"),
+    ).toBe("")
   })
 
-  test.each([
-    "techaro.lol-anubis-cookie-verification",
-    "techaro.lol-anubis-original-referer",
-    "techaro.lol-anubis-cookie-verification-a1b2c3d4",
-  ])("does not treat %s as Anubis clearance", (name) => {
-    expect(
-      HttpSessionCookies.from(cached([clearance("example.test", { name })]), "https://example.test/"),
-    ).toBeUndefined()
+  test("replays a session that has no challenge cookie", () => {
+    const session = cached([clearance("example.test", { name: "session", value: "logged-in" })])
+    expect(HttpSessionCookies.from(session, "https://example.test/")?.header("https://example.test/")).toBe(
+      "session=logged-in",
+    )
   })
 
   test("honors host-only/domain cookies, paths, expiry, secure transport and longest path first", () => {
@@ -71,8 +71,10 @@ describe("HTTP clearance boundaries", () => {
     expect(() => jar?.header("https://child.example.test/")).toThrow("session-redirect-needs-browser")
     expect(() => jar?.header("http://example.test/")).toThrow("session-redirect-needs-browser")
     expect(
-      HttpSessionCookies.from(cached([clearance("example.test", { expires: 1 })]), "https://example.test/"),
-    ).toBeUndefined()
+      HttpSessionCookies.from(cached([clearance("example.test", { expires: 1 })]), "https://example.test/")?.header(
+        "https://example.test/",
+      ),
+    ).toBe("")
     expect(HttpSessionCookies.from({ ...cached(), httpOrigin: undefined }, "https://example.test/")).toBeUndefined()
     expect(HttpSessionCookies.from(cached(), "https://example.test:8443/")).toBeUndefined()
   })
@@ -212,6 +214,7 @@ describe("HTTP clearance fallback", () => {
     { name: "screenshot", request: { screenshot: true } },
     { name: "content selector", request: { contentWaitForSelector: "#loaded" } },
     { name: "response capture", request: { captureResponses: ["/api/"] } },
+    { name: "network logs", request: { networkLogs: true } },
     { name: "MHTML", request: { mhtml: true } },
     { name: "TLS opt-out", request: { ignoreCertificateErrors: true } },
     { name: "imported cookies", request: { cookies: [{ name: "login", value: "private" }] } },
