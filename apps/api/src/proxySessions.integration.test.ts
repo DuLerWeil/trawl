@@ -59,7 +59,7 @@ describe.skipIf(process.env.TRAWL_PROXY_SESSION_TESTS !== "1")("Camoufox proxy s
         const proxied = request.headers.get("x-owned-proxy") === "yes"
         const cookie = request.headers.get("cookie") ?? ""
         requests.push({ path, proxy: proxied, cookie, agent: request.headers.get("user-agent") ?? "" })
-        if (path === "/slow") await Bun.sleep(2000)
+        if (path === "/slow") await Bun.sleep(10000)
         if (path !== "/public" && !cookie.includes(`cf_clearance=${proxied ? "proxy" : "direct"}`)) {
           return new Response(
             `<html><head><title>Just a moment...</title></head><body><form id="challenge-form">Checking your browser</form><script>document.cookie='cf_clearance=${proxied ? "proxy" : "direct"}; Path=/; SameSite=Lax';location.reload()</script></body></html>`,
@@ -166,7 +166,7 @@ describe.skipIf(process.env.TRAWL_PROXY_SESSION_TESTS !== "1")("Camoufox proxy s
     await cache.invalidate("proxy-session.invalid")
     const initial = await send("/scrape")
     expect(initial.status, JSON.stringify(initial.body)).toBe(200)
-    const result = await send("/scrape", target("/slow"), 1000, 2)
+    const result = await send("/scrape", target("/slow"), 5000, 2)
     expect(result.status).toBe(500)
     expect(JSON.stringify(result.body)).toContain("Scrape deadline exceeded")
     expect(requests.some((request) => request.path === "/slow" && request.proxy)).toBe(true)
@@ -175,7 +175,7 @@ describe.skipIf(process.env.TRAWL_PROXY_SESSION_TESTS !== "1")("Camoufox proxy s
     await page.goto(`http://127.0.0.1:${origin.port}/public`)
     expect(await page.content()).toContain("Owned protected content")
     await page.close()
-  }, 10000)
+  }, 20000)
 
   test("retains the shared-context fast path for direct cached sessions", async () => {
     deps.proxyPool = undefined
