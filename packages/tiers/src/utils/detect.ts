@@ -103,8 +103,20 @@ export function hasHcaptcha(html: string): boolean {
   return /class="h-captcha"|hcaptcha\.com\/1\/api/i.test(html)
 }
 
+// Invisible reCAPTCHA v3 (`api.js?render=SITE_KEY`) is embedded by many ordinary
+// pages for form protection, so a bare API reference is not a challenge shell.
+const RECAPTCHA_V3_SCRIPT = /(?:google\.com|recaptcha\.net)\/recaptcha\/(?:api|enterprise)\.js\?[^"'\s>]*\brender=/i
+// Visible challenge shells load the v2 API and/or render the checkbox iframe.
+const RECAPTCHA_V2_SCRIPT = /(?:google\.com|recaptcha\.net)\/recaptcha\/(?:api|enterprise)\.js/i
+const RECAPTCHA_V2_SHELL = /class="g-recaptcha"|recaptcha\/api2\/(?:anchor|bframe)/i
+// Challenge shells are small; a full document that merely embeds a widget is a real page.
+const RECAPTCHA_SHELL_MAX_LENGTH = 20_000
+
 export function hasRecaptcha(html: string): boolean {
-  return /class="g-recaptcha"|google\.com\/recaptcha|recaptcha\.net\/recaptcha/i.test(html)
+  const hasShellMarkers = RECAPTCHA_V2_SHELL.test(html)
+  if (!hasShellMarkers && RECAPTCHA_V3_SCRIPT.test(html)) return false
+  if (!hasShellMarkers && !RECAPTCHA_V2_SCRIPT.test(html)) return false
+  return html.length <= RECAPTCHA_SHELL_MAX_LENGTH
 }
 
 export function hasCapChallenge(html: string): boolean {
