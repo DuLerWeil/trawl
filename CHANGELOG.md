@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-19
+
 ### Added
 - Skip repeated JavaScript-shell HTTP attempts for the same safe GET URL while respecting explicit request options and retrying HTTP after browser failure or fresh clearance (#229).
 - Add opt-in Firefox TLS/HTTP2 impersonation for Tier 1 with `TIER1_TRANSPORT=wreq` using node-wreq. Keep Bun fetch as the default and preserve clearance replay, proxy routing, scoped certificate trust and request deadlines (#213, #217).
@@ -42,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Avoid unnecessary GeeTest solver waits when pages only contain demo links or textual references; retain bounded detection for widgets mounted by the SDK.
 
 ### Changed
+- Refresh compatible dependencies, Bun 1.4.3, camoufox-js 0.13.0, Nuxt 4.6.2, nginx 1.31.7 and the web build stack. Use Node.js 26 for web/docs builds while keeping the API on Bun. Retain Camoufox 152.0.4-beta.30 and Playwright Core 1.62.1 for camoufox-js compatibility and TypeScript 6.0.3 for Vue typechecking.
 - Consolidate benchmarks into one current dataset and generated report; normalize punctuation in documentation, templates, comments and messages.
 - Add README performance highlights and a benchmark guide; document automatic HTTP clearance reuse, browser fallback and cache expiry.
 - Publish Cloudflare interstitial page-access comparisons of the selected economy build, FlareSolverr and Byparr, including named sessions and CPU/memory measurements. Verify content and final destinations, show NopeCHA, 1337x and EZTV request timings on the landing page and retain the complete comparison in the report.

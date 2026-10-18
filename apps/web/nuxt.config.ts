@@ -48,6 +48,9 @@ export default defineNuxtConfig({
     enabled: false,
   },
 
+  aiReady: false,
+  skewProtection: false,
+
   robots: {
     credits: false,
   },

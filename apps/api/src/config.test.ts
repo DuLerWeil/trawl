@@ -275,19 +275,26 @@ describe("Firefox user preferences", () => {
   })
 })
 
-test("ad blocking stays enabled by default and can be disabled explicitly", () => {
-  const setting = (value: string) => {
+test.each([
+  ["", "true"],
+  ["true", "true"],
+  ["invalid", "true"],
+  ["false", "false"],
+  ["0", "false"],
+  [" NO ", "false"],
+])(
+  "ad blocking parses %j as %s",
+  (value, expected) => {
     const result = Bun.spawnSync({
       cmd: [process.execPath, "-e", 'console.log((await import("./config.ts")).BROWSER_BLOCK_ADS)'],
       cwd: import.meta.dir,
       env: { ...process.env, BROWSER_BLOCK_ADS: value },
     })
     expect(result.exitCode, result.stderr.toString()).toBe(0)
-    return result.stdout.toString().trim()
-  }
-  for (const value of ["", "true", "invalid"]) expect(setting(value)).toBe("true")
-  for (const value of ["false", "0", " NO "]) expect(setting(value)).toBe("false")
-}, 10000)
+    expect(result.stdout.toString().trim()).toBe(expected)
+  },
+  10000,
+)
 
 test.each([
   ["", "0"],

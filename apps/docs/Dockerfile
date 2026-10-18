@@ -1,4 +1,5 @@
-FROM oven/bun:1.4.2-alpine AS builder
+FROM node:26.12.0-alpine AS builder
+COPY --from=oven/bun:1.4.3-alpine /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /app
 
@@ -17,7 +18,7 @@ COPY apps/docs/ ./apps/docs/
 WORKDIR /app/apps/docs
 RUN bun run build
 
-FROM nginx:1.31.6-alpine AS runner
+FROM nginx:1.31.7-alpine AS runner
 
 COPY --from=builder /app/apps/docs/.vitepress/dist /usr/share/nginx/html
 COPY apps/docs/nginx.conf /etc/nginx/conf.d/default.conf

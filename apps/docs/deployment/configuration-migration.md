@@ -5,6 +5,23 @@ description: Upgrade notes and environment-variable changes across TRAWL release
 
 # Configuration migration
 
+## Upgrading from v1.8.0 to v1.9.0
+
+Keep the existing Redis data and dashboard volume mounted. Older clearance-cache
+entries without proxy provenance are ignored and refreshed on the next solve.
+Named browser sessions still need to be recreated after restarting the API.
+
+`SCRAPE_MAX_TIMEOUT_MS` sets the default scrape deadline; it remains 60 seconds
+when unset. An explicit request timeout takes precedence.
+
+FlareSolverr `/v1` requests now prioritize page delivery without solving optional
+embedded form widgets. Blocking access challenges still require resolution.
+Native and MCP scraping expose `solveEmbeddedCaptchas` for this choice.
+
+The optional external solver can now capture Cloudflare Challenge Page parameters
+without a site profile. It remains disabled without a configured provider key.
+Real paid-service acceptance has not been verified.
+
 ## Upgrading from v1.7.0 to v1.8.0
 
 No environment-variable renames are required for this upgrade. Keep the existing
@@ -34,33 +51,33 @@ and deployment automation before upgrading.
 
 ## Environment variables
 
-| Previous name | New name |
-| --- | --- |
-| `SESSION_TTL_SECONDS` | `REDIS_SESSION_TTL_SECONDS` |
-| `BROWSER_CONTENT_PROCESSES` | `BROWSER_MAX_CONTENT_PROCESSES` |
-| `CAPTURE_MAX_CONSOLE_ENTRIES` | `DIAGNOSTICS_MAX_CONSOLE_ENTRIES` |
-| `CAPTURE_MAX_NETWORK_ENTRIES` | `DIAGNOSTICS_MAX_NETWORK_ENTRIES` |
-| `CAPTURE_SIZES_TIMEOUT_MS` | `DIAGNOSTICS_SIZE_TIMEOUT_MS` |
-| `CAPTURE_MAX_REDIRECT_ENTRIES` | `REDIRECT_MAX_ENTRIES` |
-| `CAPTURE_MAX_RESPONSE_PATTERNS` | `CAPTURE_MAX_PATTERNS` |
-| `CAPTURE_MAX_RESPONSE_BYTES` | `CAPTURE_MAX_BODY_BYTES` |
-| `CAPTURE_MAX_RESPONSE_TOTAL_BYTES` | `CAPTURE_MAX_TOTAL_BYTES` |
-| `CAPTURE_SETTLE_IDLE_FLOOR_MS` | `CAPTURE_IDLE_FLOOR_MS` |
-| `MITM_PROXY_ENABLED` | `MITM_ENABLED` |
-| `MITM_PROXY_HOST` | `MITM_HOST` |
-| `MITM_PROXY_PORT` | `MITM_PORT` |
-| `MITM_PROXY_CA_DIR` | `MITM_CA_DIR` |
-| `MITM_PROXY_MAX_TIER` | `MITM_MAX_TIER` |
-| `MITM_PROXY_ALWAYS_SCRAPE` | `MITM_ALWAYS_SCRAPE` |
-| `MITM_PROXY_DEBUG` | `MITM_DEBUG` |
+| Previous name                      | New name                          |
+| ---------------------------------- | --------------------------------- |
+| `SESSION_TTL_SECONDS`              | `REDIS_SESSION_TTL_SECONDS`       |
+| `BROWSER_CONTENT_PROCESSES`        | `BROWSER_MAX_CONTENT_PROCESSES`   |
+| `CAPTURE_MAX_CONSOLE_ENTRIES`      | `DIAGNOSTICS_MAX_CONSOLE_ENTRIES` |
+| `CAPTURE_MAX_NETWORK_ENTRIES`      | `DIAGNOSTICS_MAX_NETWORK_ENTRIES` |
+| `CAPTURE_SIZES_TIMEOUT_MS`         | `DIAGNOSTICS_SIZE_TIMEOUT_MS`     |
+| `CAPTURE_MAX_REDIRECT_ENTRIES`     | `REDIRECT_MAX_ENTRIES`            |
+| `CAPTURE_MAX_RESPONSE_PATTERNS`    | `CAPTURE_MAX_PATTERNS`            |
+| `CAPTURE_MAX_RESPONSE_BYTES`       | `CAPTURE_MAX_BODY_BYTES`          |
+| `CAPTURE_MAX_RESPONSE_TOTAL_BYTES` | `CAPTURE_MAX_TOTAL_BYTES`         |
+| `CAPTURE_SETTLE_IDLE_FLOOR_MS`     | `CAPTURE_IDLE_FLOOR_MS`           |
+| `MITM_PROXY_ENABLED`               | `MITM_ENABLED`                    |
+| `MITM_PROXY_HOST`                  | `MITM_HOST`                       |
+| `MITM_PROXY_PORT`                  | `MITM_PORT`                       |
+| `MITM_PROXY_CA_DIR`                | `MITM_CA_DIR`                     |
+| `MITM_PROXY_MAX_TIER`              | `MITM_MAX_TIER`                   |
+| `MITM_PROXY_ALWAYS_SCRAPE`         | `MITM_ALWAYS_SCRAPE`              |
+| `MITM_PROXY_DEBUG`                 | `MITM_DEBUG`                      |
 
 Two previous shared limits now have independent settings. Copy the old value to every applicable
 new variable if you want to preserve custom limits exactly:
 
-| Previous shared name | New independent names |
-| --- | --- |
+| Previous shared name       | New independent names                                                                  |
+| -------------------------- | -------------------------------------------------------------------------------------- |
 | `CAPTURE_MAX_STRING_CHARS` | `DIAGNOSTICS_MAX_STRING_CHARS`, `REDIRECT_MAX_URL_CHARS`, `CAPTURE_MAX_METADATA_CHARS` |
-| `CAPTURE_MAX_TOTAL_CHARS` | `DIAGNOSTICS_MAX_TOTAL_CHARS`, `REDIRECT_MAX_TOTAL_CHARS` |
+| `CAPTURE_MAX_TOTAL_CHARS`  | `DIAGNOSTICS_MAX_TOTAL_CHARS`, `REDIRECT_MAX_TOTAL_CHARS`                              |
 
 `CHROME_EXECUTABLE` was unused and has been removed. TRAWL uses its packaged Camoufox Firefox
 binary; there is no replacement variable.
