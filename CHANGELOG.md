@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Add opt-in Firefox TLS/HTTP2 impersonation for Tier 1 with `TIER1_TRANSPORT=wreq` using node-wreq. Keep Bun fetch as the default and preserve clearance replay, proxy routing, scoped certificate trust and request deadlines (#213, #217).
 - Configure the default scrape deadline with `SCRAPE_MAX_TIMEOUT_MS` across the native API, FlareSolverr API, MCP and proxy scraper fallbacks. Explicit request timeouts take precedence; the default remains 60 seconds (#214).
 
 ### Fixed

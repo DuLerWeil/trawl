@@ -176,6 +176,8 @@ ENV CAMOUFOX_INSTALL_DIR=/opt/camoufox \
     NODE_NO_WARNINGS=1
 
 WORKDIR /app
+# Validate the optional binding against this image's architecture and libc offline.
+RUN --network=none TIER1_TRANSPORT=wreq bun -e 'import { verifyTier1Transport } from "./packages/tiers/src/utils/tier1Transport"; await verifyTier1Transport()'
 EXPOSE 8191
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["bun", "run", "apps/api/src/index.ts"]

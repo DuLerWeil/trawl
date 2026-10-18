@@ -22,6 +22,7 @@ do
   fi
   docker run --rm --memory="$memory_limit" --memory-swap="$memory_limit" --shm-size=256m \
     -e SESSION_CACHE_DRIVER=memory -e METRICS_DB_PATH=:memory: \
+    -e TIER1_TRANSPORT="${TIER1_TRANSPORT:-bun}" \
     -e BROWSER_POOL_SIZE=1 -e BROWSER_HEADFUL_POOL_SIZE=0 \
     -e BROWSER_HARDWARE_CONCURRENCY=4 -e BROWSER_MAX_CONTENT_PROCESSES=2 \
     -e BROWSER_BLOCK_ADS=false \

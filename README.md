@@ -492,6 +492,7 @@ for pool and mounted-file examples.
 | `BROWSER_RECYCLE_AFTER_CONTEXTS`   | `8`                          | Rolling-replace after this many Tier 3/4 contexts; set `0` to disable                   |
 | `BROWSER_MAX_CONTENT_PROCESSES`    | `2`                          | Cap Firefox content processes per browser (`dom.ipc.processCount`); lowers RAM/CPU      |
 | `SCRAPE_MIN_TIER`                  | `1`                          | Lowest tier allowed globally (`1` HTTP, `2` cached browser, `3` fresh, `4` residential) |
+| `TIER1_TRANSPORT` | `bun` | Tier 1 HTTP transport: `bun` or opt-in `wreq` Firefox TLS/HTTP2 impersonation |
 | `SESSION_CACHE_DRIVER`             | `redis`                      | Session cache backend: `redis` or single-process `memory`                               |
 | `BROWSER_SESSION_MAX_ENTRIES`      | `4`                          | Maximum named browser contexts per instance; start with `1` for small containers        |
 | `BROWSER_SESSION_TTL_SECONDS`      | `3600`                       | Named session idle expiry in seconds; independent of the clearance cache                |

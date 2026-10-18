@@ -55,3 +55,4 @@ export {
   type SupportedMethod,
   sanitizeHeaders,
 } from "./utils/sanitize"
+export { TIER1_TRANSPORT, verifyTier1Transport } from "./utils/tier1Transport"

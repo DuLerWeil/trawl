@@ -26,6 +26,9 @@ bun install
 cp .env.example .env
 ```
 
+Keep optional dependencies enabled when installing: `TIER1_TRANSPORT=wreq` needs
+the platform-specific node-wreq binding. The default Bun transport does not load it.
+
 ### Running the apps
 
 ```bash

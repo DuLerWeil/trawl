@@ -5,10 +5,11 @@ import { join } from "node:path"
 import { gzipSync } from "node:zlib"
 import type { BrowserHandle } from "@trawl/types"
 import type { OrchestratorDeps } from "../src/orchestrator"
-import { scrape } from "../src/orchestrator"
+import { ScrapeError, scrape } from "../src/orchestrator"
 import { runTier1 } from "../src/tiers/1"
 import { runTier3 } from "../src/tiers/3"
 import { runTier4 } from "../src/tiers/4"
+
 import { HttpSessionCookies } from "../src/utils/httpSessionCookies"
 
 // A self-signed certificate nothing trusts. Minted per run rather than committed so no
@@ -107,8 +108,9 @@ describe.skipIf(!opensslPath)("ignoreCertificateErrors", () => {
     const result = await runTier1(baseUrl)
 
     expect(result.status).toBe("error")
-    expect(result.reason).toMatch(/self[- ]signed certificate/i)
-    await expect(scrape({ url: baseUrl, maxTier: 1 }, noBrowserDeps)).rejects.toThrow()
+    expect(result.reason).toMatch(/self[- ]signed certificate|\[CERTIFICATE_VERIFY_FAILED\]/i)
+    const failure = await scrape({ url: baseUrl, maxTier: 1 }, noBrowserDeps).catch((error: unknown) => error)
+    expect(failure).toBeInstanceOf(ScrapeError)
   })
 
   test("cached HTTP clearance does not bypass certificate verification", async () => {
@@ -137,7 +139,7 @@ describe.skipIf(!opensslPath)("ignoreCertificateErrors", () => {
       jar,
     )
     expect(result.status).toBe("error")
-    expect(result.reason).toMatch(/self[- ]signed certificate/i)
+    expect(result.reason).toMatch(/self[- ]signed certificate|\[CERTIFICATE_VERIFY_FAILED\]/i)
     expect(tlsRequests).toHaveLength(before)
   })
 
@@ -146,7 +148,7 @@ describe.skipIf(!opensslPath)("ignoreCertificateErrors", () => {
 
     expect(result.status).toBe("success")
     expect(result.html).toContain("content behind an untrusted certificate")
-    expect(result.certificateError).toContain("DEPTH_ZERO_SELF_SIGNED_CERT")
+    expect(result.certificateError).toMatch(/DEPTH_ZERO_SELF_SIGNED_CERT|CERTIFICATE_VERIFY_FAILED/)
   })
 
   test("the orchestrator returns the page with the certificate failure attached", async () => {
@@ -154,7 +156,7 @@ describe.skipIf(!opensslPath)("ignoreCertificateErrors", () => {
 
     expect(result.html).toContain("content behind an untrusted certificate")
     expect(result.statusCode).toBe(200)
-    expect(result.certificateError).toContain("DEPTH_ZERO_SELF_SIGNED_CERT")
+    expect(result.certificateError).toMatch(/DEPTH_ZERO_SELF_SIGNED_CERT|CERTIFICATE_VERIFY_FAILED/)
   })
 
   test("the insecure retry preserves encoded representation bytes", async () => {
@@ -171,7 +173,7 @@ describe.skipIf(!opensslPath)("ignoreCertificateErrors", () => {
 
     const strict = await runTier1(baseUrl)
     expect(strict.status).toBe("error")
-    expect(strict.certificateError).toContain("DEPTH_ZERO_SELF_SIGNED_CERT")
+    expect(strict.certificateError).toMatch(/DEPTH_ZERO_SELF_SIGNED_CERT|CERTIFICATE_VERIFY_FAILED/)
     const result = await scrape({ url: baseUrl, maxTier: 1 }, noBrowserDeps)
       .then(() => "resolved")
       .catch(() => "rejected")
@@ -227,7 +229,7 @@ describe.skipIf(!opensslPath)("ignoreCertificateErrors", () => {
       )
 
       expect(result.status).toBe("success")
-      expect(result.certificateError).toContain("DEPTH_ZERO_SELF_SIGNED_CERT")
+      expect(result.certificateError).toMatch(/DEPTH_ZERO_SELF_SIGNED_CERT|CERTIFICATE_VERIFY_FAILED/)
       expect(originalPosts).toBe(1)
       expect(tlsRequests).toEqual([{ method: "POST", path: "/redirect-target" }])
     } finally {

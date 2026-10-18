@@ -36,3 +36,7 @@ jobs:
         run: docker build -f apps/api/Dockerfile -t trawl-smoke .
       - name: Test owned browser fixtures
         run: bash scripts/browser-smoke.sh trawl-smoke
+      - name: Test native TLS transport with owned browser fixtures
+        env:
+          TIER1_TRANSPORT: wreq
+        run: bash scripts/browser-smoke.sh trawl-smoke
