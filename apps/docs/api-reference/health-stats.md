@@ -1,6 +1,6 @@
 ---
 title: Health & Stats
-description: GET /, GET /health and GET /stats — status and monitoring endpoints.
+description: GET /, GET /health and GET /stats - status and monitoring endpoints.
 ---
 
 # Health & Stats
@@ -11,14 +11,14 @@ These endpoints require no authentication and are safe to expose to monitoring t
 
 ## `GET /`
 
-FlareSolverr-style readiness message — confirms the API process is up (does not wait on the browser pool).
+FlareSolverr-style readiness message - confirms the API process is up (does not wait on the browser pool).
 
 ### Response
 
 ```json
 {
   "msg": "TRAWL is ready!",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "uptime": 42
 }
 ```
@@ -61,23 +61,23 @@ Full system health check. Used by Docker Compose health checks and monitoring sy
 }
 ```
 
-| Field              | Type   | Description                              |
-| ------------------ | ------ | ---------------------------------------- |
-| `status`           | string | `"ok"` when the pool has live capacity; otherwise `"starting"` |
-| `uptime`           | number | Seconds since the API process started    |
-| `pool.total`       | number | Total browser instances in the pool      |
-| `pool.busy`        | number | Browsers currently processing a request  |
-| `pool.available`   | number | Browsers ready to accept a request       |
-| `pool.restarts`    | number | Total browser restarts since worker boot |
-| `pool.avgRestarts` | number | Average restarts per browser             |
-| `pool.stalled`     | number | Checked-out browsers past their deadline |
-| `pool.live`        | number | Connected, non-stalled browser capacity  |
-| `memory.currentBytes` | number | Current cgroup memory usage |
-| `memory.limitBytes` | number | Cgroup memory limit |
-| `memory.recommendedLimitBytes` | number | Recommended minimum for the configured browser pools |
-| `memory.underProvisioned` | boolean | Whether the detected limit is below the recommendation |
-| `memory.oomEvents` | number | OOM events reported by the cgroup |
-| `memory.oomKills` | number | OOM kills reported by the cgroup |
+| Field                          | Type    | Description                                                    |
+| ------------------------------ | ------- | -------------------------------------------------------------- |
+| `status`                       | string  | `"ok"` when the pool has live capacity; otherwise `"starting"` |
+| `uptime`                       | number  | Seconds since the API process started                          |
+| `pool.total`                   | number  | Total browser instances in the pool                            |
+| `pool.busy`                    | number  | Browsers currently processing a request                        |
+| `pool.available`               | number  | Browsers ready to accept a request                             |
+| `pool.restarts`                | number  | Total browser restarts since worker boot                       |
+| `pool.avgRestarts`             | number  | Average restarts per browser                                   |
+| `pool.stalled`                 | number  | Checked-out browsers past their deadline                       |
+| `pool.live`                    | number  | Connected, non-stalled browser capacity                        |
+| `memory.currentBytes`          | number  | Current cgroup memory usage                                    |
+| `memory.limitBytes`            | number  | Cgroup memory limit                                            |
+| `memory.recommendedLimitBytes` | number  | Recommended minimum for the configured browser pools           |
+| `memory.underProvisioned`      | boolean | Whether the detected limit is below the recommendation         |
+| `memory.oomEvents`             | number  | OOM events reported by the cgroup                              |
+| `memory.oomKills`              | number  | OOM kills reported by the cgroup                               |
 
 `/health` returns HTTP 503 while the pool is warming up or has no live browser capacity. A saturated but healthy pool remains ready because active, connected requests still count as live.
 The optional `memory` object is included when Linux cgroup memory data is available; its presence does not affect readiness.
@@ -110,15 +110,15 @@ Lightweight public stats for dashboards and landing pages.
 }
 ```
 
-| Field       | Type   | Description                          |
-| ----------- | ------ | ------------------------------------ |
-| `browsers`  | number | Total browser pool size              |
-| `available` | number | Idle browsers                        |
-| `busy`      | number | Browsers in use                      |
-| `restarts`  | number | Total browser restarts since startup |
-| `stalled`   | number | Checked-out browsers past their deadline |
-| `live`      | number | Connected, non-stalled browser capacity |
-| `queueDepth` | number | Requests currently waiting for a browser |
+| Field           | Type   | Description                                                         |
+| --------------- | ------ | ------------------------------------------------------------------- |
+| `browsers`      | number | Total browser pool size                                             |
+| `available`     | number | Idle browsers                                                       |
+| `busy`          | number | Browsers in use                                                     |
+| `restarts`      | number | Total browser restarts since startup                                |
+| `stalled`       | number | Checked-out browsers past their deadline                            |
+| `live`          | number | Connected, non-stalled browser capacity                             |
+| `queueDepth`    | number | Requests currently waiting for a browser                            |
 | `longestBusyMs` | number | Milliseconds since the oldest active checkout began; zero when idle |
 
 ### Curl

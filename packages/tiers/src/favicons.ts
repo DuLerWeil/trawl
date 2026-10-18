@@ -52,7 +52,7 @@ export async function capturePageFavicons(page: Page, budgetMs = TOTAL_TIMEOUT_M
           const text = value instanceof Error ? value.message : String(value)
           if (maxMetadataChars === 0) return ""
           if (text.length <= maxMetadataChars) return text
-          return `${text.slice(0, Math.max(0, maxMetadataChars - 1))}…`
+          return `${text.slice(0, Math.max(0, maxMetadataChars - 1))}\u2026`
         }
 
         // `fetch` is what the icon is read with, so a `data:` icon is read the same way

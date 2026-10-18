@@ -2,7 +2,10 @@
 // Sourced from a user-supplied comma-separated list or line-delimited file - TRAWL never
 // fetches or trusts any third-party proxy list.
 
+import { createHash } from "node:crypto"
 import { readFileSync } from "node:fs"
+
+export const proxyIdentity = (url: string): string => createHash("sha256").update(url).digest("hex")
 
 const COOLDOWN_MS = 5 * 60 * 1000 // 5 minutes - matches the plan's "time-boxed cooldown"
 
@@ -43,6 +46,7 @@ export function normalizeProxy(input?: unknown) {
 
 interface ProxyState {
   url: string
+  id: string
   badUntil: number
 }
 
@@ -55,7 +59,7 @@ export class ProxyPool {
   private selection: ProxySelection
 
   constructor(urls: string[], selection: ProxySelection = "failover") {
-    this.proxies = urls.filter(Boolean).map((url) => ({ url, badUntil: 0 }))
+    this.proxies = urls.filter(Boolean).map((url) => ({ url, id: proxyIdentity(url), badUntil: 0 }))
     this.selection = selection
   }
 
@@ -89,6 +93,15 @@ export class ProxyPool {
 
   get size(): number {
     return this.proxies.length
+  }
+
+  hasAvailable(): boolean {
+    const now = Date.now()
+    return this.proxies.some((proxy) => proxy.badUntil <= now)
+  }
+
+  resolve(id: string): string | undefined {
+    return this.proxies.find((proxy) => proxy.id === id && proxy.badUntil <= Date.now())?.url
   }
 
   private available(): ProxyState[] {

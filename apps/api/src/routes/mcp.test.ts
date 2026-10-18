@@ -91,10 +91,13 @@ describe("MCP route", () => {
       },
     })
     const response = await app.handle(
-      rpc("tools/call", { name: "scrape_url", arguments: { url: "https://1.1.1.1", maxTier: 3, skipHttp: true } }),
+      rpc("tools/call", {
+        name: "scrape_url",
+        arguments: { url: "https://1.1.1.1", maxTier: 3, skipHttp: true, solveEmbeddedCaptchas: false },
+      }),
     )
     const body = await response.json()
-    expect(received).toEqual({ url: "https://1.1.1.1", maxTier: 3, skipHttp: true })
+    expect(received).toEqual({ url: "https://1.1.1.1", maxTier: 3, skipHttp: true, solveEmbeddedCaptchas: false })
     expect(body.result.structuredContent).toEqual({
       url: baseResult.url,
       statusCode: 200,

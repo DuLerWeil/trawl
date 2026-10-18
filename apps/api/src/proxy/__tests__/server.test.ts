@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import type net from "node:net"
 import { PassThrough } from "node:stream"
+import { gunzipSync, gzipSync, zstdCompressSync, zstdDecompressSync } from "node:zlib"
 import type { BrowserHandle } from "@trawl/browser"
 import type { OrchestratorDeps } from "@trawl/tiers"
 import { writeResponseFromBuffer } from "../httpResponse"
@@ -16,7 +17,90 @@ describe("always-scrape Tier 0 policy", () => {
   })
 })
 
-describe("writeResponseFromBuffer — Set-Cookie newline folding", () => {
+describe("serveViaScrape compression negotiation", () => {
+  test.each([
+    { accept: "identity", encoding: null },
+    { accept: "gzip", encoding: "gzip" },
+    { accept: "gzip;q=0.8, br;q=0, zstd;q=0", encoding: "gzip" },
+    { accept: "", encoding: null },
+    { accept: "zstd", encoding: "zstd" },
+  ])("preserves the client's Accept-Encoding: '$accept'", async ({ accept, encoding }) => {
+    const html = `<html><body>${"Search results. ".repeat(30)}</body></html>`
+    const plain = Buffer.from(html)
+    const gzip = gzipSync(plain)
+    const zstd = zstdCompressSync(plain)
+    const received: (string | null)[] = []
+    let wireBody = plain
+    const upstream = Bun.serve({
+      port: 0,
+      fetch(request) {
+        const accepted = request.headers.get("accept-encoding")
+        received.push(accepted)
+        const selected = /(?:^|,)\s*zstd\s*(?:,|$)/.test(accepted ?? "")
+          ? "zstd"
+          : accepted?.includes("gzip")
+            ? "gzip"
+            : null
+        wireBody = selected === "zstd" ? zstd : selected === "gzip" ? gzip : plain
+        return new Response(new Uint8Array(wireBody), {
+          headers: {
+            "content-type": "text/html; charset=utf-8",
+            "content-length": String(wireBody.length),
+            etag: '"negotiated-v1"',
+            ...(selected ? { "content-encoding": selected } : {}),
+          },
+        })
+      },
+    })
+    const stream = new PassThrough()
+    const chunks: Buffer[] = []
+    stream.on("data", (chunk: Buffer) => chunks.push(chunk))
+    try {
+      await serveViaScrape(
+        stream as unknown as net.Socket,
+        upstream.url.href,
+        "GET",
+        { "accept-encoding": accept },
+        undefined,
+        {
+          port: 0,
+          host: "127.0.0.1",
+          caDir: "",
+          maxTier: 1,
+          maxTimeout: 3000,
+          deps: {
+            acquireBrowser: async () => {
+              throw new Error("Compression negotiation must not require a browser")
+            },
+            releaseBrowser: () => {},
+            loadSession: async () => undefined,
+            saveSession: async () => {},
+            invalidateSession: async () => {},
+          },
+        },
+      )
+      const raw = Buffer.concat(chunks)
+      const boundary = raw.indexOf("\r\n\r\n")
+      expect(boundary).toBeGreaterThan(0)
+      const head = raw.subarray(0, boundary).toString("latin1").toLowerCase()
+      const body = raw.subarray(boundary + 4)
+      expect(received).toEqual([accept])
+      expect(head).toContain("http/1.1 200 ok")
+      expect(head).toContain(`content-length: ${wireBody.length}`)
+      expect(head).toContain('etag: "negotiated-v1"')
+      if (encoding) expect(head).toContain(`content-encoding: ${encoding}`)
+      else expect(head).not.toContain("content-encoding:")
+      expect(body).toEqual(wireBody)
+      const decoded = encoding === "zstd" ? zstdDecompressSync(body) : encoding === "gzip" ? gunzipSync(body) : body
+      expect(decoded.toString("utf8")).toBe(html)
+    } finally {
+      upstream.stop(true)
+      stream.destroy()
+    }
+  })
+})
+
+describe("writeResponseFromBuffer - Set-Cookie newline folding", () => {
   test("emits one Set-Cookie line per cookie when Playwright newline-folds them", () => {
     // Playwright's response.allHeaders() joins multiple Set-Cookie values with \n.
     // A bare value after the fold creates a 'malformed MIME header line' error in
@@ -47,7 +131,7 @@ describe("writeResponseFromBuffer — Set-Cookie newline folding", () => {
     expect(cookieLines[0]).toContain("session-id=abc")
     expect(cookieLines[1]).toContain("session-id-time=")
 
-    // No bare continuation line — the Expires comma must not produce a split.
+    // No bare continuation line - the Expires comma must not produce a split.
     const malformed = lines.filter((l) => /^session-id-time=/.test(l))
     expect(malformed).toHaveLength(0)
   })

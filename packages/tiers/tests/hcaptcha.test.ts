@@ -20,6 +20,7 @@ function fixture(autoPass: boolean) {
             },
             isVisible: async () => autoPass && control === '[aria-checked="true"]',
             waitFor: async () => {
+              if (autoPass && control === '[aria-checked="true"]') return
               throw new Error("This fixture has no audio challenge")
             },
           }
@@ -32,7 +33,9 @@ function fixture(autoPass: boolean) {
 
 test("hCaptcha keeps the checkbox auto-pass path", async () => {
   const { page, frames, clicks } = fixture(true)
+  const started = Date.now()
   expect(await solveHcaptcha(page, 4000)).toBe(true)
+  expect(Date.now() - started).toBeLessThan(1000)
   expect(clicks).toEqual(["#checkbox"])
   expect(frames).toHaveLength(1)
 })

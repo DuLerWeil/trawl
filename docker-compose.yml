@@ -15,7 +15,7 @@ services:
     ports:
       # API + FlareSolverr-compatible /v1
       - "${PORT:-8191}:8191"
-      # MITM forward proxy (:8192) — only used when MITM_ENABLED=true.
+      # MITM forward proxy (:8192) - only used when MITM_ENABLED=true.
       # The CA cert is served from :8191/proxy-ca.crt and must be installed
       # in each client's trust store (system keychain, Java cacerts, etc.).
       - "${MITM_PORT:-8192}:${MITM_PORT:-8192}"
@@ -37,6 +37,8 @@ services:
       BROWSER_HARDWARE_CONCURRENCY: ${BROWSER_HARDWARE_CONCURRENCY:-}
       BROWSER_HEADFUL_POOL_SIZE: ${BROWSER_HEADFUL_POOL_SIZE:-0}
       SCRAPE_MIN_TIER: ${SCRAPE_MIN_TIER:-1}
+      TIER1_TRANSPORT: ${TIER1_TRANSPORT:-bun}
+      SCRAPE_MAX_TIMEOUT_MS: ${SCRAPE_MAX_TIMEOUT_MS:-60000}
       USER_PREFS: ${USER_PREFS:-}
       BROWSER_ACQUIRE_TIMEOUT_MS: ${BROWSER_ACQUIRE_TIMEOUT_MS:-15000}
       BROWSER_RECYCLE_AFTER_CONTEXTS: ${BROWSER_RECYCLE_AFTER_CONTEXTS:-8}
@@ -90,7 +92,7 @@ services:
       PROXY_LIST_FILE: ${PROXY_LIST_FILE:-}
       RESIDENTIAL_PROXY_URL: ${RESIDENTIAL_PROXY_URL:-}
       RESIDENTIAL_PROXY_LIST_FILE: ${RESIDENTIAL_PROXY_LIST_FILE:-}
-      # MITM proxy (off by default — opt in via .env)
+      # MITM proxy (off by default - opt in via .env)
       MITM_ENABLED: ${MITM_ENABLED:-false}
       MITM_HOST: ${MITM_HOST:-0.0.0.0}
       MITM_PORT: ${MITM_PORT:-8192}

@@ -110,7 +110,7 @@ const baseUrl = `http://127.0.0.1:${server.port}`
 
 afterAll(() => server.stop(true))
 
-describe("directForwardHttp — Range / 206 Partial Content", () => {
+describe("directForwardHttp - Range / 206 Partial Content", () => {
   test("forwards Range request header and gets 206 Partial Content back", async () => {
     const result = await directForwardHttp({
       url: `${baseUrl}/file.bin`,
@@ -167,7 +167,7 @@ describe("directForwardHttp — Range / 206 Partial Content", () => {
   })
 })
 
-describe("directForwardHttp — buffered by default", () => {
+describe("directForwardHttp - buffered by default", () => {
   test("preserves repeated Set-Cookie fields using the internal newline convention", async () => {
     const result = await directForwardHttp({ url: `${baseUrl}/cookies`, method: "GET", headers: {} })
     expect(result.mode).toBe("buffer")

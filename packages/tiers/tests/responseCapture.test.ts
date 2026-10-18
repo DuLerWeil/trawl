@@ -532,7 +532,7 @@ describe("browser tiers", () => {
 
     expect(withoutCapture.status).toBe("success")
     expect(withoutCapture.capturedResponses).toBeUndefined()
-    // Only the main-document tracker's listener — capture attached nothing.
+    // Only the main-document tracker's listener - capture attached nothing.
     expect(untouched.emitter.listeners("response")).toBe(1)
     expect(requested.emitter.listeners("response")).toBe(1)
   })

@@ -1,5 +1,5 @@
-# ── Stage 1: install workspace deps (runs natively on build host) ──────────────
-FROM oven/bun:1.4.2 AS deps
+# Stage 1: install workspace deps (runs natively on build host)
+FROM oven/bun:1.4.3 AS deps
 WORKDIR /app
 
 # nodejs/python3/make/g++ are needed to compile better-sqlite3 (camoufox-js dep)
@@ -20,10 +20,10 @@ COPY apps/docs/package.json        ./apps/docs/
 # multi-stage Docker builds: transitive deps not symlinked (oven-sh/bun#23524,
 # e.g. @sinclair/typebox via elysia) and a store-population race producing
 # EISDIR on freshly-linked packages (oven-sh/bun#29489, e.g. camoufox-js).
-# The `--omit=dev` flag is the modern spelling — `--production` alone leaves workspace
+# The `--omit=dev` flag is the modern spelling - `--production` alone leaves workspace
 # devDeps installed (bun 1.3.x quirk). Prune better-sqlite3 sources + unused impit
 # platform binaries inside this stage so the subsequent COPY --from=deps in stage 3
-# pulls a smaller layer (Docker layers are unions, not diffs — can't shrink post-COPY).
+# pulls a smaller layer (Docker layers are unions, not diffs - can't shrink post-COPY).
 RUN bun install --frozen-lockfile --production --omit=dev --linker=hoisted \
  && find node_modules -path '*/better-sqlite3*/deps' -prune -exec rm -rf {} + \
  && find node_modules -path '*/better-sqlite3*/src'   -prune -exec rm -rf {} + \
@@ -39,8 +39,8 @@ RUN bun install --frozen-lockfile --production --omit=dev --linker=hoisted \
          node_modules/impit-darwin-* \
          node_modules/impit-win32-*
 
-# ── Stage 2: fetch the Camoufox Firefox binary (pinned version) ─────
-FROM oven/bun:1.4.2 AS camoufox
+# Stage 2: fetch the Camoufox Firefox binary (pinned version)
+FROM oven/bun:1.4.3 AS camoufox
 ENV CAMOUFOX_INSTALL_DIR=/opt/camoufox
 
 ARG UBO_VERSION=1.75.0
@@ -50,14 +50,12 @@ ARG UBO_SHA256=5b74415860456370644bd80f16125e865b0e6c356bb5dfcfb84069967eaa5287
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl unzip ca-certificates binutils && rm -rf /var/lib/apt/lists/*
 
-# Pin the browser release and verify the architecture-specific asset before extracting it.
+# camoufox-js 0.13 requires beta.30 <= browser < beta.32 with Playwright 1.62.
+# Pin its tested browser and verify the architecture-specific asset before extracting it.
 # Direct downloads keep builds reproducible and avoid camoufox-js resolving "latest".
 ARG TARGETARCH
-# The pool spoofs a per-browser OS (packages/browser/src/pool.ts maps Win32 -> "windows",
-# MacIntel -> "macos"), and Camoufox spoofs that OS's font list with it. Dropping those
-# bundles therefore leaves a browser advertising fonts whose files are gone: every glyph
-# renders as a tofu box, and the fingerprint is self-inconsistent for anti-bot scoring.
-# Set CAMOUFOX_KEEP_SPOOFED_OS_FONTS=1 to keep them (+891MB) when rendered output matters.
+# Linux-only profiles omit fonts exclusive to macOS and Windows. Set this to 1
+# to retain all OS profiles; fingerprint selection follows installed bundles.
 ARG CAMOUFOX_KEEP_SPOOFED_OS_FONTS=0
 RUN --mount=type=secret,id=GITHUB_TOKEN,env=GITHUB_TOKEN \
     case "$TARGETARCH" in \
@@ -91,7 +89,7 @@ RUN strip --strip-unneeded /opt/camoufox/camoufox /opt/camoufox/camoufox-bin \
 # runtime GitHub dependency + first-launch download latency. The size check fails the
 # build if the download is truncated, so a corrupt file can never be baked in.
 # P3TERX/GeoLite.mmdb retains only its two most recent releases, so a pinned tag 404s
-# within days and every build after that fails on curl exit 22 — which is what happened
+# within days and every build after that fails on curl exit 22 - which is what happened
 # to the 2026.08.07 and 2026.08.19 pins. Track the rolling latest and keep the guarantee
 # that actually matters here (a truncated file is never baked in) with a size floor; the
 # digest of a release that gets deleted cannot be kept current, and it was never a
@@ -117,11 +115,11 @@ RUN curl -fsSL \
     test "$(bun -e 'console.log(JSON.parse(await Bun.file("/opt/camoufox/addons/UBO/manifest.json").text()).version)')" = "${UBO_VERSION}" && \
     rm /tmp/ubo.xpi
 
-FROM oven/bun:1.4.2 AS bun-runtime
+FROM oven/bun:1.4.3 AS bun-runtime
 RUN apt-get update && apt-get install -y --no-install-recommends binutils \
  && strip --strip-all /usr/local/bin/bun
 
-# ── Stage 3: lean runtime (only API-required files) ────────────────────────────
+# Stage 3: lean runtime (only API-required files)
 # Camoufox/Firefox require glibc; Alpine's musl is incompatible.
 FROM debian:trixie-slim
 ENV DEBIAN_FRONTEND=noninteractive
@@ -153,7 +151,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* /usr/share/locale /usr/share/doc /usr/share/man
 
 COPY --from=bun-runtime     /usr/local/bin/bun /usr/local/bin/bun
-COPY --from=camoufox          /opt/camoufox      /opt/camoufox
+COPY --link --from=camoufox   /opt/camoufox      /opt/camoufox
 COPY --from=deps              /app/node_modules  /app/node_modules
 
 COPY packages/types/   /app/packages/types/
@@ -164,7 +162,7 @@ COPY package.json      /app/
 
 ENV CAMOUFOX_INSTALL_DIR=/opt/camoufox \
     HOME=/tmp \
-    # Safe Bun runtime knobs — all tested runtime-neutral (no behavior change).
+    # Safe Bun runtime knobs - all tested runtime-neutral (no behavior change).
     BUN_DISABLE_CJS=1 \
     BUN_DEBUG=0 \
     BUN_DISABLE_SOURCEMAPS=1 \
@@ -176,6 +174,10 @@ ENV CAMOUFOX_INSTALL_DIR=/opt/camoufox \
     NODE_NO_WARNINGS=1
 
 WORKDIR /app
+# Fail the build if this library/browser pair cannot use the baked executable offline.
+RUN --network=none bun -e 'import { launchOptions } from "camoufox-js"; const options = await launchOptions({headless:true,geoip:false,exclude_addons:["UBO"],i_know_what_im_doing:true}); if (!options.executablePath.startsWith("/opt/camoufox/")) throw new Error("Expected the bundled Camoufox executable")'
+# Validate the optional binding against this image's architecture and libc offline.
+RUN --network=none TIER1_TRANSPORT=wreq bun -e 'import { verifyTier1Transport } from "./packages/tiers/src/utils/tier1Transport"; await verifyTier1Transport()'
 EXPOSE 8191
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["bun", "run", "apps/api/src/index.ts"]

@@ -37,7 +37,8 @@ export function sanitizeHeaders(headers?: Record<string, string>): Record<string
       // biome-ignore lint/suspicious/noControlCharactersInRegex: NUL/CR/LF are exactly what we want to strip from header values
       .replace(/[\x00\r\n]/g, "")
       .trim()
-    if (value) out[name] = value
+    // An empty Accept-Encoding explicitly requests an unencoded response.
+    if (value || name.toLowerCase() === "accept-encoding") out[name] = value
   }
   return Object.keys(out).length ? out : undefined
 }
@@ -83,7 +84,7 @@ export function proxySanitizeHeaders(headers?: Record<string, string>): Record<s
       // biome-ignore lint/suspicious/noControlCharactersInRegex: NUL/CR/LF are exactly what we want to strip from header values
       .replace(/[\x00\r\n]/g, "")
       .trim()
-    if (!value) continue
+    if (!value && name.toLowerCase() !== "accept-encoding") continue
     out[name.toLowerCase()] = value
   }
   return Object.keys(out).length ? out : undefined

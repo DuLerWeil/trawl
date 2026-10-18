@@ -727,7 +727,7 @@ export class BrowserPool {
         // alone, the entry is subtracted from the pool for the rest of the process.
         if (this.isStalled(entry, now)) {
           const heldSec = Math.round((now - (entry.busySince ?? now)) / 1000)
-          console.warn(`[${this.label}] browser ${entry.id} stalled — checked out for ${heldSec}s, reclaiming`)
+          console.warn(`[${this.label}] browser ${entry.id} stalled - checked out for ${heldSec}s, reclaiming`)
           await this.restartEntry(entry, "checkout stalled")
         }
         continue

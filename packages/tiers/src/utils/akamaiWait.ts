@@ -50,7 +50,7 @@ export async function waitForAkamaiResolution(
     }
     if (hasAbck && !navigatedOnce && originalUrl && sawCookieAt && Date.now() - sawCookieAt > 6000) {
       navigatedOnce = true
-      console.log("[akamai] cookie set but still on interstitial — navigating to original URL")
+      console.log("[akamai] cookie set but still on interstitial - navigating to original URL")
       await page
         .goto(originalUrl, {
           waitUntil: "domcontentloaded",

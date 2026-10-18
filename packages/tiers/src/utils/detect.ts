@@ -18,6 +18,10 @@ export type ChallengeType =
   | "friendly-captcha"
   | "none"
 
+export function isCloudflareErrorUrl(url: string): boolean {
+  return /\/cdn-cgi\/error\/|error=1020|error=1015/.test(url)
+}
+
 export function hasCloudflareChallengeHeader(headers: Record<string, string> = {}): boolean {
   const cfMitigated = Object.entries(headers).find(([name]) => name.toLowerCase() === "cf-mitigated")?.[1]
   return cfMitigated?.toLowerCase() === "challenge"
@@ -99,8 +103,17 @@ export function hasHcaptcha(html: string): boolean {
   return /class="h-captcha"|hcaptcha\.com\/1\/api/i.test(html)
 }
 
+const RECAPTCHA_SCRIPT = /(?:google\.com|recaptcha\.net)\/recaptcha\/(?:api|enterprise)\.js(?:\?[^"'\s<>]*)?/gi
+const RECAPTCHA_V2_SHELL = /class\s*=\s*["'][^"']*\bg-recaptcha\b|recaptcha\/(?:api2|enterprise)\/(?:anchor|bframe)/i
+
 export function hasRecaptcha(html: string): boolean {
-  return /class="g-recaptcha"|google\.com\/recaptcha|recaptcha\.net\/recaptcha/i.test(html)
+  if (RECAPTCHA_V2_SHELL.test(html)) return true
+  for (const [script] of html.matchAll(RECAPTCHA_SCRIPT)) {
+    // A site key selects v3; explicit/onload are v2 modes, even without static markup.
+    const render = /[?&](?:amp;)?render=([^&]*)/i.exec(script)?.[1]
+    if (!render || /^(?:explicit|onload)$/i.test(render)) return true
+  }
+  return false
 }
 
 export function hasCapChallenge(html: string): boolean {
@@ -368,7 +381,7 @@ const LEAN_BODY_THRESHOLDS: Partial<Record<ChallengeType, number>> = {
 
 export function hasChallengeWallMarkers(html: string): boolean {
   if (
-    /<title\b[^>]*>(?:[^<]*[-|–—:]\s*)?(?:captcha|challenge|security\s*check|human\s*verification|bot\s*verification|just\s*a\s*moment|attention\s*required)\b/i.test(
+    /<title\b[^>]*>(?:[^<]*[-|\u2013\u2014:]\s*)?(?:captcha|challenge|security\s*check|human\s*verification|bot\s*verification|just\s*a\s*moment|attention\s*required)\b/i.test(
       html,
     )
   ) {

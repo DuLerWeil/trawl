@@ -11,7 +11,7 @@ Three Compose files live in the repository root.
 
 ### Minimal
 
-`docker-compose.minimal.yml` — single service, no Redis. Fastest to get started, no session caching.
+`docker-compose.minimal.yml` - single service, no Redis. Fastest to get started, no session caching.
 
 ```bash
 docker compose -f docker-compose.minimal.yml up -d
@@ -19,7 +19,7 @@ docker compose -f docker-compose.minimal.yml up -d
 
 ### Cached (default)
 
-`docker-compose.yml` — scraper + Redis session cache, with API port `8191` and optional proxy port
+`docker-compose.yml` - scraper + Redis session cache, with API port `8191` and optional proxy port
 `8192`. Repeat requests can reuse accepted sessions instead of solving the challenge again.
 
 ```bash
@@ -28,7 +28,7 @@ docker compose up -d
 
 ### Production
 
-`docker-compose.prod.yml` — same as cached but with `restart: always`, a memory limit, and a healthcheck.
+`docker-compose.prod.yml` - same as cached but with `restart: always`.
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d
@@ -37,7 +37,6 @@ docker compose -f docker-compose.prod.yml up -d
 ```yaml
 trawl:
   restart: always
-  mem_limit: 3g
   environment:
     BROWSER_POOL_SIZE: 1
   healthcheck:
@@ -53,7 +52,7 @@ docker compose pull && docker compose up -d
 
 ### Baseline (older CPUs / Synology NAS)
 
-If your CPU doesn't support AVX2 — older Synology NAS units, Atom/Celeron-era hardware — override the image tag to `:baseline` in any compose file above. Nothing else changes:
+If your CPU doesn't support AVX2 - older Synology NAS units, Atom/Celeron-era hardware - override the image tag to `:baseline` in any compose file above. Nothing else changes:
 
 ```yaml
 services:
@@ -113,31 +112,33 @@ TRAWL and Redis.
 
 ## Environment variables
 
-| Variable                         | Default              | Description                                                             |
-| -------------------------------- | -------------------- | ----------------------------------------------------------------------- |
-| `BROWSER_POOL_SIZE`              | `1`                  | Warm browsers; raise only for concurrent browser solves                  |
-| `BROWSER_ACQUIRE_TIMEOUT_MS`     | `15000`              | How long `acquire()` polls for a free browser before returning HTTP 429 |
-| `BROWSER_RECYCLE_AFTER_CONTEXTS` | `8`                  | Rolling-replace after this many Tier 3/4 contexts; `0` disables it      |
-| `BROWSER_MAX_CONTENT_PROCESSES`  | `2`                  | Maximum Firefox content processes per browser                           |
-| `SCRAPE_MIN_TIER`                | `1`                  | Lowest scraper tier allowed across every endpoint                       |
-| `USER_PREFS`                     | —                    | Optional JSON Firefox prefs applied to every launched browser           |
-| `SESSION_CACHE_DRIVER`           | `redis`              | Cache backend; minimal Compose defaults to `memory`                      |
-| `REDIS_URL`                      | `redis://redis:6379` | Redis connection (set automatically in compose)                         |
-| `REDIS_SESSION_TTL_SECONDS`      | `3600`               | Lifetime of cached sessions                                             |
-| `MEMORY_SESSION_CACHE_MAX_ENTRIES` | `1000`             | Maximum LRU-bounded entries for the memory driver                       |
-| `REDIS_CONNECT_TIMEOUT_MS`       | `5000`               | Maximum time for each Redis connection attempt                          |
-| `REDIS_RETRY_DELAY_MS`           | `5000`               | Background reconnect delay; `0` disables retry                          |
-| `SCRAPE_PROXY_SELECTION`         | `failover`           | Pool policy: `failover`, `roundrobin`, or `random`                       |
-| `PROXY_URL`                      | —                    | Optional Tier 3 datacenter proxy or pool                                |
-| `RESIDENTIAL_PROXY_URL`          | —                    | Enables Tier 4 proxy escalation                                         |
-| `MITM_ENABLED`                   | `false`              | Starts the general HTTP/HTTPS proxy                                     |
-| `MITM_PORT`                      | `8192`               | Proxy listen and published port                                         |
-| `MITM_HOST`                      | `0.0.0.0`            | Proxy bind address                                                      |
-| `MITM_CA_DIR`                    | `/data/proxy-ca`     | Persistent root CA directory                                            |
-| `MITM_ALWAYS_SCRAPE`             | `false`              | Skip proxy Tier 0 and enter the scraper immediately                     |
-| `MITM_ESCALATE_429` | `false` | Try scraping after an unrecognized proxy HTTP 429 response |
-| `MCP_ENABLED`                    | `false`              | Enables the Streamable HTTP endpoint at `/mcp`                          |
-| `MCP_ALLOWED_ORIGINS`            | —                    | Comma-separated allowed browser origins                                 |
+| Variable                           | Default              | Description                                                             |
+| ---------------------------------- | -------------------- | ----------------------------------------------------------------------- |
+| `BROWSER_POOL_SIZE`                | `1`                  | Warm browsers; raise only for concurrent browser solves                 |
+| `BROWSER_ACQUIRE_TIMEOUT_MS`       | `15000`              | How long `acquire()` polls for a free browser before returning HTTP 429 |
+| `BROWSER_RECYCLE_AFTER_CONTEXTS`   | `8`                  | Rolling-replace after this many Tier 3/4 contexts; `0` disables it      |
+| `BROWSER_MAX_CONTENT_PROCESSES`    | `2`                  | Maximum Firefox content processes per browser                           |
+| `SCRAPE_MIN_TIER`                  | `1`                  | Lowest scraper tier allowed across every endpoint                       |
+| `TIER1_TRANSPORT` | `bun` | HTTP transport: `bun` or opt-in Firefox TLS/HTTP2 `wreq` |
+| `SCRAPE_MAX_TIMEOUT_MS`            | `60000`              | Default total scrape deadline in milliseconds; requests may override it |
+| `USER_PREFS`                       | -                    | Optional JSON Firefox prefs applied to every launched browser           |
+| `SESSION_CACHE_DRIVER`             | `redis`              | Cache backend; minimal Compose defaults to `memory`                     |
+| `REDIS_URL`                        | `redis://redis:6379` | Redis connection (set automatically in compose)                         |
+| `REDIS_SESSION_TTL_SECONDS`        | `3600`               | Lifetime of cached sessions                                             |
+| `MEMORY_SESSION_CACHE_MAX_ENTRIES` | `1000`               | Maximum LRU-bounded entries for the memory driver                       |
+| `REDIS_CONNECT_TIMEOUT_MS`         | `5000`               | Maximum time for each Redis connection attempt                          |
+| `REDIS_RETRY_DELAY_MS`             | `5000`               | Background reconnect delay; `0` disables retry                          |
+| `SCRAPE_PROXY_SELECTION`           | `failover`           | Pool policy: `failover`, `roundrobin`, or `random`                      |
+| `PROXY_URL`                        | -                    | Optional Tier 3 datacenter proxy or pool                                |
+| `RESIDENTIAL_PROXY_URL`            | -                    | Enables Tier 4 proxy escalation                                         |
+| `MITM_ENABLED`                     | `false`              | Starts the general HTTP/HTTPS proxy                                     |
+| `MITM_PORT`                        | `8192`               | Proxy listen and published port                                         |
+| `MITM_HOST`                        | `0.0.0.0`            | Proxy bind address                                                      |
+| `MITM_CA_DIR`                      | `/data/proxy-ca`     | Persistent root CA directory                                            |
+| `MITM_ALWAYS_SCRAPE`               | `false`              | Skip proxy Tier 0 and enter the scraper immediately                     |
+| `MITM_ESCALATE_429`                | `false`              | Try scraping after an unrecognized proxy HTTP 429 response              |
+| `MCP_ENABLED`                      | `false`              | Enables the Streamable HTTP endpoint at `/mcp`                          |
+| `MCP_ALLOWED_ORIGINS`              | -                    | Comma-separated allowed browser origins                                 |
 
 All supplied Compose files publish port `8192` and mount the `trawl_proxy_ca` volume. The listener
 does not start until `MITM_ENABLED=true`. See [Proxy Configuration](/proxy/configuration).
@@ -210,11 +211,11 @@ docker compose logs -f redis
 | 5                   | ~2 GB       | 3 GB                 |
 | 10                  | ~4 GB       | 6 GB                 |
 
-Each Camoufox Firefox instance uses ~350–500 MB under load.
+Each Camoufox Firefox instance uses ~350-500 MB under load.
 
 ## Reverse proxy
 
-To expose TRAWL over HTTPS, proxy port 8191. Set `proxy_read_timeout` longer than your `maxTimeout` — challenge solves can take up to 15s.
+To expose TRAWL over HTTPS, proxy port 8191. Set `proxy_read_timeout` longer than your `maxTimeout` - challenge solves can take up to 15s.
 
 ```nginx
 server {

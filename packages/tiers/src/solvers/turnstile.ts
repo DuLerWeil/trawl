@@ -26,40 +26,54 @@ export async function solveTurnstile(page: Page, timeoutMs = 25_000, signal?: Ab
     : AbortSignal.timeout(Math.max(1, timeoutMs))
   const deadline = Date.now() + timeoutMs
 
-  // With Camoufox (Firefox + geoip), Turnstile often auto-solves immediately.
-  // The token lands in the hidden input before the iframe even appears.
-  if (await turnstileVerified(page)) return true
-
-  // Reuse the interstitial's shadow-DOM and coordinate click paths. The iframe
-  // remains mounted after an embedded widget succeeds; its response is the proof.
-  let lastClick = 0
-  while (Date.now() < deadline && !signal.aborted) {
-    if (await turnstileVerified(page)) return true
-    if (Date.now() - lastClick >= 3000 && deadline - Date.now() > 2000) {
-      lastClick = Date.now()
-      await attemptTurnstileClick(page, false).catch(() => {})
+  const verification = await observeTurnstile(page)
+  try {
+    let lastClick = 0
+    while (Date.now() < deadline && !signal.aborted) {
+      if (await verification.evaluate((state) => state.verified()).catch(() => false)) return true
+      const now = Date.now()
+      if (now - lastClick >= 2000 && deadline - now > 2000) {
+        if (await attemptTurnstileClick(page, false).catch(() => false)) lastClick = now
+      }
+      await sleep(Math.min(250, Math.max(0, deadline - Date.now())), signal)
     }
-    await sleep(Math.min(250, Math.max(0, deadline - Date.now())), signal)
+    return false
+  } finally {
+    await verification.evaluate((state) => state.disconnect()).catch(() => {})
+    await verification.dispose().catch(() => {})
   }
-  return false
 }
 
-async function turnstileVerified(page: Page): Promise<boolean> {
-  return page
-    .evaluate(() => {
-      const valid = (value: unknown) => typeof value === "string" && value.length > 10
-      if (
-        Array.from(document.querySelectorAll<HTMLInputElement>('[name="cf-turnstile-response"]')).some((el) =>
-          valid(el.value),
-        )
-      )
-        return true
-      const api = (window as unknown as { turnstile?: { getResponse?: () => string } }).turnstile
-      try {
-        return valid(api?.getResponse?.())
-      } catch {
-        return false
+function observeTurnstile(page: Page) {
+  return page.evaluateHandle(() => {
+    const selector = '[name="cf-turnstile-response"]'
+    const valid = (value: unknown) => typeof value === "string" && value.length > 10
+    const hasToken = (root: ParentNode) =>
+      (root instanceof Element && root.matches(selector) && valid((root as HTMLInputElement).value)) ||
+      Array.from(root.querySelectorAll<HTMLInputElement>(selector)).some((field) => valid(field.value))
+    let consumedToken = false
+    // Mutation records retain removed inputs after a synchronous success callback.
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of record.removedNodes) {
+          if (node instanceof Element && hasToken(node)) consumedToken = true
+        }
       }
     })
-    .catch(() => false)
+    observer.observe(document, { childList: true, subtree: true })
+    return {
+      verified() {
+        if (consumedToken || hasToken(document)) return true
+        const api = (window as unknown as { turnstile?: { getResponse?: () => string } }).turnstile
+        try {
+          return valid(api?.getResponse?.())
+        } catch {
+          return false
+        }
+      },
+      disconnect() {
+        observer.disconnect()
+      },
+    }
+  })
 }

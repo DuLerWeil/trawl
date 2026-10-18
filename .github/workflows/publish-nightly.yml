@@ -13,7 +13,7 @@ name: Publish Nightly
 #
 # Tag contract:
 #   - scheduled/manual run -> :nightly-<dev-sha> + :nightly
-#   - `:latest` is intentionally NOT touched here — that's owned by
+#   - `:latest` is intentionally NOT touched here - that's owned by
 #     publish.yml and only moves on `v*` release pushes.
 
 on:
@@ -175,8 +175,8 @@ jobs:
         run: |
           # Pull the first tag actually pushed by docker/metadata-action in the
           # previous step. DOCKER_METADATA_OUTPUT_JSON.tags[] is already
-          # fully-qualified ("ghcr.io/germondai/trawl:nightly-…") so no $IMAGE
-          # prefix needed — the legacy logic re-derived from github.ref /
+          # fully-qualified ("ghcr.io/germondai/trawl:nightly-...") so no $IMAGE
+          # prefix needed - the legacy logic re-derived from github.ref /
           # github.sha which disagreed with what got pushed (type=sha writes
           # short 7-char SHA but github.sha is the full 40-char hash).
           tag=$(jq -r '.tags[0]' <<< "$DOCKER_METADATA_OUTPUT_JSON")

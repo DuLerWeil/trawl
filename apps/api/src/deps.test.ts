@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import type { BrowserPool } from "@trawl/browser"
 import type { BrowserHandle } from "@trawl/types"
-import { SCRAPE_MIN_TIER } from "./config"
+import { SCRAPE_MAX_TIMEOUT_MS, SCRAPE_MIN_TIER } from "./config"
 import {
   createSessionCacheRecovery,
   getDeps,
@@ -68,6 +68,7 @@ describe("browser pool dependencies", () => {
     await initPool({ poolSize: 1, headfulPoolSize: 1, createPool: factory.createPool, initCache: async () => {} })
     const deps = getDeps()
     expect(deps.minTier).toBe(SCRAPE_MIN_TIER)
+    expect(deps.defaultMaxTimeout).toBe(SCRAPE_MAX_TIMEOUT_MS)
     const headless = await deps.acquireBrowser("example.test", 100, { headful: false })
     const headful = await deps.acquireBrowser("example.test", 100, { headful: true })
 

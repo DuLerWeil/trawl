@@ -8,16 +8,27 @@ This project follows the [Contributor Covenant](CODE_OF_CONDUCT.md). Be respectf
 
 ## Reporting bugs & requesting features
 
-Please use the GitHub issue templates — they ensure we have the context we need:
+Please use the GitHub issue templates - they ensure we have the context we need:
 
 - **Bug reports:** [`.github/ISSUE_TEMPLATE/bug_report.md`](.github/ISSUE_TEMPLATE/bug_report.md)
 - **Feature requests:** [`.github/ISSUE_TEMPLATE/feature_request.md`](.github/ISSUE_TEMPLATE/feature_request.md)
 
-For security issues, **do not open a public issue** — see [SECURITY.md](SECURITY.md).
+For security issues, **do not open a public issue** - see [SECURITY.md](SECURITY.md).
 
 ## Development setup
 
-Requirements: **Bun 1.4.2** and **Docker** (for the Redis service used in tests).
+Requirements depend on the workspace:
+
+- **API and shared packages:** Bun 1.4.3 is the runtime and package manager.
+- **Web and docs:** Node.js 26 runs the Nuxt and VitePress build tools; Bun installs dependencies.
+- **Integration tests:** Docker provides Redis and the Linux browser environment.
+
+The scraper service runs on Bun. Its Docker runtime does not require Node.js.
+
+Camoufox stays at 152.0.4-beta.30, the newest browser supported by camoufox-js
+0.13.0. Playwright Core stays at 1.62.1 to satisfy its peer constraint. The web
+workspace uses TypeScript 6.0.3 because vue-tsc needs its JavaScript compiler API;
+the API and shared packages use TypeScript 7.
 
 ```bash
 git clone https://github.com/germondai/trawl.git
@@ -25,6 +36,9 @@ cd trawl
 bun install
 cp .env.example .env
 ```
+
+Keep optional dependencies enabled when installing: `TIER1_TRANSPORT=wreq` needs
+the platform-specific node-wreq binding. The default Bun transport does not load it.
 
 ### Running the apps
 
@@ -63,6 +77,28 @@ TRAWL_BROWSER_TESTS=1 CAMOUFOX_INSTALL_DIR=/path/to/camoufox bun test packages/b
 ```
 
 `CAMOUFOX_INSTALL_DIR` must contain the extracted browser bundle and its `version.json`.
+
+Cached proxy-session integration tests cover `/scrape` and `/v1`, original proxy/cookie identity,
+external solver proxy propagation, context cleanup on deadline and the direct-session fast path.
+They use owned HTTP and provider fixtures without paid requests:
+
+```bash
+TRAWL_PROXY_SESSION_TESTS=1 CAMOUFOX_INSTALL_DIR=/path/to/camoufox bun test apps/api/src/proxySessions.integration.test.ts
+```
+
+Turnstile lifecycle tests use owned widgets to check consumed tokens, removal without
+a solution, cancellation, and both API routes in cached and fresh browser sessions:
+
+```bash
+TRAWL_TURNSTILE_TESTS=1 CAMOUFOX_INSTALL_DIR=/path/to/camoufox bun test apps/api/src/turnstile.integration.test.ts
+```
+
+Cloudflare fallback tests use owned challenge pages and two local HTTP proxies. They cover
+both API routes, persistent clearance, a stalled recovery navigation and context cleanup:
+
+```bash
+TRAWL_CLOUDFLARE_FALLBACK_TESTS=1 CAMOUFOX_INSTALL_DIR=/path/to/camoufox bun test apps/api/src/cloudflareFallback.integration.test.ts
+```
 
 Raw text browser integration tests use owned HTTP fixtures and a local forward proxy:
 
@@ -136,7 +172,7 @@ apps/
   docs/     VitePress documentation
 packages/
   browser/  Camoufox Firefox pool
-  tiers/    Tier 1–4 execution engine
+  tiers/    Tier 1-4 execution engine
   types/    Shared TypeScript types
 ```
 
@@ -160,7 +196,7 @@ The `type` is one of `feat`, `fix`, `chore`, `docs`, `ci`, `refactor`, `test`, `
 2. **Branch from `main`.** Use a descriptive name (`feat/captcha-hcaptcha`, `fix/redis-reconnect`).
 3. **Run `bun run verify` before pushing.** Lint, types, tests, and production builds must be clean.
 4. **Update `CHANGELOG.md`** under `## [Unreleased]` for any user-visible change.
-5. **Fill out the PR template** — the checklist catches the easy-to-miss items.
+5. **Fill out the PR template** - the checklist catches the easy-to-miss items.
 6. **Keep PRs focused.** One feature or fix per PR; large refactors should be split.
 
 ## Adding a new tier or solver
@@ -174,4 +210,4 @@ TRAWL's design centers on a 4-tier escalation ladder (HTTP → cached session �
 
 ## License
 
-TRAWL is licensed under **AGPL-3.0**. By submitting a pull request, you affirm that your contribution is your own work and you agree to license it under AGPL-3.0. AGPL is more restrictive than MIT/Apache — if your employer might claim ownership of your work, get explicit approval first.
+TRAWL is licensed under **AGPL-3.0**. By submitting a pull request, you affirm that your contribution is your own work and you agree to license it under AGPL-3.0. AGPL is more restrictive than MIT/Apache - if your employer might claim ownership of your work, get explicit approval first.

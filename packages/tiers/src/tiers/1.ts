@@ -1,7 +1,8 @@
 import { rootCertificates } from "node:tls"
 import { brotliDecompressSync, gunzipSync, inflateSync, zstdDecompressSync } from "node:zlib"
 import { FINGERPRINT } from "@trawl/browser"
-import type { TierResult } from "@trawl/types"
+import type { Cookie, TierResult } from "@trawl/types"
+import { parseHTML } from "linkedom"
 import { anubisInspectionText, detectAnubisPage } from "../utils/anubis"
 import { describeCertificateError, isCertificateError } from "../utils/certificate"
 import type { ChallengeType } from "../utils/detect"
@@ -22,9 +23,11 @@ import {
 } from "../utils/detect"
 import { isGoogleSorryUrl } from "../utils/googleSorry"
 import { normalizeHtml } from "../utils/html"
+import type { HttpSessionCookies } from "../utils/httpSessionCookies"
 import type { OutboundUrlValidator } from "../utils/outboundPolicy"
 import { normalizeProxyError, proxyResponseFailure } from "../utils/proxyFailure"
 import { decodeTextBody, isHtmlContentType, isTextContentType } from "../utils/response"
+import { tier1Transport, tier1UserAgent } from "../utils/tier1Transport"
 
 export interface Tier1Result extends TierResult {
   tier: 1
@@ -40,6 +43,7 @@ export interface Tier1Result extends TierResult {
   // Why a TLS hop's certificate failed verification. Carried onto the unverified
   // retry's result so the fact survives the retry.
   certificateError?: string
+  cookies?: Cookie[]
 }
 
 // Methods that may carry a request body per RFC 7231/9341. CONNECT is excluded
@@ -81,23 +85,28 @@ export async function runTier1(
   ignoreCertificateErrors?: boolean,
   trustedProxyCa?: string,
   signal?: AbortSignal,
+  sessionCookies?: HttpSessionCookies,
+  timeoutMs = 60_000,
 ): Promise<Tier1Result> {
   const start = Date.now()
   let certificateError: string | undefined
   try {
     const m = (method ?? "GET").toUpperCase()
-    const headers = {
-      "User-Agent": FINGERPRINT.userAgent,
-      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "Accept-Language": "en-US,en;q=0.9",
-      "Accept-Encoding": "gzip, deflate, br, zstd",
-      "Upgrade-Insecure-Requests": "1",
-      "Sec-Fetch-Dest": "document",
-      "Sec-Fetch-Mode": "navigate",
-      "Sec-Fetch-Site": "none",
-      "Sec-Fetch-User": "?1",
-      Priority: "u=0, i",
-      ...extraHeaders,
+    const headers: Record<string, string> = {
+      "user-agent": tier1UserAgent(FINGERPRINT.userAgent),
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "accept-language": "en-US,en;q=0.9",
+      "accept-encoding": "gzip, deflate, br, zstd",
+      "upgrade-insecure-requests": "1",
+      "sec-fetch-dest": "document",
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-site": "none",
+      "sec-fetch-user": "?1",
+      priority: "u=0, i",
+    }
+    // Replace defaults case-insensitively; fetch combines differently cased keys.
+    for (const [name, value] of Object.entries(extraHeaders ?? {})) {
+      headers[name.toLowerCase()] = value
     }
     let currentUrl = url
     let currentMethod = m
@@ -106,15 +115,16 @@ export async function runTier1(
     for (let redirects = 0; ; redirects++) {
       await validateOutboundUrl?.(currentUrl)
       const fetchHop = (insecure: boolean) =>
-        fetch(currentUrl, {
+        tier1Transport.fetch(currentUrl, {
+          timeoutMs: timeoutMs - (Date.now() - start),
           signal,
           method: currentMethod,
           body: currentBody,
-          headers,
+          headers: sessionCookies ? { ...headers, cookie: sessionCookies.header(currentUrl) } : headers,
           // Manual redirects let an opted-in request retry only the TLS hop that failed.
           // Restarting from the original URL could submit a successful POST twice when a
           // later redirect target has an invalid certificate.
-          redirect: validateOutboundUrl || ignoreCertificateErrors ? "manual" : "follow",
+          redirect: "manual",
           // Tier 1 feeds the MITM proxy, so its body must keep the same encoded
           // representation described by Content-Encoding, validators, and ranges.
           decompress: false,
@@ -131,17 +141,39 @@ export async function runTier1(
         res = await fetchHop(true)
       }
 
-      if (!(validateOutboundUrl || ignoreCertificateErrors) || ![301, 302, 303, 307, 308].includes(res.status)) {
+      try {
+        sessionCookies?.update(res.headers, currentUrl)
+      } catch (error) {
+        await res.body?.cancel()
+        throw error
+      }
+      if (![301, 302, 303, 307, 308].includes(res.status)) {
         break
       }
       const location = res.headers.get("location")
       if (!location) break
-      if (redirects >= 9) throw new Error("Too many redirects")
+      if (redirects >= (validateOutboundUrl || ignoreCertificateErrors || sessionCookies ? 9 : 19))
+        throw new Error("Too many redirects")
       await res.body?.cancel()
-      currentUrl = new URL(location, currentUrl).href
-      if (res.status === 303 || ((res.status === 301 || res.status === 302) && currentMethod === "POST")) {
+      const nextUrl = new URL(location, currentUrl)
+      if (nextUrl.origin !== new URL(currentUrl).origin) {
+        for (const name of ["authorization", "cookie", "proxy-authorization", "host"]) delete headers[name]
+      }
+      currentUrl = nextUrl.href
+      if (
+        (res.status === 303 && currentMethod !== "HEAD") ||
+        ((res.status === 301 || res.status === 302) && currentMethod === "POST")
+      ) {
         currentMethod = "GET"
         currentBody = undefined
+        for (const name of [
+          "content-type",
+          "content-length",
+          "content-encoding",
+          "content-language",
+          "content-location",
+        ])
+          delete headers[name]
       }
     }
 
@@ -157,6 +189,7 @@ export async function runTier1(
     const contentType = responseHeaders["content-type"] ?? "application/octet-stream"
     const proxyFailure = proxy ? proxyResponseFailure(res.status, responseHeaders) : undefined
     if (proxyFailure) {
+      await res.body?.cancel().catch(() => {})
       return {
         tier: 1,
         certificateError,
@@ -171,6 +204,7 @@ export async function runTier1(
     }
     const awsAction = getAwsWafAction(res.status, responseHeaders)
     if (awsAction) {
+      await res.body?.cancel().catch(() => {})
       return {
         tier: 1,
         certificateError,
@@ -413,12 +447,22 @@ export async function runTier1(
       }
     }
 
+    if (sessionCookies && m !== "HEAD" && isHtmlContentType(contentType) && /<script\b/i.test(previewText)) {
+      const { document } = parseHTML(new TextDecoder().decode(decodedBytes))
+      for (const node of document.querySelectorAll("head, script, style, template, noscript, svg")) node.remove()
+      const text = (document.body?.textContent ?? "").replace(/\s+/g, " ").trim()
+      if (!text || /^loading[.\s]*$/i.test(text)) {
+        return { tier: 1, status: "needs-js", durationMs: Date.now() - start, reason: "javascript-shell" }
+      }
+    }
+
     return {
       tier: 1,
       certificateError,
       status: "success",
       durationMs: Date.now() - start,
       effectiveUrl: res.url,
+      ...(sessionCookies ? { cookies: sessionCookies.snapshot() } : {}),
       // `html` is best-effort text view of the body - only meaningful for text-like
       // content-types. Empty for binary payloads so /scrape consumers see the body
       // is binary via the contentType field. `previewText` is bounded to 64 KiB for

@@ -44,18 +44,23 @@ network policy. TRAWL does not require or assume any specific AI frontend.
 
 TRAWL exposes a small set of purpose-specific, read-only tools:
 
-| Tool | Use it for |
-| --- | --- |
-| `read` | Extracting the main page content as Markdown or plain text |
-| `scrape` | Reading the original HTML and scrape metadata |
-| `extract` | Selecting text or attributes from repeated page elements into JSON records |
-| `screenshot` | Rendering a viewport, full-page or selected-element JPEG |
-| `inspect` | Browser console, network timing and redirect diagnostics |
-| `scrape_url` | Backwards-compatible alias for `scrape` |
+| Tool         | Use it for                                                                 |
+| ------------ | -------------------------------------------------------------------------- |
+| `read`       | Extracting the main page content as Markdown or plain text                 |
+| `scrape`     | Reading the original HTML and scrape metadata                              |
+| `extract`    | Selecting text or attributes from repeated page elements into JSON records |
+| `screenshot` | Rendering a viewport, full-page or selected-element JPEG                   |
+| `inspect`    | Browser console, network timing and redirect diagnostics                   |
+| `scrape_url` | Backwards-compatible alias for `scrape`                                    |
 
 Every tool requires a public HTTP(S) `url` and optionally accepts `maxTimeout`
-and `maxTier`. `scrape` also accepts `skipHttp`. Browser-only tools start at
+and `maxTier`. `scrape` also accepts `skipHttp` and `solveEmbeddedCaptchas` (default `true`).
+Set the latter to `false` to read page HTML without attempting optional form tokens;
+access challenges are still resolved. Browser-only tools start at
 Tier 2 and accept a `maxTier` from 2 through 4.
+
+When `maxTimeout` is omitted, tools use `SCRAPE_MAX_TIMEOUT_MS` (default `60000`).
+An explicit value takes precedence. See [scrape timeout configuration](/getting-started/configuration#scrape-max-timeout-ms).
 
 `read` defaults to Markdown and a 50,000-character response. Set `format` to
 `text` for plain text, or set `maxCharacters` to a value from 1 through 100,000.

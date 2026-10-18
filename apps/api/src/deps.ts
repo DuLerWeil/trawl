@@ -22,6 +22,7 @@ import {
   REDIS_SESSION_TTL_SECONDS,
   REDIS_URL,
   residentialProxyPool,
+  SCRAPE_MAX_TIMEOUT_MS,
   SCRAPE_MIN_TIER,
   SESSION_CACHE_DRIVER,
   type SessionCacheDriver,
@@ -134,7 +135,7 @@ export const createSessionCacheRecovery = ({
     onUnavailable: (err) => {
       const retry = redisRetryDelayMs > 0 ? `; retrying in ${redisRetryDelayMs}ms` : ""
       console.warn(
-        `[api] session cache unavailable — Tier 2 disabled${retry}:`,
+        `[api] session cache unavailable - Tier 2 disabled${retry}:`,
         err instanceof Error ? err.message : err,
       )
     },
@@ -234,7 +235,7 @@ export const initPool = async ({
     throw error
   }
 
-  console.log(`[api] ready — all ${poolSize} browser${poolSize === 1 ? "" : "s"} warm`)
+  console.log(`[api] ready - all ${poolSize} browser${poolSize === 1 ? "" : "s"} warm`)
 }
 
 export const getDeps = (): OrchestratorDeps => {
@@ -277,6 +278,7 @@ export const getDeps = (): OrchestratorDeps => {
     residentialProxyPool,
     trustedProxyCa: localProxyCa,
     minTier: SCRAPE_MIN_TIER,
+    defaultMaxTimeout: SCRAPE_MAX_TIMEOUT_MS,
     externalCaptcha: EXTERNAL_CAPTCHA,
   }
 }

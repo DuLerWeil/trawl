@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { routeContinueOverrides, runTier1 } from "@trawl/tiers"
 import type { FlareSolverrRequest } from "@trawl/types"
+import { tier1Transport } from "../../../../packages/tiers/src/utils/tier1Transport"
 import { buildScrapeRequestFromFlareSolverr } from "./flaresolverr"
 
 const PROWLARR_2_5_2_REQUEST: FlareSolverrRequest = {
@@ -14,13 +15,21 @@ const PROWLARR_2_5_2_REQUEST: FlareSolverrRequest = {
   },
 }
 
-const originalFetch = globalThis.fetch
+const originalFetch = tier1Transport.fetch
 
 afterEach(() => {
-  ;(globalThis as { fetch: typeof fetch }).fetch = originalFetch
+  tier1Transport.fetch = originalFetch
 })
 
 describe("FlareSolverr request adapter", () => {
+  test("delivers pages without requiring embedded form tokens unless explicitly requested", () => {
+    const input = { url: "https://example.com/" }
+    expect(buildScrapeRequestFromFlareSolverr(input).solveEmbeddedCaptchas).toBe(false)
+    expect(buildScrapeRequestFromFlareSolverr({ ...input, solveEmbeddedCaptchas: true }).solveEmbeddedCaptchas).toBe(
+      true,
+    )
+  })
+
   test("translates Prowlarr 2.5.2 serialized content metadata", () => {
     const result = buildScrapeRequestFromFlareSolverr(PROWLARR_2_5_2_REQUEST)
 
@@ -65,7 +74,7 @@ describe("FlareSolverr request adapter", () => {
   test("passes the normalized body and header through Tier 1 and browser route overrides", async () => {
     const request = buildScrapeRequestFromFlareSolverr(PROWLARR_2_5_2_REQUEST)
     let tier1Init: RequestInit | undefined
-    ;(globalThis as { fetch: typeof fetch }).fetch = (async (_input, init) => {
+    tier1Transport.fetch = (async (_input, init) => {
       tier1Init = init
       return new Response("<html>ok</html>", { status: 200, headers: { "content-type": "text/html" } })
     }) as typeof fetch
@@ -73,9 +82,7 @@ describe("FlareSolverr request adapter", () => {
     await runTier1(request.url, request.headers, request.method, request.body)
     expect(tier1Init?.method).toBe("POST")
     expect(tier1Init?.body).toBe(PROWLARR_2_5_2_REQUEST.postData)
-    expect((tier1Init?.headers as Record<string, string> | undefined)?.["Content-Type"]).toBe(
-      "application/x-www-form-urlencoded",
-    )
+    expect(new Headers(tier1Init?.headers).get("content-type")).toBe("application/x-www-form-urlencoded")
 
     const browserOverride = routeContinueOverrides(
       {

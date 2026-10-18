@@ -13,6 +13,7 @@ type ConfigSnapshot = {
   recycleAfterContexts: number
   headfulPoolSize: number
   scrapeMinTier: number
+  scrapeMaxTimeoutMs: number
   scrapeProxySelection: string
   stallTimeoutMs: number
   closeTimeoutMs: number
@@ -38,6 +39,7 @@ const readConfig = (overrides: Record<string, string>): ConfigSnapshot => {
       recycleAfterContexts: config.RECYCLE_AFTER_TEMPORARY_CONTEXTS,
       headfulPoolSize: config.HEADFUL_POOL_SIZE,
       scrapeMinTier: config.SCRAPE_MIN_TIER,
+      scrapeMaxTimeoutMs: config.SCRAPE_MAX_TIMEOUT_MS,
       scrapeProxySelection: config.SCRAPE_PROXY_SELECTION,
       stallTimeoutMs: config.STALL_TIMEOUT_MS,
       closeTimeoutMs: config.CLOSE_TIMEOUT_MS,
@@ -50,13 +52,35 @@ const readConfig = (overrides: Record<string, string>): ConfigSnapshot => {
   const result = Bun.spawnSync({
     cmd: [process.execPath, "-e", script],
     cwd: import.meta.dir,
-    env: { ...process.env, MITM_ESCALATE_429: "", BROWSER_HARDWARE_CONCURRENCY: "", USER_PREFS: "", ...overrides },
+    env: {
+      ...process.env,
+      MITM_ESCALATE_429: "",
+      BROWSER_HARDWARE_CONCURRENCY: "",
+      USER_PREFS: "",
+      SCRAPE_MAX_TIMEOUT_MS: "",
+      ...overrides,
+    },
   })
   expect(result.exitCode).toBe(0)
   return JSON.parse(result.stdout.toString()) as ConfigSnapshot
 }
 
 describe("environment configuration", () => {
+  test("reads the deployment-wide default scrape timeout", () => {
+    expect(readConfig({ SCRAPE_MAX_TIMEOUT_MS: " 120000 " }).scrapeMaxTimeoutMs).toBe(120000)
+    expect(readConfig({}).scrapeMaxTimeoutMs).toBe(60000)
+  })
+
+  test.each(["0", "-1", "1.5", "NaN", "2147483648"])("rejects invalid global scrape timeout %s", (value) => {
+    const result = Bun.spawnSync({
+      cmd: [process.execPath, "-e", 'await import("./config.ts")'],
+      cwd: import.meta.dir,
+      env: { ...process.env, SCRAPE_MAX_TIMEOUT_MS: value },
+    })
+    expect(result.exitCode).not.toBe(0)
+    expect(result.stderr.toString()).toContain("SCRAPE_MAX_TIMEOUT_MS must be an integer from 1 to 2147483647")
+  })
+
   test.each(["", "false", "0", "invalid"])("keeps 429 escalation disabled for %s", (value) => {
     expect(readConfig({ MITM_ESCALATE_429: value }).mitmEscalate429).toBe(false)
   })
@@ -97,6 +121,7 @@ describe("environment configuration", () => {
       recycleAfterContexts: 0,
       headfulPoolSize: 2,
       scrapeMinTier: 3,
+      scrapeMaxTimeoutMs: 60000,
       scrapeProxySelection: "roundrobin",
       stallTimeoutMs: 90000,
       closeTimeoutMs: 8000,
@@ -142,6 +167,7 @@ describe("environment configuration", () => {
       recycleAfterContexts: 8,
       headfulPoolSize: 0,
       scrapeMinTier: 1,
+      scrapeMaxTimeoutMs: 60000,
       scrapeProxySelection: "failover",
       stallTimeoutMs: 180000,
       closeTimeoutMs: 10000,
@@ -249,19 +275,26 @@ describe("Firefox user preferences", () => {
   })
 })
 
-test("ad blocking stays enabled by default and can be disabled explicitly", () => {
-  const setting = (value: string) => {
+test.each([
+  ["", "true"],
+  ["true", "true"],
+  ["invalid", "true"],
+  ["false", "false"],
+  ["0", "false"],
+  [" NO ", "false"],
+])(
+  "ad blocking parses %j as %s",
+  (value, expected) => {
     const result = Bun.spawnSync({
       cmd: [process.execPath, "-e", 'console.log((await import("./config.ts")).BROWSER_BLOCK_ADS)'],
       cwd: import.meta.dir,
       env: { ...process.env, BROWSER_BLOCK_ADS: value },
     })
     expect(result.exitCode, result.stderr.toString()).toBe(0)
-    return result.stdout.toString().trim()
-  }
-  for (const value of ["", "true", "invalid"]) expect(setting(value)).toBe("true")
-  for (const value of ["false", "0", " NO "]) expect(setting(value)).toBe("false")
-}, 10000)
+    expect(result.stdout.toString().trim()).toBe(expected)
+  },
+  10000,
+)
 
 test.each([
   ["", "0"],

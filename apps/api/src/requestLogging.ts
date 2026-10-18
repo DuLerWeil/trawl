@@ -1,6 +1,7 @@
 import { PoolExhaustedError } from "@trawl/browser"
 import { type OrchestratorDeps, ScrapeError, scrape } from "@trawl/tiers"
 import type { ScrapeRequest, ScrapeResult, TierResult } from "@trawl/types"
+import { applyDomainProfile, refreshDomainProfile } from "./domainProfile"
 import { log, requestId, safeMessage, safeUrl } from "./logger"
 import { type MetricsStore, metrics } from "./metrics"
 
@@ -15,13 +16,15 @@ export async function runLoggedScrape(
   metricsStore: MetricsStore = metrics,
 ): Promise<ScrapeResult> {
   const started = Date.now()
+  const profiledReq = applyDomainProfile(req)
+
   log("info", "scrape", {
     event: "request.start",
     request: id,
     source,
     method: req.method ?? "GET",
     target: safeUrl(req.url),
-    timeoutMs: req.maxTimeout ?? 60_000,
+    timeoutMs: req.maxTimeout ?? deps.defaultMaxTimeout ?? 60_000,
     maxTier: req.maxTier ?? 4,
     proxy: Boolean(req.proxy),
   })
@@ -43,7 +46,7 @@ export async function runLoggedScrape(
   }
 
   try {
-    const result = await runScrape(req, tracedDeps)
+    const result = await runScrape(profiledReq, tracedDeps)
     metricsStore.record({
       source,
       url: req.url,
@@ -65,9 +68,14 @@ export async function runLoggedScrape(
       proxyUsed: result.proxyUsed,
       captchas: result.captchasSolved?.join(","),
     })
+    refreshDomainProfile(req, result.timings, {
+      resultTier: result.tier,
+      sessionCached: result.sessionCached,
+    })
     return result
   } catch (error) {
     const last = error instanceof ScrapeError ? error.timings.at(-1) : undefined
+    refreshDomainProfile(req, error instanceof ScrapeError ? error.timings : [], { failure: true })
     metricsStore.record({ source, url: req.url, durationMs: Date.now() - started, error })
     log(error instanceof PoolExhaustedError ? "warn" : "error", "scrape", {
       event: "request.failure",

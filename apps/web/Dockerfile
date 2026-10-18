@@ -1,4 +1,6 @@
-FROM oven/bun:1.4.2-alpine AS builder
+# Nuxt's build tooling requires Node APIs that Bun does not implement yet.
+FROM node:26.12.0-alpine AS builder
+COPY --from=oven/bun:1.4.3-alpine /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /app
 
@@ -13,9 +15,9 @@ RUN bun install --frozen-lockfile --filter '@trawl/web' --linker=hoisted
 
 COPY apps/web/ ./apps/web/
 WORKDIR /app/apps/web
-RUN bunx --bun nuxt generate
+RUN node /app/node_modules/nuxt/bin/nuxt.mjs generate
 
-FROM nginx:1.31.6-alpine AS runner
+FROM nginx:1.31.7-alpine AS runner
 
 COPY --from=builder /app/apps/web/.output/public /usr/share/nginx/html
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf

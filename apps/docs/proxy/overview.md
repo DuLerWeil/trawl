@@ -48,8 +48,8 @@ body, and end-to-end headers. It preserves headers such as:
 
 Hop-by-hop headers are rebuilt or removed at the proxy boundary.
 
-Responses not selected by the streaming policy—including small HTML, JSON, XML, text, and unknown
-small payloads—are buffered. Compressed `gzip`, `deflate`, and Brotli responses are decoded only
+Responses not selected by the streaming policy-including small HTML, JSON, XML, text, and unknown
+small payloads-are buffered. Compressed `gzip`, `deflate`, and Brotli responses are decoded only
 for challenge inspection; the original bytes remain the response body. Chunked buffered responses
 are de-chunked before being returned.
 

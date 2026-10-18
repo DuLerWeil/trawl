@@ -3,7 +3,7 @@
 // Navigates manually if cf_clearance is set but redirect hasn't fired after 5s.
 
 import type { Frame, Page } from "patchright"
-import { hasTurnstile, isCloudflarePage } from "./detect"
+import { isCloudflareErrorUrl, isCloudflarePage } from "./detect"
 
 export const CF_CHALLENGE_TITLE = /just a moment|verify you are human|please wait|one more step|attention required/i
 
@@ -17,7 +17,10 @@ export async function waitForChallengeResolution(
 ): Promise<"ok" | "ip-blocked" | "timeout"> {
   const deadline = Date.now() + Math.max(timeoutMs, 0)
   let lastClickAttempt = 0
+  let hadChallengeFrame = false
   let cfClearanceAt: number | undefined
+  let clearanceValue: string | undefined
+  let recoveryAttempted = false
   let challengeSeen = false
   let inactiveSamples = 0
 
@@ -30,27 +33,29 @@ export async function waitForChallengeResolution(
     }
   })()
 
-  // Let CF's challenge JS boot up before we start polling
-  await new Promise((r) => setTimeout(r, 300))
-
   while (Date.now() < deadline) {
     try {
       const title = await page.title().catch(() => "")
-      const html = await page.content().catch(() => "")
       const url = page.url()
       const hasChallengeFrame = page.frames().some(isChallengeFrame)
-      const active =
+      if (hasChallengeFrame && !hadChallengeFrame) lastClickAttempt = 0
+      hadChallengeFrame = hasChallengeFrame
+      const headers = responseHeaders()
+      const activeSignal =
         CF_CHALLENGE_TITLE.test(title) ||
-        isCloudflarePage(html, responseHeaders()) ||
         /\/cdn-cgi\/challenge-platform|\/cdn-cgi\/challenge\//i.test(url) ||
-        hasChallengeFrame
+        isCloudflarePage("", headers)
+      const html = activeSignal ? "" : await page.content().catch(() => "")
+      const active = activeSignal || isCloudflarePage(html, headers)
 
-      if (!active) {
+      if (!active && html.trim()) {
         inactiveSamples++
       } else {
-        challengeSeen = true
+        if (active) challengeSeen = true
         inactiveSamples = 0
       }
+
+      if (isCloudflareErrorUrl(url)) return "ip-blocked"
 
       // Two observations prevent a transient normal title/DOM during navigation from
       // declaring a challenge solved. This also applies before the first active sample.
@@ -62,28 +67,34 @@ export async function waitForChallengeResolution(
         return "ok"
       }
 
-      if (/\/cdn-cgi\/error\/|error=1020|error=1015/.test(url)) return "ip-blocked"
+      if (!active) {
+        await new Promise((r) => setTimeout(r, 300))
+        continue
+      }
 
-      const cookies: Array<{ name: string; domain: string }> = await page
+      const cookies: Array<{ name: string; domain: string; value?: string }> = await page
         .context()
         .cookies()
         .catch(() => [])
-      const hasDomainClearance = cookies.some(
+      const domainClearance = cookies.find(
         (c) =>
           c.name === "cf_clearance" &&
           targetHost &&
           (c.domain === targetHost ||
             c.domain === `.${targetHost}` ||
-            targetHost.endsWith(c.domain.replace(/^\./, ""))),
+            targetHost.endsWith(`.${c.domain.replace(/^\./, "")}`)),
       )
-      if (hasDomainClearance && challengeSeen) {
-        if (cfClearanceAt === undefined) {
+      if (domainClearance && challengeSeen) {
+        if (cfClearanceAt === undefined || clearanceValue !== domainClearance.value) {
+          clearanceValue = domainClearance.value
           cfClearanceAt = Date.now()
           console.log("[challenge] cf_clearance obtained")
         }
         // CF auto-redirect normally fires within 2-3s. If it hasn't, navigate ourselves.
         if (originalUrl && Date.now() - cfClearanceAt > 5000) {
-          console.log("[challenge] cf_clearance set but still on challenge page — navigating to original URL")
+          if (recoveryAttempted) return "ip-blocked"
+          recoveryAttempted = true
+          console.log("[challenge] cf_clearance set but still on challenge page - navigating to original URL")
           await page
             .goto(originalUrl, {
               waitUntil: "domcontentloaded",
@@ -99,11 +110,10 @@ export async function waitForChallengeResolution(
 
       const now = Date.now()
       if (now - lastClickAttempt >= 3000) {
-        lastClickAttempt = now
-        await attemptTurnstileClick(page).catch(() => {})
+        if (await attemptTurnstileClick(page).catch(() => false)) lastClickAttempt = now
       }
     } catch {
-      // Page is mid-navigation — keep polling
+      // Page is mid-navigation - keep polling
     }
 
     await new Promise((r) => setTimeout(r, 300))
@@ -127,23 +137,26 @@ export async function attemptTurnstileClick(page: Page, allowKeyboard = true): P
 
     // C: page-coordinate click - bypasses Fission by clicking on page instead of inside frame
     const frameEl = await frame.frameElement().catch(() => undefined)
-    const box = frameEl ? await frameEl.boundingBox().catch(() => undefined) : undefined
-    if (box && box.width > 20) {
-      const cx = box.x + Math.min(24, box.width * 0.15)
-      const cy = box.y + box.height / 2
-      await page.mouse.move(cx, cy)
-      await new Promise((r) => setTimeout(r, 150))
-      await page.mouse.click(cx, cy)
-      console.log(
-        `[challenge] Turnstile coord-click at (${Math.round(cx)},${Math.round(cy)}) iframe=${Math.round(box.width)}x${Math.round(box.height)}`,
-      )
-      return true
+    if (!frameEl) continue
+    try {
+      const box = await frameEl.boundingBox().catch(() => undefined)
+      if (box && box.width > 20) {
+        await frameEl.click({ position: { x: Math.min(24, box.width * 0.15), y: box.height / 2 }, timeout: 1500 })
+        console.log(`[challenge] Turnstile iframe clicked (${Math.round(box.width)}x${Math.round(box.height)})`)
+        return true
+      }
+    } catch {
+      // The challenge can disappear while the target document is loading.
+    } finally {
+      await frameEl.dispose().catch(() => {})
     }
   }
 
   // D: keyboard Tab → Space - last resort
+  if (!allowKeyboard) return false
   const html = await page.content().catch(() => "")
-  if (allowKeyboard && (hasTurnstile(html) || isCloudflarePage(html, {}))) {
+  const title = await page.title().catch(() => "")
+  if (CF_CHALLENGE_TITLE.test(title) || /_cf_chl_opt|id=["'](?:challenge-form|turnstile-wrapper)["']/i.test(html)) {
     try {
       await page.keyboard.press("Tab")
       await new Promise((r) => setTimeout(r, 200))
@@ -158,6 +171,7 @@ export async function attemptTurnstileClick(page: Page, allowKeyboard = true): P
 
 // Requires: (1) pool.ts injects the shadowRootUnl patch, (2) forceScopeAccess: true in Camoufox config
 async function clickShadowCheckbox(_page: Page, frame: Frame): Promise<boolean> {
+  const handles: Array<{ dispose(): Promise<void> }> = []
   try {
     const handle = await frame
       .evaluateHandle(() => {
@@ -169,7 +183,7 @@ async function clickShadowCheckbox(_page: Page, frame: Frame): Promise<boolean> 
             collect(node.shadowRootUnl)
           }
           try {
-            const children = node.querySelectorAll("*")
+            const children = node.children
             for (const el of children) collect(el)
           } catch {
             /* shadow boundary */
@@ -181,9 +195,11 @@ async function clickShadowCheckbox(_page: Page, frame: Frame): Promise<boolean> 
       .catch(() => undefined)
 
     if (!handle) return false
+    handles.push(handle)
 
     const props = await handle.getProperties().catch(() => undefined)
     if (!props) return false
+    handles.push(...props.values())
 
     for (const [, shadowHandle] of props) {
       const el = shadowHandle.asElement()
@@ -192,16 +208,23 @@ async function clickShadowCheckbox(_page: Page, frame: Frame): Promise<boolean> 
         .evaluateHandle((root: ParentNode) => root.querySelector('input[type="checkbox"]'))
         .catch(() => undefined)
       if (!checkboxHandle) continue
+      handles.push(checkboxHandle)
       const checkbox = checkboxHandle.asElement()
       if (!checkbox) continue
       const visible = await checkbox.isVisible().catch(() => false)
       if (!visible) continue
-      await checkbox.click({ timeout: 2000 }).catch(() => {})
+      const clicked = await checkbox
+        .click({ timeout: 2000 })
+        .then(() => true)
+        .catch(() => false)
+      if (!clicked) continue
       console.log("[challenge] Turnstile shadow-DOM checkbox clicked")
       return true
     }
   } catch {
     // Shadow DOM not accessible (init script not injected or forceScopeAccess not set)
+  } finally {
+    await Promise.all(handles.map((handle) => handle.dispose().catch(() => {})))
   }
   return false
 }

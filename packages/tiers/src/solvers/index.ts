@@ -16,6 +16,7 @@ import { hasGeetestSlide, solveGeetestSlide } from "./geetest"
 import { hasHcaptchaWidget, solveHcaptcha } from "./hcaptcha"
 import { hasRecaptchaV2, solveRecaptchaV2 } from "./recaptcha"
 import { solveTurnstile } from "./turnstile"
+import { embeddedWidgetHints } from "./widgetMarkup"
 
 export { hasAltchaWidget, solveAltcha } from "./altcha"
 export { hasFriendlyCaptchaWidget, solveFriendlyCaptcha } from "./friendlyCaptcha"
@@ -88,6 +89,7 @@ export async function solvePageCaptchas(
   signal?: AbortSignal,
   external?: ExternalCaptchaSession,
   proxy?: string,
+  detectionGraceMs = 0,
 ): Promise<SolveResult> {
   if (timeoutMs <= 0 || signal?.aborted) return { attempted: [], solved: [] }
   const deadline = Date.now() + Math.max(0, timeoutMs)
@@ -97,9 +99,15 @@ export async function solvePageCaptchas(
   // Quick HTML scan - skip detection entirely for pages with no widget markers
   const html = await page.content().catch(() => "")
   const externalProfiles = (await external?.discover(page, html).catch(() => [])) ?? []
-  const mightHaveTurnstile = /cf-turnstile|cloudflare\.com\/turnstile/i.test(html)
-  const mightHaveRecaptcha = /g-recaptcha|google\.com\/recaptcha|recaptcha\.net|grecaptcha/i.test(html)
-  const mightHaveHcaptcha = /h-captcha|hcaptcha\.com/i.test(html)
+  let mightHaveTurnstile = /cf-turnstile|cloudflare\.com\/turnstile/i.test(html)
+  let mightHaveRecaptcha = /g-recaptcha|google\.com\/recaptcha|recaptcha\.net|grecaptcha/i.test(html)
+  let mightHaveHcaptcha = /h-captcha|hcaptcha\.com/i.test(html)
+  if (mightHaveTurnstile || mightHaveRecaptcha || mightHaveHcaptcha) {
+    const hints = embeddedWidgetHints(html)
+    mightHaveTurnstile &&= hints.turnstile
+    mightHaveRecaptcha &&= hints.recaptcha
+    mightHaveHcaptcha &&= hints.hcaptcha
+  }
   const mightHaveGeetest = /geetest|gt_container|initGeetest/i.test(html)
   const mightHaveAltcha = hasAltchaMarkup(html)
   const mightHaveCap = hasCapChallenge(html)
@@ -136,7 +144,8 @@ export async function solvePageCaptchas(
   // waitForSelector already handles waiting for widgets - no blind sleep needed.
   // 5s: Turnstile/reCAPTCHA iframes typically appear within 2s of page load;
   // dynamic script-mounted widgets (e.g. Mojeek ALTCHA) can take 2-4s to load module scripts.
-  const DETECT_MS = Math.min(5_000, Math.max(0, deadline - Date.now()))
+  // Retain the original discovery window when verification overlaps page settling.
+  const DETECT_MS = Math.min(5_000 + Math.max(0, detectionGraceMs), Math.max(0, deadline - Date.now()))
 
   const recaptchaKind =
     mightHaveRecaptcha && !signal?.aborted && (await external?.canSolve(page, "recaptcha-v2-enterprise", proxy))

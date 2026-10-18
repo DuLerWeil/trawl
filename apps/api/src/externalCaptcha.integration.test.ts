@@ -11,10 +11,12 @@ const createTestApi = (deps: typeof getDeps) =>
 
 describe.skipIf(process.env.TRAWL_EXTERNAL_CAPTCHA_TESTS !== "1")("external CAPTCHA browser integration", () => {
   let fixture: ReturnType<typeof Bun.serve>
+  let proxy: ReturnType<typeof Bun.serve>
   let api: ReturnType<typeof createTestApi>
   const originalFetch = globalThis.fetch
   const calls: string[] = []
   const tasks: Record<string, unknown>[] = []
+  const browserRequests: { path: string; agent: string | null; proxied: boolean }[] = []
   const url = (path: string) => `http://127.0.0.1:${fixture.port}${path}`
   const options = { apiKey: "owned-fixture-key", maxTasks: 1, timeoutMs: 12000, localTimeoutMs: 1000 }
 
@@ -34,8 +36,58 @@ describe.skipIf(process.env.TRAWL_EXTERNAL_CAPTCHA_TESTS !== "1")("external CAPT
               : {
                   errorId: 0,
                   status: "ready",
-                  solution: { token: "owned-provider-response", gRecaptchaResponse: "owned-provider-response" },
+                  solution: {
+                    token: "owned-provider-response",
+                    gRecaptchaResponse: "owned-provider-response",
+                    ...(tasks.at(-1)?.pagedata
+                      ? {
+                          userAgent: String(tasks.at(-1)?.websiteURL).includes("agent-mismatch")
+                            ? "owned-other-agent"
+                            : tasks.at(-1)?.userAgent,
+                        }
+                      : {}),
+                  },
                 },
+          )
+        }
+        if (path.startsWith("/managed")) {
+          browserRequests.push({
+            path,
+            agent: request.headers.get("user-agent"),
+            proxied: request.headers.get("x-owned-proxy") === "yes",
+          })
+          if (new URL(request.url).searchParams.get("accepted") === "owned-provider-response")
+            return new Response(
+              `<html><title>Owned destination</title><body><h1>Verified destination content</h1><p>${"Complete results. ".repeat(30)}</p></body></html>`,
+              { headers: { "content-type": "text/html" } },
+            )
+          return new Response(
+            `<html><title>Just a moment...</title><body><form id="challenge-form">Checking your browser</form><script nonce="owned-fixture">
+            const initialize = window.ownedInitialize = () => {
+            window.turnstile = {render(target, options) {
+              document.body.dataset.originalRender = 'true';
+              window.ownedWidget = options;
+              ${path.includes("local") ? "options.callback('owned-provider-response');" : ""}
+              ${path.includes("render-error") ? "throw new Error('Owned render failure');" : ""}
+              return 'owned-widget';
+            }, reset(){}, remove(){}};
+            window.turnstile.render('#challenge-form', {
+              sitekey: 'owned-managed-sitekey', action: 'managed', cData: 'owned-dynamic-data', ${path.includes("incomplete") ? "" : "chlPageData: 'owned-page-data',"}
+              callback(token) {
+                if (document.body.dataset.originalRender === 'true' && token === 'owned-provider-response')
+                  ${path.includes("unchanged") ? "document.cookie='cf_clearance=owned-not-enough; Path=/'" : "location.replace(location.pathname + '?accepted=' + token)"};
+              }
+            });
+            };
+            ${path.includes("delayed") ? "setTimeout(initialize, 300)" : "initialize()"};
+          </script></body></html>`,
+            {
+              headers: {
+                "content-type": "text/html",
+                "cf-mitigated": "challenge",
+                "content-security-policy": "script-src 'nonce-owned-fixture'",
+              },
+            },
           )
         }
         const recaptcha = path === "/recaptcha" || path === "/recaptcha-net" || path === "/enterprise"
@@ -64,6 +116,18 @@ describe.skipIf(process.env.TRAWL_EXTERNAL_CAPTCHA_TESTS !== "1")("external CAPT
         )
       },
     })
+    proxy = Bun.serve({
+      port: 0,
+      fetch(request) {
+        const target = new URL(request.url)
+        if (target.hostname !== "owned-cloudflare.invalid") return new Response("Unexpected target", { status: 502 })
+        target.hostname = "127.0.0.1"
+        const headers = new Headers(request.headers)
+        headers.delete("host")
+        headers.set("x-owned-proxy", "yes")
+        return originalFetch(target, { headers, redirect: "manual", signal: request.signal })
+      },
+    })
     // Only the provider transport is redirected to the owned HTTP fixture.
     // No real paid endpoint is reached, including on failure.
     globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
@@ -83,6 +147,7 @@ describe.skipIf(process.env.TRAWL_EXTERNAL_CAPTCHA_TESTS !== "1")("external CAPT
     globalThis.fetch = originalFetch
     await api?.stop()
     await shutdownPools()
+    proxy?.stop(true)
     fixture?.stop(true)
   })
 
@@ -95,7 +160,7 @@ describe.skipIf(process.env.TRAWL_EXTERNAL_CAPTCHA_TESTS !== "1")("external CAPT
         body: JSON.stringify(
           route === "/scrape"
             ? { url: url("/turnstile"), skipHttp: true, maxTier: 3, maxTimeout: 20000 }
-            : { cmd: "request.get", url: url("/turnstile"), maxTimeout: 20000 },
+            : { cmd: "request.get", url: url("/turnstile"), maxTimeout: 20000, solveEmbeddedCaptchas: true },
         ),
       })
       const result = await response.json()
@@ -122,6 +187,125 @@ describe.skipIf(process.env.TRAWL_EXTERNAL_CAPTCHA_TESTS !== "1")("external CAPT
     expect(result.captchasSolved).toEqual(["recaptcha-v2:2captcha"])
     expect(result.html).toContain('data-accepted="true"')
   }, 30000)
+
+  test("managed Cloudflare pages fall back automatically through native and Prowlarr routes", async () => {
+    for (const route of ["/scrape", "/v1"]) {
+      const before = tasks.length
+      const target = url(route === "/v1" ? "/managed-delayed-v1" : "/managed-scrape")
+      const response = await originalFetch(`http://127.0.0.1:${api.server?.port}${route}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(
+          route === "/scrape"
+            ? { url: target, skipHttp: true, maxTier: 3, maxTimeout: 15000 }
+            : { cmd: "request.get", url: target, maxTimeout: 15000 },
+        ),
+      })
+      const result = await response.json()
+      expect(response.status, JSON.stringify(result)).toBe(200)
+      expect(result.html ?? result.solution?.response).toContain("Verified destination content")
+      expect(tasks.slice(before)).toHaveLength(1)
+      expect(tasks.at(-1)).toMatchObject({
+        type: "TurnstileTaskProxyless",
+        websiteURL: target,
+        websiteKey: "owned-managed-sitekey",
+        action: "managed",
+        data: "owned-dynamic-data",
+        pagedata: "owned-page-data",
+        userAgent: expect.any(String),
+      })
+      if (route === "/scrape") expect(result.captchasSolved).toEqual(["cloudflare-challenge:2captcha"])
+    }
+  }, 45000)
+
+  test("managed tasks preserve the browser proxy and its actual HTTP user agent", async () => {
+    const pool = getPool()
+    if (!pool) throw new Error("pool not ready")
+    const lease = await pool.acquire()
+    const context = await newFreshContext(lease.browser, { proxy: proxy.url.origin })
+    try {
+      const page = await context.newPage()
+      const session = new ExternalCaptchaSession(options, globalThis.fetch, async () => {})
+      await session.preparePage(page)
+      await page.goto(`http://owned-cloudflare.invalid:${fixture.port}/managed-proxy`)
+      expect(await session.solve(page, "cloudflare-challenge", 12000, undefined, proxy.url.origin)).toBe(true)
+      await page.waitForURL("**?accepted=owned-provider-response")
+      expect(await page.content()).toContain("Verified destination content")
+      const request = browserRequests.find(({ path }) => path === "/managed-proxy")
+      expect(request?.proxied).toBe(true)
+      expect(tasks.at(-1)).toMatchObject({
+        type: "TurnstileTask",
+        proxyType: "http",
+        proxyAddress: proxy.url.hostname,
+        proxyPort: proxy.port,
+        userAgent: request?.agent,
+      })
+    } finally {
+      await context.close()
+      pool.release(lease.id, lease.lease)
+    }
+  }, 15000)
+
+  test("managed tasks refuse incomplete, consumed, expired, replaced and navigated challenges", async () => {
+    const pool = getPool()
+    if (!pool) throw new Error("pool not ready")
+    const lease = await pool.acquire()
+    const context = await newFreshContext(lease.browser)
+    try {
+      for (const scenario of [
+        "unobserved",
+        "incomplete",
+        "consumed",
+        "expired",
+        "render-error",
+        "replaced",
+        "sdk-replaced",
+        "reset",
+        "reload",
+        "agent-mismatch",
+      ]) {
+        const before = tasks.length
+        const page = await context.newPage()
+        const session = new ExternalCaptchaSession(options, globalThis.fetch, async () => {
+          if (scenario === "replaced") await page.evaluate("mw:window.ownedInitialize()")
+          if (scenario === "sdk-replaced") await page.evaluate("mw:window.turnstile = {}")
+          if (scenario === "reset") await page.evaluate("mw:window.turnstile.reset()")
+          if (scenario === "reload") await page.reload()
+        })
+        if (scenario !== "unobserved") await session.preparePage(page)
+        await page.goto(url(`/managed-${scenario}`))
+        if (scenario === "consumed") await page.evaluate("mw:window.ownedWidget.callback('owned-local-answer')")
+        if (scenario === "expired") await page.evaluate("mw:window.ownedWidget['expired-callback']()")
+        expect(await session.solve(page, "cloudflare-challenge", 12000), scenario).toBe(false)
+        expect(page.url(), scenario).not.toContain("accepted=")
+        expect(tasks.length - before, scenario).toBe(
+          ["unobserved", "incomplete", "consumed", "expired", "render-error"].includes(scenario) ? 0 : 1,
+        )
+        expect(await session.solve(page, "cloudflare-challenge", 12000), scenario).toBe(false)
+        if (scenario === "agent-mismatch")
+          expect(session.diagnostics()).toContainEqual({ kind: "cloudflare-challenge", status: "identity-mismatch" })
+        await page.close()
+      }
+    } finally {
+      await context.close()
+      pool.release(lease.id, lease.lease)
+    }
+  }, 20000)
+
+  test("local managed solves spend nothing and a clearance cookie alone cannot become API success", async () => {
+    for (const scenario of ["local", "unchanged"]) {
+      const before = tasks.length
+      const response = await originalFetch(`http://127.0.0.1:${api.server?.port}/scrape`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url: url(`/managed-${scenario}`), skipHttp: true, maxTier: 3, maxTimeout: 9000 }),
+      })
+      const result = await response.json()
+      expect(response.status, JSON.stringify(result)).toBe(scenario === "local" ? 200 : 500)
+      if (scenario === "local") expect(result.html).toContain("Verified destination content")
+      expect(tasks.length - before).toBe(scenario === "local" ? 0 : 1)
+    }
+  }, 20000)
 
   test("Turnstile custom response names and callback-only widgets receive the token", async () => {
     const pool = getPool()

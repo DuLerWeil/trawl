@@ -32,12 +32,17 @@ export interface CaptureOptions extends ResponseCaptureOptions {
   sessionContext?: Awaited<ReturnType<typeof import("@trawl/browser").newFreshContext>>
   sessionStorage?: Map<string, [string, string][]>
   budget?: RequestBudget
+  // Shared across Tier 3 retries when a residential fallback is available.
+  cloudflareDeadline?: number
   externalCaptcha?: ExternalCaptchaSession
+  solveEmbeddedCaptchas?: boolean
   followMetaRefresh?: boolean
   screenshotFullPage?: boolean
   screenshotWaitForSelector?: string
   screenshotSelector?: string
   contentWaitForSelector?: string
+  /** Tier 1 observed Anubis; cached pages use the same readiness check as fresh solves. */
+  anubisDetected?: boolean
   consoleLogs?: boolean
   networkLogs?: boolean
   redirectChain?: boolean

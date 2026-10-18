@@ -44,16 +44,13 @@ export async function solveRecaptchaV2(page: Page, timeoutMs = 30_000, signal?: 
       .click({ timeout: Math.max(1, Math.min(5000, deadline - Date.now())), force: true })
     console.log("[recaptcha] clicked checkbox")
 
-    // Give Google's risk scoring time to run
-    await sleep(2500, signal)
-
-    // Check for auto-pass (green checkmark)
-    if (
-      await anchor
-        .locator('#recaptcha-anchor[aria-checked="true"]')
-        .isVisible({ timeout: Math.max(1, Math.min(1000, deadline - Date.now())) })
-        .catch(() => false)
-    ) {
+    // Return as soon as the checkbox passes; retain the full risk-scoring window.
+    const autoPassed = await anchor
+      .locator('#recaptcha-anchor[aria-checked="true"]')
+      .waitFor({ state: "visible", timeout: Math.max(1, Math.min(2500, deadline - Date.now())) })
+      .then(() => true)
+      .catch(() => false)
+    if (autoPassed) {
       console.log("[recaptcha] auto-passed")
       return true
     }
@@ -87,7 +84,7 @@ export async function solveRecaptchaV2(page: Page, timeoutMs = 30_000, signal?: 
         .isVisible({ timeout: Math.max(1, Math.min(2000, deadline - Date.now())) })
         .catch(() => false)
       if (hasImageChallenge) {
-        console.log("[recaptcha] image challenge visible — attempting audio button click anyway")
+        console.log("[recaptcha] image challenge visible - attempting audio button click anyway")
         await audioBtn
           .click({ timeout: Math.max(1, Math.min(3000, deadline - Date.now())), force: true })
           .catch(() => {})
@@ -126,7 +123,7 @@ export async function solveRecaptchaV2(page: Page, timeoutMs = 30_000, signal?: 
           .catch(() => "")
         console.log("[recaptcha] audio element not found; bframe:", bframeText2.slice(0, 120).replace(/\s+/g, " "))
         if (/automated queries|try again|network may be/i.test(bframeText2)) {
-          console.log("[recaptcha] blocked by Google — audio challenge requires residential proxy")
+          console.log("[recaptcha] blocked by Google - audio challenge requires residential proxy")
           return false
         }
       }

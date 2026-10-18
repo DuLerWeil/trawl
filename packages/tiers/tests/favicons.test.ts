@@ -39,8 +39,8 @@ interface Served {
 }
 
 /**
- * Runs the page function for real against a stand-in DOM. The resolution rules — apex
- * first, `rel` matched as a substring, relative hrefs against `<base>` — only exist
+ * Runs the page function for real against a stand-in DOM. The resolution rules - apex
+ * first, `rel` matched as a substring, relative hrefs against `<base>` - only exist
  * inside `page.evaluate`, so a stub that answers with canned entries would assert
  * nothing about them.
  */

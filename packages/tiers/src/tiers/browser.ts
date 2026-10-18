@@ -24,17 +24,19 @@ import type { BrowserTierResult } from "./browserResult"
 
 // Clearance without navigation can indicate an egress-IP block.
 const DATACENTER_BLOCKED_REASONS: Partial<Record<ChallengeType, string>> = {
-  imperva: "datacenter-ip-blocked (imperva sensor cookie obtained but challenge persisted — needs residential proxy)",
-  akamai: "datacenter-ip-blocked (Akamai sensor cookie obtained but challenge persisted — needs residential proxy)",
+  imperva: "datacenter-ip-blocked (imperva sensor cookie obtained but challenge persisted - needs residential proxy)",
+  akamai: "datacenter-ip-blocked (Akamai sensor cookie obtained but challenge persisted - needs residential proxy)",
   "ddos-guard":
-    "datacenter-ip-blocked (DDoS-Guard clearance cookie obtained but challenge persisted — needs residential proxy)",
-  "aws-waf": "datacenter-ip-blocked (AWS WAF token obtained but challenge persisted — needs residential proxy)",
+    "datacenter-ip-blocked (DDoS-Guard clearance cookie obtained but challenge persisted - needs residential proxy)",
+  "aws-waf": "datacenter-ip-blocked (AWS WAF token obtained but challenge persisted - needs residential proxy)",
   datadome:
-    "datadome-persistent (a datadome cookie was issued but the wall held — check BROWSER_HEADFUL_POOL_SIZE, then try a residential proxy)",
+    "datadome-persistent (a datadome cookie was issued but the wall held - check BROWSER_HEADFUL_POOL_SIZE, then try a residential proxy)",
 }
 
 const DEFAULT_DATACENTER_BLOCKED_REASON =
-  "datacenter-ip-blocked (cf_clearance obtained but redirect never completed — needs residential proxy)"
+  "datacenter-ip-blocked (cf_clearance obtained but redirect never completed - needs residential proxy)"
+
+const PAGE_SETTLE_MS = 600
 
 async function runBrowserTierTask<T extends 3 | 4>(
   tier: T,
@@ -88,6 +90,7 @@ async function runBrowserTierTask<T extends 3 | 4>(
       : undefined
     budget.check()
     page.setDefaultTimeout?.(Math.max(1, budget.remaining()))
+    await capture.externalCaptcha?.preparePage(page)
     await installOutboundPolicy(page, validateOutboundUrl)
     const initialCookies = snapshotChallengeCookies(await context.cookies())
     if ((extraHeaders && Object.keys(extraHeaders).length > 0) || method === "POST") {
@@ -140,6 +143,10 @@ async function runBrowserTierTask<T extends 3 | 4>(
     const remaining = budget.remaining()
     const peekHtml = await page.content().catch(() => "")
     const cloudflareWall = isCloudflarePage(peekHtml, mainResponse.headers)
+    const challengeTimeout =
+      cloudflareWall && capture.cloudflareDeadline !== undefined
+        ? Math.max(0, Math.min(remaining, capture.cloudflareDeadline - Date.now()))
+        : remaining
     const {
       challengeType,
       resolution,
@@ -148,7 +155,7 @@ async function runBrowserTierTask<T extends 3 | 4>(
       page,
       peekHtml,
       mainResponse.headers,
-      remaining,
+      challengeTimeout,
       refresh?.url ?? url,
       undefined,
       mainResponse.status,
@@ -194,26 +201,40 @@ async function runBrowserTierTask<T extends 3 | 4>(
       }
     }
 
+    // Overlap widget verification with the existing JS settling window.
+    const overlapWidgetSettling =
+      tier === 3 &&
+      !cloudflareWall &&
+      !capture.contentWaitForSelector &&
+      (challengeType === "cloudflare-turnstile" || challengeType === "friendly-captcha")
+    const settleUntil = Date.now() + PAGE_SETTLE_MS
     // Keep default settling for JS content and lingering Cloudflare frames.
-    if (cloudflareWall || (tier === 3 && challengeType !== "anubis" && !capture.contentWaitForSelector))
-      await sleep(600, budget.signal)
-    if (tier === 4) await waitForBrowserLoad(page, capture, budget, 10_000)
+    if (
+      cloudflareWall ||
+      (tier === 3 && challengeType !== "anubis" && !overlapWidgetSettling && !capture.contentWaitForSelector)
+    )
+      await sleep(PAGE_SETTLE_MS, budget.signal)
+    if (tier === 4 || challengeType === "none") await waitForBrowserLoad(page, capture, budget, 10_000)
 
-    const solveRemaining = budget.remaining()
+    // Embedded widgets are best effort; leave time to return the loaded document.
+    const solveRemaining = Math.max(0, budget.remaining() - 2000)
     let captchasSolved: string[] = wallCaptchas ?? []
-    if (solveRemaining > 5000) {
+    if (capture.solveEmbeddedCaptchas !== false && budget.remaining() > 5000) {
       const solveResult = await solvePageCaptchas(
         page,
         solveRemaining,
         budget.signal,
         capture.externalCaptcha,
         proxyUrl,
+        overlapWidgetSettling ? PAGE_SETTLE_MS : 0,
       ).catch(() => ({
         attempted: [],
         solved: [],
       }))
       captchasSolved = [...new Set([...captchasSolved, ...solveResult.solved])]
     }
+
+    if (overlapWidgetSettling) await sleep(Math.max(0, settleUntil - Date.now()), budget.signal)
 
     const { html, shot, evidence } = await captureBrowserDocument(page, capture, pageCapture, budget, screenshot)
 

@@ -3,7 +3,7 @@ import { defineConfig } from "vitepress"
 export default defineConfig({
   title: "TRAWL",
   description:
-    "Self-hosted Scraping-as-a-Service — FlareSolverr drop-in with a persistent browser pool and domain session cache.",
+    "Self-hosted Scraping-as-a-Service - FlareSolverr drop-in with a persistent browser pool and domain session cache.",
   lang: "en-US",
 
   cleanUrls: true,
@@ -42,6 +42,7 @@ export default defineConfig({
         items: [
           { text: "Quick Start", link: "/getting-started/quick-start" },
           { text: "Configuration", link: "/getting-started/configuration" },
+          { text: "Performance & Benchmarks", link: "/getting-started/performance" },
           { text: "Local Development", link: "/getting-started/local-development" },
         ],
       },
@@ -99,7 +100,7 @@ export default defineConfig({
     footer: {
       message:
         'Released under the <a href="https://github.com/germondai/trawl/blob/main/LICENSE" target="_blank">AGPL-3.0 License</a>.',
-      copyright: 'TRAWL — built by <a href="https://github.com/germondai" target="_blank">@germondai</a>',
+      copyright: 'TRAWL - built by <a href="https://github.com/germondai" target="_blank">@germondai</a>',
     },
 
     search: {

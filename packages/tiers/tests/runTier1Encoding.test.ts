@@ -18,7 +18,51 @@ const encodingCases: EncodingCase[] = [
   },
 ]
 
-describe("runTier1 — encoded response bodies", () => {
+describe("runTier1 - Accept-Encoding negotiation", () => {
+  test.each([
+    { name: "Accept-Encoding", value: "identity" },
+    { name: "accept-encoding", value: "gzip" },
+    { name: "AcCePt-EnCoDiNg", value: "gzip;q=0.8, br;q=0, zstd;q=0" },
+  ])("overrides browser defaults with $name: $value", async ({ name, value }) => {
+    const received: (string | null)[] = []
+    const server = Bun.serve({
+      port: 0,
+      fetch(request) {
+        received.push(request.headers.get("accept-encoding"))
+        return new Response("<html><body>Negotiated content</body></html>", {
+          headers: { "content-type": "text/html" },
+        })
+      },
+    })
+    try {
+      const result = await runTier1(server.url.href, { [name]: value })
+      expect(result.status).toBe("success")
+      expect(received).toEqual([value])
+    } finally {
+      server.stop(true)
+    }
+  })
+
+  test("retains browser compression defaults when the caller does not override them", async () => {
+    const received: (string | null)[] = []
+    const server = Bun.serve({
+      port: 0,
+      fetch(request) {
+        received.push(request.headers.get("accept-encoding"))
+        return new Response("ok", { headers: { "content-type": "text/plain" } })
+      },
+    })
+    try {
+      const result = await runTier1(server.url.href)
+      expect(result.status).toBe("success")
+      expect(received).toEqual(["gzip, deflate, br, zstd"])
+    } finally {
+      server.stop(true)
+    }
+  })
+})
+
+describe("runTier1 - encoded response bodies", () => {
   test.each(encodingCases)(
     "preserves $encoding representation bytes while decoding html",
     async ({ encoding, encode }) => {

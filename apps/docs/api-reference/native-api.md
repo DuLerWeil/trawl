@@ -1,9 +1,11 @@
 ---
 title: Native API
-description: POST /scrape — the native TRAWL endpoint with full tier control.
+description: POST /scrape - the native TRAWL endpoint with full tier control.
 ---
 
-# `POST /scrape` — Native API
+<span id="post-scrape-&#8212;-native-api"></span>
+
+# `POST /scrape` - Native API
 
 The native endpoint exposes TRAWL's full feature set: tier capping, session IDs, and rich timing metadata.
 
@@ -14,7 +16,8 @@ Create and manage named sessions through [Browser Sessions](/api-reference/brows
 ```typescript
 interface ScrapeRequest {
   url: string
-  maxTimeout?: number                    // ms, default 60000
+  maxTimeout?: number                    // ms, default SCRAPE_MAX_TIMEOUT_MS (60000)
+  solveEmbeddedCaptchas?: boolean         // attempt embedded form widgets, default true
   skipHttp?: boolean                     // skip Tier 1 (plain fetch), default false
   maxTier?: 1 | 2 | 3 | 4              // cap escalation at this tier
   sessionId?: string                     // existing isolated browser session ID
@@ -52,31 +55,45 @@ not relax that guard.
 
 ### Fields
 
-| Field        | Type    | Default  | Description                                                                                                                                                                                    |
-| ------------ | ------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `url`        | string  | —        | The URL to scrape                                                                                                                                                                              |
-| `maxTimeout` | number  | 60000    | Max total time in milliseconds                                                                                                                                                                 |
-| `skipHttp`   | boolean | false    | Skip Tier 1 (go straight to browser)                                                                                                                                                           |
-| `maxTier`    | 1–4     | 4        | Never escalate beyond this tier                                                                                                                                                                |
-| `sessionId`  | string  | hostname | Override the Redis session key                                                                                                                                                                 |
-| `headers`    | object  | —        | Custom headers forwarded to the target across all tiers — see [Custom Headers](/api-reference/custom-headers)                                                                                  |
-| `proxy`      | string  | —        | Strict proxy route for this request. HTTP(S) proxies are used by Tier 1 and browser tiers; SOCKS proxies skip Tier 1. Direct Tier 1 and the unproxied Tier 2 cache are never used — see [Configuration § Proxies](/getting-started/configuration#proxies) |
-| `screenshot` | boolean | false    | Capture a base64 JPEG of the viewport on browser tiers (2–4) and return it as `screenshot`. Tier 1 never produces one; use `skipHttp: true` to force a browser attempt                        |
-| `screenshotFullPage` | boolean | false | Capture the whole page when `screenshot: true`, up to 6,000 pixels high and 12 million pixels total. Oversized captures leave `screenshot` unset |
-| `screenshotWaitForSelector` | string | — | Wait up to 10 seconds for a visible CSS selector before capturing a screenshot; a timeout leaves `screenshot` unset |
-| `screenshotSelector` | string | — | Capture the first visible element matching a CSS selector when `screenshot: true`. Element captures keep the 6,000-pixel height, 12-million-pixel canvas and JPEG byte limits. Cannot be combined with `screenshotFullPage` |
-| `contentWaitForSelector` | string | — | On browser tiers, wait up to 10 seconds within the request budget for a visible CSS selector before reading the final HTML. A timeout returns the current HTML. Use `skipHttp: true` to ensure a browser tier is used |
-| `consoleLogs` | boolean | false   | Capture the page's console messages on the browser tiers (2–4) and return them as `consoleLogs`                                                                                                 |
-| `networkLogs` | boolean | false   | Capture per-request resource timings on the browser tiers (2–4) and return them as `networkLogs`                                                                                                |
-| `redirectChain` | boolean | false | Capture the URLs the main document walked on the browser tiers (2–4) and return them as `redirectChain`                                                                                         |
-| `captureResponses` | string[] | — | URL patterns — a substring, or a glob matched against the whole URL when the pattern contains `*` or `?` — whose response bodies are returned as `capturedResponses` (browser tiers 2–4)     |
-| `settleTimeout` | number | 15000  | Milliseconds to hold the page open after load waiting for a match; ends early on the first captured body, on `waitForSelector`, or on network idle. Only read alongside `captureResponses`  |
-| `waitForSelector` | string | —    | CSS selector that also ends the settle window early. Only read alongside `captureResponses`                                                                                                 |
-| `blockedEvidence` | boolean | false | When no tier clears the challenge, attach the wall the last browser tier stopped at to the 500 body as `blockedEvidence`. It is never attached to a successful result — see the note below. The image rides along only when `screenshot` is also set |
-| `mhtml` | boolean | false        | Assemble a `multipart/related` MHTML archive of the page on the browser tiers (2–4) and return it as `mhtml`. An approximation of "Save as MHTML", not an engine snapshot — see the note below |
-| `ignoreCertificateErrors` | boolean | false | Load the page even when its TLS certificate fails verification (expired, self-signed, issued for another host) instead of failing the fetch. Off by default, so every other caller keeps a verified connection. An unverified connection no longer proves whose page came back, so the request also gets the crossed-landing guard — see the note below |
-| `followMetaRefresh` | boolean | false | Follow HTTP(S) meta refresh redirects with delays up to 10 seconds, allowing at most 3 browser-followed hops. Tier 1 escalates eligible HTML forwarders to a browser; Tiers 2–4 follow in the existing context. Reload-only refreshes are ignored. Navigation failures, loops, and exhausted budgets fail the attempt instead of returning the forwarder. |
-| `favicons` | boolean | false | Fetch the apex `/favicon.ico` and every declared link whose `rel` contains `icon` from inside the page on the browser tiers (2–4) and return them as `favicons`. Tier 1 never produces them; use `skipHttp: true` to force a browser attempt — see the note below |
+| Field                       | Type     | Default  | Description                                                                                                                                                                                                                                                                                                                                               |
+| --------------------------- | -------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `url`                       | string   | -        | The URL to scrape                                                                                                                                                                                                                                                                                                                                         |
+| `maxTimeout`                | number   | `SCRAPE_MAX_TIMEOUT_MS` (60000)    | Max total time in milliseconds; an explicit value overrides the deployment default                                                                                                                                                                                                                                                                                                                            |
+| `skipHttp`                  | boolean  | false    | Skip Tier 1 (go straight to browser)                                                                                                                                                                                                                                                                                                                      |
+| `maxTier`                   | 1-4      | 4        | Never escalate beyond this tier                                                                                                                                                                                                                                                                                                                           |
+| `sessionId`                 | string   | hostname | Override the Redis session key                                                                                                                                                                                                                                                                                                                            |
+| `headers`                   | object   | -        | Custom headers forwarded to the target across all tiers - see [Custom Headers](/api-reference/custom-headers)                                                                                                                                                                                                                                             |
+| `proxy`                     | string   | -        | Strict proxy route for this request. HTTP(S) proxies are used by Tier 1 and browser tiers; SOCKS proxies skip Tier 1. Direct Tier 1 and the unproxied Tier 2 cache are never used - see [Configuration § Proxies](/getting-started/configuration#proxies)                                                                                                 |
+| `screenshot`                | boolean  | false    | Capture a base64 JPEG of the viewport on browser tiers (2-4) and return it as `screenshot`. Tier 1 never produces one; use `skipHttp: true` to force a browser attempt                                                                                                                                                                                    |
+| `screenshotFullPage`        | boolean  | false    | Capture the whole page when `screenshot: true`, up to 6,000 pixels high and 12 million pixels total. Oversized captures leave `screenshot` unset                                                                                                                                                                                                          |
+| `screenshotWaitForSelector` | string   | -        | Wait up to 10 seconds for a visible CSS selector before capturing a screenshot; a timeout leaves `screenshot` unset                                                                                                                                                                                                                                       |
+| `screenshotSelector`        | string   | -        | Capture the first visible element matching a CSS selector when `screenshot: true`. Element captures keep the 6,000-pixel height, 12-million-pixel canvas and JPEG byte limits. Cannot be combined with `screenshotFullPage`                                                                                                                               |
+| `contentWaitForSelector`    | string   | -        | On browser tiers, wait up to 10 seconds within the request budget for a visible CSS selector before reading the final HTML. A timeout returns the current HTML. Use `skipHttp: true` to ensure a browser tier is used                                                                                                                                     |
+| `consoleLogs`               | boolean  | false    | Capture the page's console messages on the browser tiers (2-4) and return them as `consoleLogs`                                                                                                                                                                                                                                                           |
+| `networkLogs`               | boolean  | false    | Capture per-request resource timings on the browser tiers (2-4) and return them as `networkLogs`                                                                                                                                                                                                                                                          |
+| `redirectChain`             | boolean  | false    | Capture the URLs the main document walked on the browser tiers (2-4) and return them as `redirectChain`                                                                                                                                                                                                                                                   |
+| `captureResponses`          | string[] | -        | URL patterns - a substring, or a glob matched against the whole URL when the pattern contains `*` or `?` - whose response bodies are returned as `capturedResponses` (browser tiers 2-4)                                                                                                                                                                  |
+| `settleTimeout`             | number   | 15000    | Milliseconds to hold the page open after load waiting for a match; ends early on the first captured body, on `waitForSelector`, or on network idle. Only read alongside `captureResponses`                                                                                                                                                                |
+| `waitForSelector`           | string   | -        | CSS selector that also ends the settle window early. Only read alongside `captureResponses`                                                                                                                                                                                                                                                               |
+| `blockedEvidence`           | boolean  | false    | When no tier clears the challenge, attach the wall the last browser tier stopped at to the 500 body as `blockedEvidence`. It is never attached to a successful result - see the note below. The image rides along only when `screenshot` is also set                                                                                                      |
+| `mhtml`                     | boolean  | false    | Assemble a `multipart/related` MHTML archive of the page on the browser tiers (2-4) and return it as `mhtml`. An approximation of "Save as MHTML", not an engine snapshot - see the note below                                                                                                                                                            |
+| `ignoreCertificateErrors`   | boolean  | false    | Load the page even when its TLS certificate fails verification (expired, self-signed, issued for another host) instead of failing the fetch. Off by default, so every other caller keeps a verified connection. An unverified connection no longer proves whose page came back, so the request also gets the crossed-landing guard - see the note below   |
+| `followMetaRefresh`         | boolean  | false    | Follow HTTP(S) meta refresh redirects with delays up to 10 seconds, allowing at most 3 browser-followed hops. Tier 1 escalates eligible HTML forwarders to a browser; Tiers 2-4 follow in the existing context. Reload-only refreshes are ignored. Navigation failures, loops, and exhausted budgets fail the attempt instead of returning the forwarder. |
+| `favicons`                  | boolean  | false    | Fetch the apex `/favicon.ico` and every declared link whose `rel` contains `icon` from inside the page on the browser tiers (2-4) and return them as `favicons`. Tier 1 never produces them; use `skipHttp: true` to force a browser attempt - see the note below                                                                                         |
+
+### Embedded CAPTCHA widgets
+
+Detected blocking challenges must still pass the normal solver and wall checks. Afterward, the browser tiers
+also attempt embedded form widgets by default. Set `solveEmbeddedCaptchas: false` when you
+only need the page content and do not need a form token. MCP `scrape` accepts the same flag.
+This does not bypass interstitial checks or submit forms.
+
+Widget solving is best effort and leaves time within `maxTimeout` to capture the loaded page.
+A successful scrape confirms page delivery, not that every embedded widget was solved.
+Only verified solutions appear in `captchasSolved`; an empty token is never reported as solved.
+For Turnstile, a token in a response field removed by a callback still counts as observed.
+Widget disappearance alone is not treated as a solution.
+The FlareSolverr `/v1` adapter defaults this flag to `false` for page-access compatibility.
 
 Captured response bodies, headers, console messages, URLs, blocked-page HTML, screenshots,
 favicons, and MHTML archives can contain credentials, tokens, personal data, or active scripts.
@@ -96,7 +113,7 @@ interface ScrapeResult {
   timings: TierResult[]        // per-tier attempt history
   totalMs: number
   captchasSolved?: string[]    // captcha types solved on the page itself (e.g. ['turnstile'])
-  proxyUsed?: boolean          // true if the winning tier routed through a proxy (Tier 3 datacenter pool or Tier 4 residential pool/override)
+  proxyUsed?: boolean          // true if the winning tier routed through a proxy, including cached Tier 2 reuse
   screenshot?: string          // base64 JPEG of the viewport, only when requested and a browser tier served the page
   consoleLogs?: ConsoleLogEntry[]  // console messages, only when requested and a browser tier served the page
   networkLogs?: NetworkLogEntry[]  // resource timings, same presence rules as consoleLogs
@@ -122,7 +139,7 @@ interface NetworkLogEntry {
   initiatorType: string        // resource type (document, script, xhr, image, ...)
   transferSize: number | null  // response body + headers on the wire
   encodedBodySize: number | null
-  decodedBodySize: number | null  // always null — knowing it would mean reading every body
+  decodedBodySize: number | null  // always null - knowing it would mean reading every body
 }
 
 interface CapturedResponseEntry {
@@ -173,7 +190,7 @@ interface BlockedEvidence {
 }
 ```
 
-The wall reported is the **last attempt from the deepest** browser tier that rendered one —
+The wall reported is the **last attempt from the deepest** browser tier that rendered one -
 a Tier 3 wall is replaced by Tier 4's when Tier 4 also fails, and a later proxy attempt
 replaces an earlier one in the same tier. Some failures have no page to hand
 back at all and carry no evidence: Tier 1 (a plain HTTP fetch, no browser), a tier that
@@ -201,7 +218,7 @@ omissions and anything dropped for a size budget are counted in the
 `X-Trawl-Omitted-Resources` header and, up to the configured record cap, listed in a final
 `text/plain` part, so an archive that hits a cap is still a valid MHTML that says what it
 is missing. Non-HTML responses and roots too large for the total cap leave `mhtml` unset.
-The field is excluded from `timings` and tier telemetry. Bounds are tunable via `MHTML_*` — see
+The field is excluded from `timings` and tier telemetry. Bounds are tunable via `MHTML_*` - see
 [Configuration](/getting-started/configuration#mhtml-archives).
 
 MHTML may contain credentials, personal data and executable JavaScript from the target.
@@ -211,7 +228,7 @@ sandbox unless you trust the page.
 ## Invalid Certificates
 
 `ignoreCertificateErrors: true` lets a page load even though a certificate in its redirect
-chain is expired, self-signed or issued for another host — without it the fetch fails
+chain is expired, self-signed or issued for another host - without it the fetch fails
 outright and nothing about the page is readable. The relaxation is per request: Tier 1
 retries only the TLS hop whose verified attempt failed, Tiers 3 and 4 set it on the temporary
 context they create for that one request, and the pooled contexts every other caller uses
@@ -222,7 +239,7 @@ in `timings` as `skipped`.
 When a verified Tier 1 hop failed, its reason comes back as `certificateError`, e.g.
 `"DEPTH_ZERO_SELF_SIGNED_CERT: self signed certificate"`. The field is absent when the
 certificate verified, when the flag was not set, and when no verified attempt was made
-(`skipHttp: true`) — absence means "not observed", not "the certificate was valid".
+(`skipHttp: true`) - absence means "not observed", not "the certificate was valid".
 
 ### The crossed-landing guard
 
@@ -248,8 +265,8 @@ who it claims to be, which is exactly what the unverified certificate failed to 
 
 ## Favicons
 
-A page may declare several icons — size and device variants, `apple-touch-icon`,
-`mask-icon`, `shortcut icon` — and the browser renders exactly one of them. `favicons: true`
+A page may declare several icons - size and device variants, `apple-touch-icon`,
+`mask-icon`, `shortcut icon` - and the browser renders exactly one of them. `favicons: true`
 returns the whole declared set instead, plus the apex icon, so a caller that wants the
 icons a site actually publishes is not limited to the one that happened to fit a tab.
 
@@ -261,11 +278,11 @@ arrives as a stranger with none of that, which is what a bot wall answers 403 to
 Two things are collected, in this order:
 
 1. The apex `/favicon.ico`, whether or not the page declares it. It is what a browser falls
-   back to, and a headless browser paints no tab — so it requests at most the single icon it
+   back to, and a headless browser paints no tab - so it requests at most the single icon it
    would have drawn and never the apex one. A page declaring no icon at all yields nothing
    whatsoever on the response stream.
-2. Every `<link>` whose `rel` contains `icon` — so `apple-touch-icon`, `mask-icon`,
-   `shortcut icon` and `alternate icon` all count — resolved against the document base. An
+2. Every `<link>` whose `rel` contains `icon` - so `apple-touch-icon`, `mask-icon`,
+   `shortcut icon` and `alternate icon` all count - resolved against the document base. An
    inline `data:` icon is fetched the same way and reported as `data:<mime>`: its href is the
    payload rather than a name, and repeating it next to the bytes decoded from it would carry
    the icon twice.
@@ -284,7 +301,7 @@ Two limits are worth knowing. The in-page `fetch` is subject to the page's CORS 
 cross-origin icon whose host sends no `Access-Control-Allow-Origin` fails and is reported as
 an error entry. And collection runs after the response listeners are drained, so these
 fetches never appear in `networkLogs`, `capturedResponses` or the MHTML archive. Bounds are
-tunable via `FAVICON_*` — see [Configuration](/getting-started/configuration#favicons).
+tunable via `FAVICON_*` - see [Configuration](/getting-started/configuration#favicons).
 
 Icon bytes come from the target like any other scraped content. Treat them as untrusted:
 an `image/svg+xml` icon is a document that can carry script.
@@ -363,7 +380,7 @@ HTTP status codes:
 | ---- | -------------------------------------------------------------------- |
 | 200  | `tier` succeeded                                                     |
 | 400  | Malformed request body                                               |
-| 429  | Pool exhausted — all browsers busy past `BROWSER_ACQUIRE_TIMEOUT_MS` |
+| 429  | Pool exhausted - all browsers busy past `BROWSER_ACQUIRE_TIMEOUT_MS` |
 | 503  | Browser pool initializing                                            |
 | 500  | Internal error                                                       |
 
@@ -391,7 +408,7 @@ For 400 / 503 the body is the native shape `{ "error": "Human-readable message" 
 
 For 500 errors raised after at least one tier was attempted, the body also includes the
 per-tier attempt history, so a failed request is still fully diagnosable from the response
-alone — no need to check server logs:
+alone - no need to check server logs:
 
 ```json
 {
@@ -405,7 +422,7 @@ alone — no need to check server logs:
 ```
 
 When the request set `blockedEvidence: true` and a browser tier rendered a challenge wall,
-the same body also carries that page — see
+the same body also carries that page - see
 [Blocked-Outcome Evidence](#blocked-outcome-evidence):
 
 ```json

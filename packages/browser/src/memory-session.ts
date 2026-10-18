@@ -40,7 +40,7 @@ export class MemorySessionCache implements SessionCacheStore {
   }
 
   async connect(): Promise<void> {
-    // No-op — nothing to connect to.
+    // No-op - nothing to connect to.
   }
 
   close(): void {
@@ -48,7 +48,7 @@ export class MemorySessionCache implements SessionCacheStore {
   }
 
   private key(domain: string): string {
-    return `session:${domain}`
+    return `session:v2:${domain}`
   }
 
   async save(domain: string, data: SessionData): Promise<void> {
