@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, test } from "bun:test"
 import { scrape } from "../src/orchestrator"
+import { DeadlineError, RequestBudget } from "../src/utils/deadline"
 import { hasImpervaChallenge } from "../src/utils/detect"
 
 const fixture = Bun.serve({
@@ -193,4 +194,26 @@ test("a browser acquired after cancellation is released without starting a tier"
   ).rejects.toThrow("Browser pool exhausted")
   await Bun.sleep(60)
   expect(releases).toBe(1)
+})
+
+test("an expired deadline takes precedence over a transport rejection before the timer callback", async () => {
+  const budget = new RequestBudget(20)
+  let cleaned = false
+  budget.own(async () => {
+    cleaned = true
+  })
+  try {
+    const failure = await budget
+      .run(async () => {
+        // Delay timer callbacks so the transport rejection reaches the budget first.
+        Bun.sleepSync(25)
+        throw new Error("TLS request timed out")
+      })
+      .catch((error: unknown) => error)
+    expect(failure).toBeInstanceOf(DeadlineError)
+    expect(budget.signal.aborted).toBeTrue()
+    expect(cleaned).toBeTrue()
+  } finally {
+    budget.dispose()
+  }
 })

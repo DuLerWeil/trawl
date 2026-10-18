@@ -22,7 +22,6 @@ import { isGoogleSorryUrl } from "../utils/googleSorry"
 import { trackMainDocumentResponses } from "../utils/mainResponse"
 import { followMetaRefresh } from "../utils/metaRefresh"
 import { installOutboundPolicy, type OutboundUrlValidator } from "../utils/outboundPolicy"
-import { installResourceBlocker } from "../utils/resourceBlocker"
 import { browserDocumentHtml, captureResponse, isHtmlContentType } from "../utils/response"
 import type { RouteLike } from "../utils/sanitize"
 import { routeContinueOverrides } from "../utils/sanitize"
@@ -76,9 +75,6 @@ async function runTier2Task(
     budget.check()
     page.setDefaultTimeout?.(Math.max(1, budget.remaining()))
     await installOutboundPolicy(page, validateOutboundUrl)
-    // Document-only flows never need images/media/fonts. Skipped when a screenshot is
-    // requested - those need the page fully rendered.
-    const resourceBlocker = screenshot ? undefined : installResourceBlocker(page)
 
     // addCookies replaces cookies by name+domain+path, so no need to clearCookies first.
     // Keeping the context's CF cookies (cf_clearance, __cf_bm) intact means CF sees a
@@ -228,8 +224,6 @@ async function runTier2Task(
 
     // Attempt to solve any embedded captcha widgets (Turnstile, reCAPTCHA, hCaptcha).
     // Pages that load cleanly via session cache may still have in-page challenge widgets.
-    // Captcha solving may need runtime image fetches - reopen what the blocker held back.
-    resourceBlocker?.disable()
     // Embedded widgets are best effort; leave time to return the loaded document.
     const solveRemaining = Math.max(0, budget.remaining() - 2000)
     let captchasSolved: string[] = []

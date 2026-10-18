@@ -3,7 +3,7 @@ import type { BrowserHandle } from "@trawl/browser"
 import type { Cookie, ScrapeRequest, SessionData } from "@trawl/types"
 import { type OrchestratorDeps, scrape } from "../src/orchestrator"
 import { runTier1 } from "../src/tiers/1"
-import { HttpSessionCookies } from "../src/utils/httpSessionCookies"
+import { HttpSessionCookies, httpReplayProof } from "../src/utils/httpSessionCookies"
 import { ProxyPool } from "../src/utils/proxyRotator"
 
 let server: ReturnType<typeof Bun.serve> | undefined
@@ -40,18 +40,32 @@ describe("HTTP clearance boundaries", () => {
     expect(HttpSessionCookies.from(session, "https://other.test/")).toBeUndefined()
     expect(HttpSessionCookies.from({ ...session, httpOrigin: undefined }, "https://example.test/")).toBeUndefined()
     expect(
-      HttpSessionCookies.from(
-        cached([clearance("example.test", { name, expires: 1 })]),
-        "https://example.test/",
-      )?.header("https://example.test/"),
-    ).toBe("")
+      HttpSessionCookies.from(cached([clearance("example.test", { name, expires: 1 })]), "https://example.test/"),
+    ).toBeUndefined()
   })
 
-  test("replays a session that has no challenge cookie", () => {
+  test("does not replay an unverified generic session", () => {
     const session = cached([clearance("example.test", { name: "session", value: "logged-in" })])
-    expect(HttpSessionCookies.from(session, "https://example.test/")?.header("https://example.test/")).toBe(
-      "session=logged-in",
-    )
+    expect(HttpSessionCookies.from(session, "https://example.test/")).toBeUndefined()
+  })
+
+  test("generic replay binds document structure and attributes to the verified URL", () => {
+    const html = '<html><body><a href="/correct">Details</a></body></html>'
+    const session = cached([clearance("example.test", { name: "session" })])
+    session.httpReplay = httpReplayProof("https://example.test/", html, session.cookies)
+    const jar = HttpSessionCookies.from(session, "https://example.test/")
+    expect(jar?.matchesDocument("https://example.test/", html)).toBe(true)
+    expect(jar?.matchesDocument("https://example.test/", html.replace("/correct", "/wrong"))).toBe(false)
+    expect(
+      jar?.matchesDocument(
+        "https://example.test/",
+        html.replace("<body>", "<head><title>Different page</title></head><body>"),
+      ),
+    ).toBe(false)
+    expect(HttpSessionCookies.from(session, "https://example.test/other")).toBeUndefined()
+    expect(
+      httpReplayProof("https://example.test/", `<html><body>${"a".repeat(262_144)}</body></html>`, session.cookies),
+    ).toBeUndefined()
   })
 
   test("honors host-only/domain cookies, paths, expiry, secure transport and longest path first", () => {
@@ -71,10 +85,8 @@ describe("HTTP clearance boundaries", () => {
     expect(() => jar?.header("https://child.example.test/")).toThrow("session-redirect-needs-browser")
     expect(() => jar?.header("http://example.test/")).toThrow("session-redirect-needs-browser")
     expect(
-      HttpSessionCookies.from(cached([clearance("example.test", { expires: 1 })]), "https://example.test/")?.header(
-        "https://example.test/",
-      ),
-    ).toBe("")
+      HttpSessionCookies.from(cached([clearance("example.test", { expires: 1 })]), "https://example.test/"),
+    ).toBeUndefined()
     expect(HttpSessionCookies.from({ ...cached(), httpOrigin: undefined }, "https://example.test/")).toBeUndefined()
     expect(HttpSessionCookies.from(cached(), "https://example.test:8443/")).toBeUndefined()
   })
@@ -170,6 +182,54 @@ describe("HTTP clearance boundaries", () => {
     expect(refused).toMatchObject({ status: "error", reason: "session-redirect-needs-browser" })
     expect(seen).toHaveLength(3)
   })
+})
+
+test.each([false, true])("generic session replay verifies rendered content (partial=%s)", async (partial) => {
+  const complete = "<html><body><nav>Site navigation</nav><main>Verified application content</main></body></html>"
+  server = Bun.serve({
+    port: 0,
+    fetch(request) {
+      if (!request.headers.get("cookie")?.includes("session=verified"))
+        return new Response("Access denied", { status: 403, headers: { "content-type": "text/html" } })
+      return new Response(
+        partial
+          ? '<html><body><nav>Site navigation</nav><main id="root"></main><script src="/app.js"></script></body></html>'
+          : complete,
+        { headers: { "content-type": "text/html" } },
+      )
+    },
+  })
+  const url = `http://127.0.0.1:${server.port}/`
+  let saved: SessionData | undefined
+  let checkouts = 0
+  const deps: OrchestratorDeps = {
+    acquireBrowser: async () => {
+      checkouts++
+      return { fingerprint: { userAgent: "verified-agent" } } as BrowserHandle
+    },
+    releaseBrowser: () => {},
+    loadSession: async () => saved,
+    saveSession: async (_domain, data) => {
+      saved = data
+    },
+    invalidateSession: async () => {
+      saved = undefined
+    },
+  }
+  const browserResult = {
+    status: "success" as const,
+    durationMs: 1,
+    html: complete,
+    effectiveUrl: url,
+    contentType: "text/html",
+    userAgent: "verified-agent",
+    cookies: [clearance("127.0.0.1", { name: "session", secure: false })],
+  }
+  await scrape({ url }, deps, { tier3: async () => ({ ...browserResult, tier: 3 }) })
+  const result = await scrape({ url }, deps, { tier2: async () => ({ ...browserResult, tier: 2 }) })
+  expect(result.html).toContain("Verified application content")
+  expect(result.tier).toBe(partial ? 2 : 1)
+  expect(checkouts).toBe(partial ? 2 : 1)
 })
 
 describe("HTTP clearance fallback", () => {
@@ -269,6 +329,7 @@ describe("HTTP clearance fallback", () => {
     server = Bun.serve({ port: 0, fetch: () => new Promise<Response>(() => {}) })
     const origin = `http://127.0.0.1:${server.port}`
     let remaining = 0
+    let httpDeadline = 0
     const result = await scrape(
       { url: origin, maxTier: 2, maxTimeout: 900 },
       {
@@ -281,12 +342,20 @@ describe("HTTP clearance fallback", () => {
         saveSession: async () => {},
         invalidateSession: async () => {},
       },
-      { tier2: async () => ({ ...success, tier: 2 }) },
+      {
+        tier1: async (...args) => {
+          httpDeadline = args[10] ?? 0
+          return runTier1(...args)
+        },
+        tier2: async () => ({ ...success, tier: 2 }),
+      },
     )
     expect(result.tier).toBe(2)
     expect(result.timings[0]?.status).toBe("error")
     expect(remaining).toBeGreaterThan(0)
     expect(remaining).toBeLessThan(800)
+    expect(httpDeadline).toBeGreaterThan(0)
+    expect(httpDeadline).toBeLessThanOrEqual(300)
   })
 })
 

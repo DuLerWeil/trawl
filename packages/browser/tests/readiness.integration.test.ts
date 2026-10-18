@@ -21,6 +21,17 @@ describe.skipIf(process.env.TRAWL_READINESS_TESTS !== "1")("browser readiness wi
       idleTimeout: 0,
       async fetch(request) {
         const path = new URL(request.url).pathname
+        if (path === "/app.js") {
+          return new Response('document.querySelector("#app").innerHTML = \'<h1 id="ready">loaded</h1>\'', {
+            headers: { "content-type": "application/javascript" },
+          })
+        }
+        if (path === "/external") {
+          return new Response(
+            `<html><body><p>${"Application content. ".repeat(200)}</p><div id="app"></div><script src="/app.js"></script></body></html>`,
+            { headers: { "content-type": "text/html", "cache-control": "no-store" } },
+          )
+        }
         if (path === "/pending") {
           return new Response(
             new ReadableStream({
@@ -110,6 +121,12 @@ describe.skipIf(process.env.TRAWL_READINESS_TESTS !== "1")("browser readiness wi
   }
 
   for (const tier of [2, 3, 4] as const) {
+    test(`Tier ${tier} preserves external application scripts`, async () => {
+      const result = await run(tier, "/external", { contentWaitForSelector: "#ready" }, 3000)
+      expect(result.status, result.reason).toBe("success")
+      expect(result.html).toContain('<h1 id="ready">loaded</h1>')
+    }, 10000)
+
     test(`Tier ${tier} captures ready content while an unrelated request remains open`, async () => {
       const result = await run(tier, "/", { contentWaitForSelector: "#ready", captureResponses: ["/api/content"] })
       expect(result.status, result.reason).toBe("success")

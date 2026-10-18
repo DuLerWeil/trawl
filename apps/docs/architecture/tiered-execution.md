@@ -33,7 +33,11 @@ Tier 4: Residential Proxy ─── success ──→ cache cookies, return
 
 ## Tier 1 - Plain HTTP Fetch
 
-The cheapest tier. Uses Bun's native `fetch()` with the same Firefox navigation header set the Camoufox browser tiers send:
+The cheapest tier. Uses Bun's native `fetch()` by default, with Firefox navigation
+headers. Set [`TIER1_TRANSPORT=wreq`](/getting-started/configuration#tier1-transport)
+to opt into Firefox TLS/HTTP2 impersonation. Its native profile supplies the fresh
+HTTP User-Agent; accepted clearance replays keep the saved browser identity.
+The default Bun header set is:
 
 ```
 User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0

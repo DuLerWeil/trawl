@@ -164,6 +164,38 @@ floor to Tier 2 but cannot lower this deployment-wide setting.
 For the MITM forward proxy, this setting applies only after the request enters the scraper ladder.
 Set `MITM_ALWAYS_SCRAPE=true` as well when the proxy's direct Tier 0 probe must also be disabled.
 
+## Tier 1 HTTP Transport
+
+### `TIER1_TRANSPORT`
+
+**Default:** `bun`
+
+Choose `bun` for Bun's native fetch or `wreq` for Firefox TLS/HTTP2 impersonation
+through the bundled node-wreq addon. Both run under Bun; Node.js is not required
+by the scraper service. Invalid values stop startup.
+
+```ini
+TIER1_TRANSPORT=wreq
+```
+
+The native binding initializes at startup only when selected. It selects the
+newest numbered Firefox profile supported by the pinned package and uses its
+matching Linux User-Agent for fresh HTTP requests. This profile is not necessarily
+the same browser version as Camoufox. Eligible clearance replays retain their
+saved browser User-Agent and cookies; rejected clearance falls back to the browser.
+
+This option can help targets that reject the default HTTP fingerprint. It does
+not replace browser CAPTCHA solving or guarantee higher success. The addon adds
+native memory and worker threads. Select it for workloads that benefit from it.
+
+Proxy routing, TLS verification, request deadlines and encoded response bytes
+are preserved. Native cancellation stops the caller's read immediately, but native
+resources can remain until the original HTTP deadline. A rejected clearance replay
+keeps its shorter HTTP deadline before browser fallback.
+
+The MITM listener's direct Tier 0 forwarding is unchanged. Set
+`MITM_ALWAYS_SCRAPE=true` if proxy requests must enter the scraper ladder.
+
 ## User Prefs
 
 ### `USER_PREFS`

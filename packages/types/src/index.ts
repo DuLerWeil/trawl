@@ -242,6 +242,8 @@ export interface SessionData {
   proxyId?: string
   // Origin verified by a direct browser request. Absent on legacy/proxied sessions.
   httpOrigin?: string
+  // Same-URL document proof for HTTP replay without a recognized clearance cookie.
+  httpReplay?: { url: string; contentHash: string }
 }
 
 export interface PoolBrowser {

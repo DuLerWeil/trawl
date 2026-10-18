@@ -1,4 +1,33 @@
 import type { Cookie, SessionData } from "@trawl/types"
+import { parseHTML } from "linkedom"
+
+function documentHash(html: string): string | undefined {
+  // Bound parsing cost; uncertain or empty documents stay on the browser path.
+  if (!html || html.length > 262_144) return
+  try {
+    const { document } = parseHTML(html)
+    const body = document.body
+    if (body?.textContent?.trim())
+      return new Bun.CryptoHasher("sha256").update(document.documentElement.outerHTML.trim()).digest("hex")
+  } catch {
+    return
+  }
+}
+
+export function httpReplayProof(url: string, html: string, cookies: Cookie[]): SessionData["httpReplay"] {
+  if (hasClearance(cookies, new URL(url))) return
+  const contentHash = documentHash(html)
+  return contentHash ? { url: new URL(url).href, contentHash } : undefined
+}
+
+function hasClearance(cookies: Cookie[], target: URL): boolean {
+  return cookies.some(
+    (cookie) =>
+      (cookie.name === "cf_clearance" || /^techaro\.lol-anubis(?:-auth)?(?:-[a-f0-9]{8})?$/.test(cookie.name)) &&
+      cookie.value &&
+      matches(cookie, target),
+  )
+}
 
 function matches(cookie: Cookie, url: URL): boolean {
   const domain = cookie.domain.toLowerCase()
@@ -21,6 +50,7 @@ export class HttpSessionCookies {
   constructor(
     private readonly origin: string,
     cookies: Cookie[],
+    private readonly proof?: SessionData["httpReplay"],
   ) {
     this.cookies = cookies.map((cookie) => ({ ...cookie }))
     this.domains = new Set(cookies.map((cookie) => cookie.domain.replace(/^\./, "").toLowerCase()))
@@ -28,10 +58,19 @@ export class HttpSessionCookies {
 
   static from(session: SessionData | undefined, url: string): HttpSessionCookies | undefined {
     const target = new URL(url)
-    // Replay is bound to the origin the browser verified, so ordinary (non-challenge)
-    // sessions replay too - the site may gate content on login cookies alone.
     if (session?.httpOrigin !== target.origin || !session.userAgent || session.cookies.length > 200) return
-    return new HttpSessionCookies(target.origin, session.cookies)
+    if (hasClearance(session.cookies, target)) return new HttpSessionCookies(target.origin, session.cookies)
+    if (
+      !session.cookies.some((cookie) => cookie.value && matches(cookie, target)) ||
+      session.httpReplay?.url !== target.href ||
+      !/^[a-f0-9]{64}$/.test(session.httpReplay.contentHash)
+    )
+      return
+    return new HttpSessionCookies(target.origin, session.cookies, session.httpReplay)
+  }
+
+  matchesDocument(url: string, html: string): boolean {
+    return !this.proof || (this.proof.url === new URL(url).href && documentHash(html) === this.proof.contentHash)
   }
 
   header(url: string): string {

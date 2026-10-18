@@ -8,14 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Learn per-domain tier outcomes and skip Tier 1 after repeated `needs-js` responses, resetting the profile after a successful HTTP request or fresh browser solve.
-- Block image, media, font and unconfirmed script/stylesheet requests in browser tiers, logging each decision with the scrape request id.
+- Skip repeated JavaScript-shell HTTP attempts for the same safe GET URL while respecting explicit request options and retrying HTTP after browser failure or fresh clearance (#229).
+- Add opt-in Firefox TLS/HTTP2 impersonation for Tier 1 with `TIER1_TRANSPORT=wreq` using node-wreq. Keep Bun fetch as the default and preserve clearance replay, proxy routing, scoped certificate trust and request deadlines (#213, #217).
 - Configure the default scrape deadline with `SCRAPE_MAX_TIMEOUT_MS` across the native API, FlareSolverr API, MCP and proxy scraper fallbacks. Explicit request timeouts take precedence; the default remains 60 seconds (#214).
 
 ### Fixed
-- Honor `LOG_LEVEL` for resource-block decision logs so debug lines no longer appear at `info`.
-- Separate invisible reCAPTCHA v3 scripts from visible v2 challenge shells so ordinary pages are not mistaken for CAPTCHA challenges.
-- Replay browser-verified session cookies over HTTP for any origin, not only Cloudflare and Anubis challenges.
+- Ignore passive reCAPTCHA v3 scripts while retaining explicit v2 rendering and widgets on large documents (#229).
+- Reuse direct browser sessions beyond Cloudflare and Anubis only for the verified URL and matching document content; retain browser fallback and cookie, proxy and TLS boundaries (#229).
+- Encode newly generated MITM certificate serial numbers as positive, canonical DER integers even when random bytes start with zeros, avoiding intermittent rejection by strict TLS clients (#217).
 - Automatically capture Turnstile render parameters on Cloudflare Challenge Pages for the opt-in 2Captcha fallback, without a site profile. Preserve local solving, browser user agent, explicit proxy routing and shared task limits; reject expired or replaced challenges and verify that the wall clears after callback delivery (#220).
 - Limit Cloudflare clearance recovery to one navigation, allow refreshed clearance to finish, and retain time for an available residential fallback instead of exhausting the request in Tier 3 (#219).
 - Recognize embedded Turnstile tokens consumed during widget removal without treating widget disappearance alone as success (#221).

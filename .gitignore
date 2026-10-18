@@ -9,8 +9,3 @@ apps/docs/.vitepress/dist/
 dist/
 .turbo/
 __pycache__/
-.camoufox/
-.trae/
-.metrics/
-.proxy-ca/
-*.log

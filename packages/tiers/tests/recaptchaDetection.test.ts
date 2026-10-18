@@ -33,9 +33,20 @@ describe("reCAPTCHA shell detection", () => {
     ).toBe(true)
   })
 
-  test("does not treat a full page embedding a v2 widget as a challenge shell", () => {
+  test("preserves v2 widget detection on large documents", () => {
     const html = `<html><body><div class="g-recaptcha" data-sitekey="owned"></div>${"content ".repeat(3000)}</body></html>`
     expect(html.length).toBeGreaterThan(20_000)
-    expect(hasRecaptcha(html)).toBe(false)
+    expect(hasRecaptcha(html)).toBe(true)
+  })
+
+  test("recognizes explicit v2 rendering without static widget markup", () => {
+    const html =
+      '<html><script src="https://www.google.com/recaptcha/api.js?onload=ready&render=explicit"></script></html>'
+    expect(hasRecaptcha(html)).toBe(true)
+  })
+
+  test("keeps v2 detection when a page also loads v3", () => {
+    const html = `<script src="${V3_RENDER_SCRIPT}"></script><script src="https://www.google.com/recaptcha/api.js"></script>`
+    expect(hasRecaptcha(html)).toBe(true)
   })
 })

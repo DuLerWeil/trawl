@@ -27,6 +27,7 @@ import type { HttpSessionCookies } from "../utils/httpSessionCookies"
 import type { OutboundUrlValidator } from "../utils/outboundPolicy"
 import { normalizeProxyError, proxyResponseFailure } from "../utils/proxyFailure"
 import { decodeTextBody, isHtmlContentType, isTextContentType } from "../utils/response"
+import { tier1Transport, tier1UserAgent } from "../utils/tier1Transport"
 
 export interface Tier1Result extends TierResult {
   tier: 1
@@ -85,13 +86,14 @@ export async function runTier1(
   trustedProxyCa?: string,
   signal?: AbortSignal,
   sessionCookies?: HttpSessionCookies,
+  timeoutMs = 60_000,
 ): Promise<Tier1Result> {
   const start = Date.now()
   let certificateError: string | undefined
   try {
     const m = (method ?? "GET").toUpperCase()
     const headers: Record<string, string> = {
-      "user-agent": FINGERPRINT.userAgent,
+      "user-agent": tier1UserAgent(FINGERPRINT.userAgent),
       accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       "accept-language": "en-US,en;q=0.9",
       "accept-encoding": "gzip, deflate, br, zstd",
@@ -113,7 +115,8 @@ export async function runTier1(
     for (let redirects = 0; ; redirects++) {
       await validateOutboundUrl?.(currentUrl)
       const fetchHop = (insecure: boolean) =>
-        fetch(currentUrl, {
+        tier1Transport.fetch(currentUrl, {
+          timeoutMs: timeoutMs - (Date.now() - start),
           signal,
           method: currentMethod,
           body: currentBody,
@@ -121,7 +124,7 @@ export async function runTier1(
           // Manual redirects let an opted-in request retry only the TLS hop that failed.
           // Restarting from the original URL could submit a successful POST twice when a
           // later redirect target has an invalid certificate.
-          redirect: validateOutboundUrl || ignoreCertificateErrors || sessionCookies ? "manual" : "follow",
+          redirect: "manual",
           // Tier 1 feeds the MITM proxy, so its body must keep the same encoded
           // representation described by Content-Encoding, validators, and ranges.
           decompress: false,
@@ -144,20 +147,33 @@ export async function runTier1(
         await res.body?.cancel()
         throw error
       }
-      if (
-        !(validateOutboundUrl || ignoreCertificateErrors || sessionCookies) ||
-        ![301, 302, 303, 307, 308].includes(res.status)
-      ) {
+      if (![301, 302, 303, 307, 308].includes(res.status)) {
         break
       }
       const location = res.headers.get("location")
       if (!location) break
-      if (redirects >= 9) throw new Error("Too many redirects")
+      if (redirects >= (validateOutboundUrl || ignoreCertificateErrors || sessionCookies ? 9 : 19))
+        throw new Error("Too many redirects")
       await res.body?.cancel()
-      currentUrl = new URL(location, currentUrl).href
-      if (res.status === 303 || ((res.status === 301 || res.status === 302) && currentMethod === "POST")) {
+      const nextUrl = new URL(location, currentUrl)
+      if (nextUrl.origin !== new URL(currentUrl).origin) {
+        for (const name of ["authorization", "cookie", "proxy-authorization", "host"]) delete headers[name]
+      }
+      currentUrl = nextUrl.href
+      if (
+        (res.status === 303 && currentMethod !== "HEAD") ||
+        ((res.status === 301 || res.status === 302) && currentMethod === "POST")
+      ) {
         currentMethod = "GET"
         currentBody = undefined
+        for (const name of [
+          "content-type",
+          "content-length",
+          "content-encoding",
+          "content-language",
+          "content-location",
+        ])
+          delete headers[name]
       }
     }
 
@@ -173,6 +189,7 @@ export async function runTier1(
     const contentType = responseHeaders["content-type"] ?? "application/octet-stream"
     const proxyFailure = proxy ? proxyResponseFailure(res.status, responseHeaders) : undefined
     if (proxyFailure) {
+      await res.body?.cancel().catch(() => {})
       return {
         tier: 1,
         certificateError,
@@ -187,6 +204,7 @@ export async function runTier1(
     }
     const awsAction = getAwsWafAction(res.status, responseHeaders)
     if (awsAction) {
+      await res.body?.cancel().catch(() => {})
       return {
         tier: 1,
         certificateError,

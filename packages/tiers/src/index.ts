@@ -42,7 +42,6 @@ export {
 } from "./utils/detect"
 export { isGoogleSorryUrl } from "./utils/googleSorry"
 export { normalizeProxy, ProxyPool, type ProxySelection } from "./utils/proxyRotator"
-export { withRequestId } from "./utils/requestScope"
 export { isHtmlContentType } from "./utils/response"
 export {
   isValidMethod,
@@ -56,3 +55,4 @@ export {
   type SupportedMethod,
   sanitizeHeaders,
 } from "./utils/sanitize"
+export { TIER1_TRANSPORT, verifyTier1Transport } from "./utils/tier1Transport"
