@@ -61,7 +61,8 @@ export class RequestBudget {
               return result
             },
             async (error) => {
-              if (this.signal.aborted) {
+              if (this.signal.aborted || this.remaining() <= 0) {
+                this.controller.abort(new DeadlineError())
                 await this.drain()
                 throw new DeadlineError()
               }

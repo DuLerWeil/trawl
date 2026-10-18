@@ -1,3 +1,4 @@
+import { TIER1_TRANSPORT, verifyTier1Transport } from "@trawl/tiers"
 import { createApiApp } from "./app"
 import {
   HEADFUL_POOL_SIZE,
@@ -20,10 +21,13 @@ import { registerLifecycleHandlers } from "./lifecycle"
 import { type MitmProxyHandle, shutdownMitmProxy, startMitmProxy } from "./proxy/server"
 import { startMemoryMonitor } from "./runtimeMemory"
 
+if (SCRAPE_MIN_TIER === 1) await verifyTier1Transport()
+
 const app = createApiApp().listen(PORT)
 
 console.log(`[api] TRAWL starting on :${PORT}  (pool: ${POOL_SIZE} browser${POOL_SIZE === 1 ? "" : "s"})`)
 if (SCRAPE_MIN_TIER > 1) console.log(`[api] scraper tier floor: ${SCRAPE_MIN_TIER}`)
+if (SCRAPE_MIN_TIER === 1 && TIER1_TRANSPORT !== "bun") console.log(`[api] Tier 1 transport: ${TIER1_TRANSPORT}`)
 if (SCRAPE_PROXY_SELECTION !== "failover") console.log(`[api] proxy selection: ${SCRAPE_PROXY_SELECTION}`)
 if (Object.keys(USER_PREFS).length > 0) console.log(`[api] user prefs changed: ${Object.keys(USER_PREFS).join(", ")}`)
 

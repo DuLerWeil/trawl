@@ -266,6 +266,7 @@ describe("HTTP clearance fallback", () => {
     server = Bun.serve({ port: 0, fetch: () => new Promise<Response>(() => {}) })
     const origin = `http://127.0.0.1:${server.port}`
     let remaining = 0
+    let httpDeadline = 0
     const result = await scrape(
       { url: origin, maxTier: 2, maxTimeout: 900 },
       {
@@ -278,12 +279,20 @@ describe("HTTP clearance fallback", () => {
         saveSession: async () => {},
         invalidateSession: async () => {},
       },
-      { tier2: async () => ({ ...success, tier: 2 }) },
+      {
+        tier1: async (...args) => {
+          httpDeadline = args[10] ?? 0
+          return runTier1(...args)
+        },
+        tier2: async () => ({ ...success, tier: 2 }),
+      },
     )
     expect(result.tier).toBe(2)
     expect(result.timings[0]?.status).toBe("error")
     expect(remaining).toBeGreaterThan(0)
     expect(remaining).toBeLessThan(800)
+    expect(httpDeadline).toBeGreaterThan(0)
+    expect(httpDeadline).toBeLessThanOrEqual(300)
   })
 })
 

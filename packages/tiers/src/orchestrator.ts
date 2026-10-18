@@ -18,6 +18,7 @@ import { metaRefreshTarget } from "./utils/metaRefresh"
 import { type ProxyPool, proxyIdentity } from "./utils/proxyRotator"
 import { isHtmlContentType } from "./utils/response"
 import { RequestValidationError, requireContentTypeForBody, sanitizeHeaders } from "./utils/sanitize"
+import { tier1UserAgent } from "./utils/tier1Transport"
 
 // Bounds how many distinct proxies a single request will try per tier before giving up -
 // keeps a long proxy list from blowing the request's maxTimeout budget.
@@ -420,7 +421,10 @@ async function scrapeWithinBudget(
     // Tier 1 has no browser handle, so select its identity up front and use the
     // same UA for both the outbound request and the public result.
     const tier1Fingerprint = FINGERPRINT_POOL[Math.floor(Math.random() * FINGERPRINT_POOL.length)] ?? FINGERPRINT
-    const httpUserAgent = httpSession && session ? session.userAgent : tier1Fingerprint.userAgent
+    const httpUserAgent = httpSession && session ? session.userAgent : tier1UserAgent(tier1Fingerprint.userAgent)
+    const httpTimeout = httpSession
+      ? Math.max(1, Math.min(5000, Math.floor(budget.remaining() / 3)))
+      : Math.max(1, budget.remaining())
     const tier1Runner = runners.tier1 ?? runTier1
     const t1 = await tier1Runner(
       req.url,
@@ -431,13 +435,9 @@ async function scrapeWithinBudget(
       deps.validateOutboundUrl,
       ignoreCertificateErrors,
       trustedProxyCa,
-      httpSession
-        ? AbortSignal.any([
-            budget.signal,
-            AbortSignal.timeout(Math.max(1, Math.min(5000, Math.floor(budget.remaining() / 3)))),
-          ])
-        : budget.signal,
+      httpSession ? AbortSignal.any([budget.signal, AbortSignal.timeout(httpTimeout)]) : budget.signal,
       httpSession,
+      httpTimeout,
     )
     if (req.followMetaRefresh && t1.status === "success" && t1.html && isHtmlContentType(t1.contentType)) {
       const refresh = await metaRefreshTarget(t1.html, t1.effectiveUrl ?? req.url)

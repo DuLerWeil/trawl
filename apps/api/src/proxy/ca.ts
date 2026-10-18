@@ -239,8 +239,8 @@ function altNamesFor(host: string): forge.pki.CertificateField[] {
   return [entry]
 }
 
-// 16 random hex bytes; leading 0 keeps it a positive integer for strict parsers.
+// Preserve 128 random bits with a nonzero positive prefix for canonical DER.
 function randomSerial(): string {
   const bytes = forge.random.getBytesSync(16)
-  return `00${forge.util.bytesToHex(bytes)}`
+  return `01${forge.util.bytesToHex(bytes)}`
 }
