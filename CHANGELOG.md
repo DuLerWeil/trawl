@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Keep web and docs sources available in the shared Docker build context when deployment tools relocate Dockerfiles without their adjacent ignore files.
+
 ## [1.9.0] - 2026-10-19
 
 ### Added
