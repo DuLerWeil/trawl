@@ -11,6 +11,8 @@ The native endpoint exposes TRAWL's full feature set: tier capping, session IDs,
 
 Create and manage named sessions through [Browser Sessions](/api-reference/browser-sessions). They preserve cookies and localStorage across requests and always use the browser.
 
+For an existing session, `POST /sessions/:id/scrape` accepts the same options and returns the same response as `/scrape` with `sessionId`. Omit `sessionId` from the body, or set it to the ID in the URL; conflicting IDs return 400.
+
 ## Request
 
 ```typescript

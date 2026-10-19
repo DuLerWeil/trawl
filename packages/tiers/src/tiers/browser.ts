@@ -68,6 +68,8 @@ async function runBrowserTierTask<T extends 3 | 4>(
       `tier${tier} context cleanup timed out`,
     ))
   let disown = () => {}
+  // Request captures and overrides must not outlive their operation on a kept page.
+  const pageTeardowns: Array<() => unknown> = []
   try {
     openingContext = capture.sessionContext
       ? Promise.resolve(capture.sessionContext)
@@ -84,23 +86,28 @@ async function runBrowserTierTask<T extends 3 | 4>(
       await context.clearCookies()
       await context.addCookies(normalizeInputCookies(capture.cookies, url))
     }
-    const page = await context.newPage()
-    const storageRestore = capture.sessionStorage?.size
-      ? await restoreSessionStorage(page, capture.sessionStorage)
-      : undefined
+    const page = capture.sessionPage ?? (await context.newPage())
+    const storageRestore =
+      !capture.sessionPage && capture.sessionStorage?.size
+        ? await restoreSessionStorage(page, capture.sessionStorage)
+        : undefined
     budget.check()
     page.setDefaultTimeout?.(Math.max(1, budget.remaining()))
     await capture.externalCaptcha?.preparePage(page)
     await installOutboundPolicy(page, validateOutboundUrl)
     const initialCookies = snapshotChallengeCookies(await context.cookies())
     if ((extraHeaders && Object.keys(extraHeaders).length > 0) || method === "POST") {
-      await page.route(url, (route: RouteLike) => {
+      const override = (route: RouteLike) => {
         route.continue(routeContinueOverrides(route, extraHeaders, method, body))
-      })
+      }
+      await page.route(url, override)
+      pageTeardowns.push(() => page.unroute(url, override))
     }
 
     const pageCapture = attachPageCapture(page, capture)
+    pageTeardowns.push(() => pageCapture.drain(0))
     const mainResponse = trackMainDocumentResponses(page, { redirectChain: capture.redirectChain })
+    pageTeardowns.push(() => mainResponse.dispose())
 
     // CF challenges can trigger sub-navigations that throw "navigation interrupted" -
     // we catch those so we can continue. Hard failures (DNS, connection refused) are
@@ -316,6 +323,9 @@ async function runBrowserTierTask<T extends 3 | 4>(
             : String(err),
     }
   } finally {
+    if (capture.sessionPage) {
+      for (const teardown of pageTeardowns) await Promise.resolve(teardown()).catch(() => {})
+    }
     // Closing the context closes all of its pages. If Firefox wedges during cleanup,
     // ask the pool to replace this browser as soon as the lease is released.
     await close()

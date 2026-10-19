@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { BrowserHandle } from "@trawl/browser"
-import type { OrchestratorDeps } from "@trawl/tiers"
+import { BrowserSessions, type OrchestratorDeps } from "@trawl/tiers"
 import type { SessionData } from "@trawl/types"
 import { MetricsStore } from "../metrics"
 import { scrapeRoute } from "./scrape"
@@ -119,5 +119,67 @@ describe("POST /scrape on a blocked outcome", () => {
     const body = await response.json()
     expect(body.blockedEvidence.html).toContain("Access denied")
     expect(body.blockedEvidence.screenshot).toBeUndefined()
+  })
+})
+
+describe("POST /sessions/:id/scrape", () => {
+  const send = (app: ReturnType<typeof scrapeRoute>, path: string, body: unknown) =>
+    app.handle(
+      new Request(`http://localhost${path}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    )
+
+  test("uses the same session lookup and scrape metrics as /scrape", async () => {
+    const store = new MetricsStore()
+    const sessions = new BrowserSessions({
+      acquireBrowser: async () => {
+        throw new Error("Missing sessions must not acquire a browser")
+      },
+      releaseBrowser: () => {},
+    })
+    const app = scrapeRoute(
+      () => ({ ...blockedDeps(), sessions }),
+      () => true,
+      store,
+    )
+    const body = { url: "https://target.example" }
+    try {
+      const legacy = await send(app, "/scrape", { ...body, sessionId: "account" })
+      expect(legacy.status).toBe(404)
+      const expected = await legacy.json()
+      for (const input of [body, { ...body, sessionId: "account" }]) {
+        const result = await send(app, "/sessions/account/scrape", input)
+        expect(result.status).toBe(404)
+        expect(await result.json()).toEqual(expected)
+      }
+      const snapshot = store.snapshot()
+      expect(snapshot.requests).toBe(3)
+      expect(snapshot.failures).toBe(3)
+      expect(snapshot.recentEvents.every((event) => event.source === "native")).toBe(true)
+    } finally {
+      await sessions.shutdown()
+      store.close()
+    }
+  })
+
+  test("validates the body and path ID, rejects conflicting IDs and preserves pool readiness errors", async () => {
+    const store = new MetricsStore()
+    const app = scrapeRoute(blockedDeps, () => null, store)
+    const url = "https://target.example"
+    try {
+      for (const body of [null, [], {}, { url: "" }, { url, screenshot: 1 }, { url, sessionId: "other" }]) {
+        expect((await send(app, "/sessions/account/scrape", body)).status).toBe(400)
+      }
+      expect((await send(app, "/sessions/invalid.id/scrape", { url })).status).toBe(400)
+      const unavailable = await send(app, "/sessions/account/scrape", { url })
+      expect(unavailable.status).toBe(503)
+      expect(await unavailable.json()).toEqual({ error: "Browser pool initializing, retry in a few seconds" })
+      expect(store.snapshot().requests).toBe(8)
+    } finally {
+      store.close()
+    }
   })
 })

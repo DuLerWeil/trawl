@@ -16,13 +16,27 @@ const budget = (ms = 1000) => {
   budgets.push(value)
   return value
 }
+interface KeptFakePage {
+  closed: boolean
+  evaluateCalls: string[]
+  frame: { evaluateCalls: number; evaluate(fn: unknown): Promise<unknown> }
+  evaluate(expression: string): Promise<unknown>
+  isClosed(): boolean
+  frames(): { evaluate(fn: unknown): Promise<unknown> }[]
+  close(): Promise<void>
+}
+interface SessionTestContext extends EventEmitter {
+  closed: boolean
+  jar: unknown[]
+  pageList: KeptFakePage[]
+  pages(): { close(): Promise<void> }[]
+  newPage(): Promise<KeptFakePage>
+  cookies(): Promise<unknown[]>
+  addInitScript(): Promise<void>
+  close(): Promise<void>
+}
 function fixture(options: { maxSessions?: number; ttlMs?: number; now?: () => number } = {}) {
-  const contexts: (EventEmitter & {
-    closed: boolean
-    pages(): { close(): Promise<void> }[]
-    close(): Promise<void>
-    addInitScript(): Promise<void>
-  })[] = []
+  const contexts: SessionTestContext[] = []
   const acquires: { browserId?: number; headful?: boolean }[] = []
   const releases: BrowserHandle[] = []
   let retained = 0
@@ -30,13 +44,46 @@ function fixture(options: { maxSessions?: number; ttlMs?: number; now?: () => nu
     async newContext() {
       const context = Object.assign(new EventEmitter(), {
         closed: false,
-        pages: () => [],
+        jar: [] as unknown[],
+        pageList: [] as KeptFakePage[],
+        pages() {
+          return context.pageList.filter((page) => !page.closed)
+        },
+        async newPage() {
+          const page: KeptFakePage = {
+            closed: false,
+            evaluateCalls: [],
+            frame: {
+              evaluateCalls: 0,
+              evaluate: async () => {
+                page.frame.evaluateCalls++
+                return null
+              },
+            },
+            evaluate: async (expression: string) => {
+              page.evaluateCalls.push(expression)
+              expression = expression.replace(/^mw:/, "")
+              if (expression === "window.answer") return 42
+              if (expression === "never-resolves") return new Promise(() => {})
+              return undefined
+            },
+            isClosed: () => page.closed,
+            frames: () => [page.frame],
+            close: async () => {
+              page.closed = true
+            },
+          }
+          context.pageList.push(page)
+          return page
+        },
+        cookies: async () => context.jar,
         addInitScript: async () => {},
         async close() {
-          this.closed = true
+          context.closed = true
+          for (const page of context.pageList) page.closed = true
           context.emit("close")
         },
-      })
+      }) as SessionTestContext
       contexts.push(context)
       return context
     },
@@ -408,4 +455,124 @@ test("shutdown while a context is opening closes the late context and releases i
   expect(context.closed).toBeTrue()
   expect(f.retained()).toBe(0)
   expect(f.releases).toHaveLength(1)
+})
+
+describe("kept pages", () => {
+  test("a kept page persists across operations while default sessions close theirs", async () => {
+    const f = fixture()
+    await f.sessions.create({ id: "kept", keepPage: true })
+    expect(f.contexts[0].pageList).toHaveLength(1)
+    const kept = f.contexts[0].pageList[0]
+    for (let i = 0; i < 2; i++) {
+      await f.sessions.use("kept", "", budget(), async (_handle, _context, _storage, page) => {
+        expect(page as unknown).toBe(kept)
+      })
+    }
+    expect(f.contexts[0].pages()).toHaveLength(1)
+    expect(kept.closed).toBeFalse()
+    expect(kept.frame.evaluateCalls).toBe(0)
+
+    await f.sessions.create({ id: "plain" })
+    let plainPage: KeptFakePage | undefined
+    await f.sessions.use("plain", "", budget(), async (_handle, context) => {
+      plainPage = (await context.newPage()) as unknown as KeptFakePage
+    })
+    expect(plainPage?.closed).toBeTrue()
+    expect(plainPage?.frame.evaluateCalls).toBe(1)
+    expect(f.contexts[1].pages()).toHaveLength(0)
+  })
+
+  test("evaluate runs expressions against the retained page and requires the opt-in", async () => {
+    const f = fixture()
+    await f.sessions.create({ id: "eval", keepPage: true })
+    expect(await f.sessions.evaluate("eval", "window.answer", budget())).toBe(42)
+    expect(f.contexts[0].pageList[0].evaluateCalls).toEqual(["mw:window.answer"])
+    await f.sessions.create({ id: "plain" })
+    await expect(f.sessions.evaluate("plain", "1", budget())).rejects.toMatchObject({ statusCode: 400 })
+    await expect(f.sessions.evaluate("missing", "1", budget())).rejects.toMatchObject({ statusCode: 404 })
+  })
+
+  test("cookies reads the context jar without touching the page", async () => {
+    const f = fixture()
+    await f.sessions.create({ id: "web", keepPage: true })
+    f.contexts[0].jar = [
+      {
+        name: "login",
+        value: "yes",
+        domain: ".fixture.example",
+        path: "/",
+        expires: -1,
+        httpOnly: true,
+        secure: true,
+        sameSite: "Lax",
+      },
+    ]
+    expect(await f.sessions.cookies("web", budget())).toEqual([
+      {
+        name: "login",
+        value: "yes",
+        domain: ".fixture.example",
+        path: "/",
+        expires: -1,
+        httpOnly: true,
+        secure: true,
+        sameSite: "Lax",
+      },
+    ])
+    expect(f.contexts[0].pageList[0].evaluateCalls).toEqual([])
+    await f.sessions.create({ id: "plain" })
+    expect(await f.sessions.cookies("plain", budget())).toEqual([])
+    await expect(f.sessions.cookies("missing", budget())).rejects.toMatchObject({ statusCode: 404 })
+  })
+
+  test("kept pages stay isolated between sessions", async () => {
+    const f = fixture()
+    await f.sessions.create({ id: "a", keepPage: true })
+    await f.sessions.create({ id: "b", keepPage: true })
+    expect(f.contexts[0].pageList[0]).not.toBe(f.contexts[1].pageList[0])
+    f.contexts[0].jar = [{ name: "secret", value: "a", domain: ".fixture.example", path: "/", httpOnly: true }]
+    expect((await f.sessions.cookies("a", budget())).map((cookie) => cookie.name)).toEqual(["secret"])
+    expect(await f.sessions.cookies("b", budget())).toEqual([])
+  })
+
+  test("a busy kept-page session rejects eval and cookies", async () => {
+    const f = fixture()
+    await f.sessions.create({ id: "busy", keepPage: true })
+    let release = () => {}
+    const pending = f.sessions.use(
+      "busy",
+      "",
+      budget(),
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve
+        }),
+    )
+    await expect(f.sessions.evaluate("busy", "1", budget())).rejects.toMatchObject({ statusCode: 409 })
+    await expect(f.sessions.cookies("busy", budget())).rejects.toMatchObject({ statusCode: 409 })
+    release()
+    await pending
+  })
+
+  test("destroy, expiry and timed-out operations close the retained page", async () => {
+    let now = 1_000
+    const f = fixture({ ttlMs: 100_000, now: () => now })
+    await f.sessions.create({ id: "doomed", keepPage: true })
+    await f.sessions.destroy("doomed")
+    expect(f.contexts[0].closed).toBeTrue()
+    expect(f.contexts[0].pageList[0].closed).toBeTrue()
+
+    await f.sessions.create({ id: "stuck", keepPage: true })
+    await expect(f.sessions.evaluate("stuck", "never-resolves", budget(100))).rejects.toThrow()
+    expect(await f.sessions.list()).toEqual([])
+    expect(f.contexts[1].closed).toBeTrue()
+    expect(f.contexts[1].pageList[0].closed).toBeTrue()
+
+    await f.sessions.create({ id: "short", keepPage: true })
+    now = 1_000_000
+    expect(await f.sessions.list()).toEqual([])
+    expect(f.contexts[2].closed).toBeTrue()
+    expect(f.contexts[2].pageList[0].closed).toBeTrue()
+    await expect(f.sessions.evaluate("short", "1", budget())).rejects.toMatchObject({ statusCode: 404 })
+  })
 })

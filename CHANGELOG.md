@@ -7,8 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-10-19
+
+### Added
+- Add `POST /sessions/:id/scrape` for existing browser sessions, sharing native `/scrape` validation, responses, logging and metrics. Reject conflicting URL and body session IDs (#230, #238).
+- Add opt-in kept pages for named browser sessions (`keepPage` at creation): `/scrape` loads or navigates the session's retained page, `POST /sessions/:id/eval` evaluates JavaScript against its live state (awaiting async expressions), and `GET /sessions/:id/cookies` reads the context cookie jar including HttpOnly cookies without navigating. Retained pages close on session expiry, destruction and timed-out operations; sessions created without the option keep the existing per-request page cleanup (#230).
+
 ### Fixed
-- Keep web and docs sources available in the shared Docker build context when deployment tools relocate Dockerfiles without their adjacent ignore files.
+- Run retained-session eval in the page's main JavaScript context, preserve outbound URL checks between operations, and reuse Cloudflare capture across navigations without accumulating init scripts (#230, #236, #237).
+- Keep web and docs sources available in the shared Docker build context when deployment tools relocate Dockerfiles without their adjacent ignore files (#234).
 
 ### Changed
 - Shorten the README, move detailed challenge coverage into the documentation, and refresh session and setup examples.

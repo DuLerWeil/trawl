@@ -27,15 +27,18 @@ Content-Type: application/json
 
 ## Endpoints
 
-| Method   | Path            | Description                        |
-| -------- | --------------- | ---------------------------------- |
-| `GET`    | `/health`       | Pool status and uptime             |
-| `GET`    | `/stats`        | Public numbers for dashboards      |
-| `POST`   | `/v1`           | FlareSolverr v2 compatible         |
-| `POST`   | `/scrape`       | Native TRAWL API                   |
-| `POST`   | `/sessions`     | Create an isolated browser session |
-| `GET`    | `/sessions`     | List live browser sessions         |
-| `DELETE` | `/sessions/:id` | Close a browser session            |
+| Method   | Path                     | Description                        |
+| -------- | ------------------------ | ---------------------------------- |
+| `GET`    | `/health`                | Pool status and uptime             |
+| `GET`    | `/stats`                 | Public numbers for dashboards      |
+| `POST`   | `/v1`                    | FlareSolverr v2 compatible         |
+| `POST`   | `/scrape`                | Native TRAWL API                   |
+| `POST`   | `/sessions`              | Create an isolated browser session |
+| `GET`    | `/sessions`              | List live browser sessions         |
+| `POST`   | `/sessions/:id/scrape`   | Scrape within an existing session  |
+| `POST`   | `/sessions/:id/eval`     | Evaluate JavaScript on a kept page |
+| `GET`    | `/sessions/:id/cookies`  | Read the session cookie jar        |
+| `DELETE` | `/sessions/:id`          | Close a browser session            |
 
 ## Forward proxy
 

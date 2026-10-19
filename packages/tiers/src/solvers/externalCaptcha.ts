@@ -19,6 +19,7 @@ const selectors = {
 }
 type SupportedCaptcha = keyof typeof selectors
 const cooldowns = new WeakMap<ExternalCaptchaOptions, number>()
+const cloudflareCaptures = new WeakMap<Page, CloudflareCapture>()
 
 async function providerResponse(response: Response) {
   const length = Number(response.headers.get("content-length"))
@@ -157,9 +158,13 @@ export class ExternalCaptchaSession {
 
   async preparePage(page: Page): Promise<void> {
     if (!this.supports("cloudflare-challenge")) return
-    const capture = new CloudflareCapture()
     try {
-      await capture.install(page)
+      let capture = cloudflareCaptures.get(page)
+      if (!capture) {
+        capture = new CloudflareCapture()
+        await capture.install(page)
+        cloudflareCaptures.set(page, capture)
+      }
       this.cloudflare.set(page, capture)
     } catch {
       this.detections.set("cloudflare-challenge", "capture-unavailable")
