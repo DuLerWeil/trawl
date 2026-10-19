@@ -62,11 +62,20 @@ export class MainDocumentResponseTracker {
   }
 }
 
+export type MainDocumentResponseTracking = MainDocumentResponseTracker & { dispose(): void }
+
 export function trackMainDocumentResponses(
   page: Page,
   options: { redirectChain?: boolean } = {},
-): MainDocumentResponseTracker {
+): MainDocumentResponseTracking {
   const tracker = new MainDocumentResponseTracker(page, options.redirectChain)
-  page.on("response", (response) => tracker.observe(response))
-  return tracker
+  const observe = (response: NavigationResponse) => tracker.observe(response)
+  page.on("response", observe)
+  // Pages retained by a session outlive one request, so the listener must be
+  // removable; disposal on a closing page is a harmless no-op.
+  return Object.assign(tracker, {
+    dispose: () => {
+      page.off("response", observe)
+    },
+  })
 }

@@ -11,6 +11,55 @@ afterEach(async () => {
   await Promise.all(cleanup.splice(0).map((close) => close()))
 })
 function app() {
+  // One browser per pool: the session manager pins a session's context to the
+  // browser that created it and rejects a replacement.
+  const browser = {
+    newContext: async () => {
+      const pageList: {
+        closed: boolean
+        evaluate(expression: string): Promise<unknown>
+        isClosed(): boolean
+        close(): Promise<void>
+        frames(): unknown[]
+      }[] = []
+      return {
+        addInitScript: async () => {},
+        close: async () => {
+          for (const page of pageList) page.closed = true
+        },
+        pages: () => pageList.filter((page) => !page.closed),
+        newPage: async () => {
+          const page = {
+            closed: false,
+            evaluate: async (expression: string) =>
+              expression.replace(/^mw:/, "") === "window.answer" ? 42 : undefined,
+            isClosed() {
+              return page.closed
+            },
+            close: async () => {
+              page.closed = true
+            },
+            frames: () => [],
+          }
+          pageList.push(page)
+          return page
+        },
+        cookies: async () => [
+          {
+            name: "login",
+            value: "yes",
+            domain: ".fixture.example",
+            path: "/",
+            expires: -1,
+            httpOnly: true,
+            secure: false,
+            sameSite: "Lax",
+          },
+        ],
+        once: () => {},
+      }
+    },
+  }
   const sessions = new BrowserSessions({
     acquireBrowser: async () => ({
       id: 0,
@@ -18,7 +67,7 @@ function app() {
       headful: false,
       fingerprint: FINGERPRINT,
       context: {},
-      browser: { newContext: async () => ({ addInitScript: async () => {}, close: async () => {}, pages: () => [] }) },
+      browser,
     }),
     releaseBrowser: () => {},
     maxSessions: 2,
@@ -99,4 +148,57 @@ test("session management errors do not pollute scrape request history", async ()
   expect((await send("/v1", { cmd: "sessions.destroy", session: "missing" })).status).toBe(404)
   expect((await send("/v1", { cmd: "sessions.destroy" })).status).toBe(400)
   expect(metrics.snapshot().requests).toBe(0)
+})
+
+test("kept-page sessions evaluate expressions and read context cookies", async () => {
+  const { send } = app()
+  expect(await send("/sessions", { id: "web", keepPage: true })).toMatchObject({
+    status: 201,
+    body: { id: "web", keepPage: true, busy: false },
+  })
+  expect((await send("/sessions")).body.sessions[0]).toMatchObject({ id: "web", keepPage: true })
+  expect(await send("/sessions/web/eval", { expression: "window.answer" })).toMatchObject({
+    status: 200,
+    body: { value: 42 },
+  })
+  const cookies = await send("/sessions/web/cookies")
+  expect(cookies.status).toBe(200)
+  expect(cookies.body.cookies).toEqual([
+    {
+      name: "login",
+      value: "yes",
+      domain: ".fixture.example",
+      path: "/",
+      expires: -1,
+      httpOnly: true,
+      secure: false,
+      sameSite: "Lax",
+    },
+  ])
+  expect((await send("/sessions/web", undefined, "DELETE")).status).toBe(200)
+  expect((await send("/sessions/web/eval", { expression: "1" })).status).toBe(404)
+  expect((await send("/sessions/web/cookies")).status).toBe(404)
+})
+
+test("eval and cookies validate input and reject sessions without a kept page", async () => {
+  const { send } = app()
+  expect((await send("/sessions", { keepPage: "yes" })).status).toBe(400)
+  await send("/sessions", { id: "plain" })
+  for (const body of [
+    [],
+    null,
+    {},
+    { expression: "" },
+    { expression: "   " },
+    { expression: 42 },
+    { expression: "1", maxTimeout: 0 },
+    { expression: "1", maxTimeout: -5 },
+    { expression: "1", maxTimeout: "1000" },
+  ]) {
+    expect((await send("/sessions/plain/eval", body)).status).toBe(400)
+  }
+  expect((await send("/sessions/plain/eval", { expression: "1" })).status).toBe(400)
+  expect((await send("/sessions/missing/eval", { expression: "1" })).status).toBe(404)
+  expect((await send("/sessions/missing/cookies")).status).toBe(404)
+  expect((await send("/sessions/plain/cookies")).status).toBe(200)
 })
