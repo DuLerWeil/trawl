@@ -224,6 +224,7 @@ async function scrapeWithinBudget(
     externalCaptcha: deps.externalCaptcha ? new ExternalCaptchaSession(deps.externalCaptcha) : undefined,
     solveEmbeddedCaptchas: req.solveEmbeddedCaptchas,
     followMetaRefresh: req.followMetaRefresh,
+    allowShortContent: req.allowShortContent,
     screenshotFullPage: req.screenshotFullPage,
     screenshotWaitForSelector: req.screenshotWaitForSelector,
     screenshotSelector: req.screenshotSelector,
