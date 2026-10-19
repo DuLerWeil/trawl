@@ -65,9 +65,8 @@ describe.skipIf(process.env.TRAWL_BROWSER_SESSION_TESTS !== "1")("persistent bro
   test("native login persists through /v1, isolates sessions and never enters the shared cache", async () => {
     expect((await send("/sessions", { id: "login" })).status).toBe(201)
     expect((await send("/v1", { cmd: "sessions.create", session: "separate" })).status).toBe(200)
-    const login = await send("/scrape", {
+    const login = await send("/sessions/login/scrape", {
       url: url("/login"),
-      sessionId: "login",
       method: "POST",
       body: "user=fixture",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -279,7 +278,7 @@ describe.skipIf(process.env.TRAWL_BROWSER_SESSION_TESTS !== "1")("persistent bro
       status: 201,
       body: { id: "web", keepPage: true },
     })
-    const loaded = await send("/scrape", { url: url("/storage"), sessionId: "web", maxTimeout: 15000 })
+    const loaded = await send("/sessions/web/scrape", { url: url("/storage"), maxTimeout: 15000 })
     expect(loaded.status, JSON.stringify(loaded.body)).toBe(200)
 
     expect(await send("/sessions/web/eval", { expression: "window.pageToken" })).toMatchObject({
@@ -340,6 +339,7 @@ describe.skipIf(process.env.TRAWL_BROWSER_SESSION_TESTS !== "1")("persistent bro
     expect((await send("/sessions/web", undefined, "DELETE")).status).toBe(200)
     expect((await send("/sessions/web/eval", { expression: "1" })).status).toBe(404)
     expect((await send("/sessions/web/cookies")).status).toBe(404)
+    expect((await send("/sessions/web/scrape", { url: url("/account") })).status).toBe(404)
     await expectAvailableBrowser()
   }, 100000)
 
@@ -382,6 +382,7 @@ describe.skipIf(process.env.TRAWL_BROWSER_SESSION_TESTS !== "1")("persistent bro
     expect(sessions[0]?.busy).toBe(true)
     expect((await send("/sessions/busy/eval", { expression: "1" })).status).toBe(409)
     expect((await send("/sessions/busy/cookies")).status).toBe(409)
+    expect((await send("/sessions/busy/scrape", { url: url("/account") })).status).toBe(409)
     const done = await pending
     expect(done.status, JSON.stringify(done.body)).toBe(200)
     expect((await send("/sessions/busy", undefined, "DELETE")).status).toBe(200)
