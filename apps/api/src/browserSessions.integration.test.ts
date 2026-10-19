@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { Elysia } from "elysia"
+import { scrape } from "../../../packages/tiers/src/orchestrator"
 import { RequestBudget } from "../../../packages/tiers/src/utils/deadline"
 import { getDeps, getPool, initPool, shutdownPools } from "./deps"
 import { scrapeRoute } from "./routes/scrape"
@@ -12,6 +13,7 @@ describe.skipIf(process.env.TRAWL_BROWSER_SESSION_TESTS !== "1")("persistent bro
   let fixture: ReturnType<typeof Bun.serve>
   let api: ReturnType<typeof createApi>
   let posts = 0
+  let blockedRequests = 0
   const url = (path: string) => `http://127.0.0.1:${fixture.port}${path}`
   const send = async (path: string, body?: unknown, method = body === undefined ? "GET" : "POST") => {
     const response = await fetch(`http://127.0.0.1:${api.server?.port}${path}`, {
@@ -31,6 +33,10 @@ describe.skipIf(process.env.TRAWL_BROWSER_SESSION_TESTS !== "1")("persistent bro
       port: 0,
       async fetch(request) {
         const path = new URL(request.url).pathname
+        if (path === "/blocked") {
+          blockedRequests++
+          return new Response("owned forbidden response")
+        }
         if (path === "/slow") await Bun.sleep(2000)
         if (path === "/login" && request.method === "POST") {
           posts++
@@ -42,7 +48,7 @@ describe.skipIf(process.env.TRAWL_BROWSER_SESSION_TESTS !== "1")("persistent bro
         }
         const loggedIn = request.headers.get("cookie")?.includes("fixture_login=yes") ?? false
         return new Response(
-          `<html><head><title>Owned account fixture</title></head><body data-login="${loggedIn}"><h1>Account</h1><p>${"Local browser session integration content. ".repeat(30)}</p><script>${path === "/storage" ? "localStorage.setItem('session-marker','retained');sessionStorage.setItem('tab-marker','retained');" : ""}document.body.dataset.storage=localStorage.getItem('session-marker')||'empty';document.body.dataset.tabStorage=sessionStorage.getItem('tab-marker')||'empty';${path === "/logout-storage" ? "setTimeout(()=>{sessionStorage.clear();location.href='/account'},100);" : ""}</script></body></html>`,
+          `<html><head><title>Owned account fixture</title></head><body data-login="${loggedIn}"><h1>Account</h1><p>${"Local browser session integration content. ".repeat(30)}</p><script>${path === "/storage" ? "localStorage.setItem('session-marker','retained');sessionStorage.setItem('tab-marker','retained');window.pageToken=41;window.readPageToken=async()=>window.pageToken+1;" : ""}document.body.dataset.storage=localStorage.getItem('session-marker')||'empty';document.body.dataset.tabStorage=sessionStorage.getItem('tab-marker')||'empty';${path === "/logout-storage" ? "setTimeout(()=>{sessionStorage.clear();location.href='/account'},100);" : ""}</script></body></html>`,
           { headers: { "content-type": "text/html" } },
         )
       },
@@ -276,6 +282,15 @@ describe.skipIf(process.env.TRAWL_BROWSER_SESSION_TESTS !== "1")("persistent bro
     const loaded = await send("/scrape", { url: url("/storage"), sessionId: "web", maxTimeout: 15000 })
     expect(loaded.status, JSON.stringify(loaded.body)).toBe(200)
 
+    expect(await send("/sessions/web/eval", { expression: "window.pageToken" })).toMatchObject({
+      status: 200,
+      body: { value: 41 },
+    })
+    expect(await send("/sessions/web/eval", { expression: "window.readPageToken()" })).toMatchObject({
+      status: 200,
+      body: { value: 42 },
+    })
+
     // JS realm state survives between evals only when both run on the same page.
     expect((await send("/sessions/web/eval", { expression: "window.marker = 41" })).status).toBe(200)
     const marker = await send("/sessions/web/eval", { expression: "window.marker + 1" })
@@ -327,6 +342,32 @@ describe.skipIf(process.env.TRAWL_BROWSER_SESSION_TESTS !== "1")("persistent bro
     expect((await send("/sessions/web/cookies")).status).toBe(404)
     await expectAvailableBrowser()
   }, 100000)
+
+  test("kept-page outbound policy still protects eval and background requests after scraping", async () => {
+    const manager = getDeps().sessions
+    if (!manager) throw new Error("session manager not ready")
+    await manager.create({ id: "guarded", keepPage: true })
+    const before = blockedRequests
+    try {
+      const deps = {
+        ...getDeps(),
+        validateOutboundUrl: async (target: string) => {
+          if (new URL(target).pathname === "/blocked") throw new Error("Owned URL is forbidden")
+        },
+      }
+      await scrape({ url: url("/account"), sessionId: "guarded", maxTimeout: 15000 }, deps)
+      // An ordinary request must not discard a policy installed by a restricted client.
+      await scrape({ url: url("/account"), sessionId: "guarded", maxTimeout: 15000 }, getDeps())
+      const denied = await send("/sessions/guarded/eval", {
+        expression:
+          "new Promise(resolve => setTimeout(() => fetch('/blocked').then(r => r.text()).then(resolve, () => resolve('blocked')), 0))",
+      })
+      expect(denied).toMatchObject({ status: 200, body: { value: "blocked" } })
+      expect(blockedRequests).toBe(before)
+    } finally {
+      await manager.destroy("guarded")
+    }
+  }, 30000)
 
   test("a kept-page session reports busy while a scrape holds it", async () => {
     expect((await send("/sessions", { id: "busy", keepPage: true })).status).toBe(201)

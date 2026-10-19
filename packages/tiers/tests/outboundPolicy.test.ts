@@ -24,4 +24,25 @@ describe("browser outbound policy", () => {
     await handler?.(route("http://private.example"))
     expect(actions).toEqual(["fallback", "abort"])
   })
+
+  test("reusing a page updates one policy and an unrestricted request does not remove it", async () => {
+    const handlers: ((route: any) => Promise<void>)[] = []
+    const page = {
+      route: async (_pattern: string, handler: (route: any) => Promise<void>) => void handlers.push(handler),
+      unroute: async () => {},
+    }
+    await installOutboundPolicy(page, async () => {})
+    await installOutboundPolicy(page, async () => {
+      throw new Error("blocked")
+    })
+    await installOutboundPolicy(page)
+    expect(handlers).toHaveLength(1)
+    const actions: string[] = []
+    await handlers[0]?.({
+      request: () => ({ url: () => "https://owned.example/blocked" }),
+      fallback: async () => void actions.push("fallback"),
+      abort: async () => void actions.push("abort"),
+    })
+    expect(actions).toEqual(["abort"])
+  })
 })

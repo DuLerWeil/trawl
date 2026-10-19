@@ -62,6 +62,7 @@ function fixture(options: { maxSessions?: number; ttlMs?: number; now?: () => nu
             },
             evaluate: async (expression: string) => {
               page.evaluateCalls.push(expression)
+              expression = expression.replace(/^mw:/, "")
               if (expression === "window.answer") return 42
               if (expression === "never-resolves") return new Promise(() => {})
               return undefined
@@ -485,7 +486,7 @@ describe("kept pages", () => {
     const f = fixture()
     await f.sessions.create({ id: "eval", keepPage: true })
     expect(await f.sessions.evaluate("eval", "window.answer", budget())).toBe(42)
-    expect(f.contexts[0].pageList[0].evaluateCalls).toEqual(["window.answer"])
+    expect(f.contexts[0].pageList[0].evaluateCalls).toEqual(["mw:window.answer"])
     await f.sessions.create({ id: "plain" })
     await expect(f.sessions.evaluate("plain", "1", budget())).rejects.toMatchObject({ statusCode: 400 })
     await expect(f.sessions.evaluate("missing", "1", budget())).rejects.toMatchObject({ statusCode: 404 })

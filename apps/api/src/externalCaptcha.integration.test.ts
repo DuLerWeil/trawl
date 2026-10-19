@@ -246,6 +246,34 @@ describe.skipIf(process.env.TRAWL_EXTERNAL_CAPTCHA_TESTS !== "1")("external CAPT
     }
   }, 15000)
 
+  test("managed fallback survives repeated requests on one page without accumulating init scripts", async () => {
+    const pool = getPool()
+    if (!pool) throw new Error("pool not ready")
+    const lease = await pool.acquire()
+    const context = await newFreshContext(lease.browser)
+    try {
+      const page = await context.newPage()
+      for (let i = 0; i < 3; i++) {
+        const before = tasks.length
+        const session = new ExternalCaptchaSession(options, globalThis.fetch, async () => {})
+        await session.preparePage(page)
+        await page.goto(url(`/managed-repeat-${i}`))
+        expect(await session.solve(page, "cloudflare-challenge", 12000)).toBe(true)
+        await page.waitForURL("**?accepted=owned-provider-response")
+        expect(await page.content()).toContain("Verified destination content")
+        expect(tasks.length - before).toBe(1)
+        expect(
+          await page.evaluate(
+            "mw:Object.getOwnPropertyNames(window).filter(key => key.startsWith('__trawl_cf_')).length",
+          ),
+        ).toBe(1)
+      }
+    } finally {
+      await context.close()
+      pool.release(lease.id, lease.lease)
+    }
+  }, 30000)
+
   test("managed tasks refuse incomplete, consumed, expired, replaced and navigated challenges", async () => {
     const pool = getPool()
     if (!pool) throw new Error("pool not ready")

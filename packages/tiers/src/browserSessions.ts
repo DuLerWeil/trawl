@@ -156,7 +156,8 @@ export class BrowserSessions {
       throw new RequestValidationError("Session does not retain a page; create it with keepPage", 400)
     const result = await this.use(id, "", budget, async (_handle, _context, _storage, page) => {
       if (!page) throw new RequestValidationError("Session page is unavailable", 410)
-      return page.evaluate(expression)
+      // Camoufox isolates ordinary evaluations from the site's globals and functions.
+      return page.evaluate(expression.startsWith("mw:") ? expression : `mw:${expression}`)
     })
     // Playwright reports a JS undefined as-is; JSON responses carry null instead.
     return result === undefined ? null : result

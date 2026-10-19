@@ -68,7 +68,7 @@ async function runBrowserTierTask<T extends 3 | 4>(
       `tier${tier} context cleanup timed out`,
     ))
   let disown = () => {}
-  // Kept pages outlive the request, so everything attached below must come off again.
+  // Request captures and overrides must not outlive their operation on a kept page.
   const pageTeardowns: Array<() => unknown> = []
   try {
     openingContext = capture.sessionContext
@@ -94,8 +94,7 @@ async function runBrowserTierTask<T extends 3 | 4>(
     budget.check()
     page.setDefaultTimeout?.(Math.max(1, budget.remaining()))
     await capture.externalCaptcha?.preparePage(page)
-    const unrouteOutboundPolicy = await installOutboundPolicy(page, validateOutboundUrl)
-    if (unrouteOutboundPolicy) pageTeardowns.push(unrouteOutboundPolicy)
+    await installOutboundPolicy(page, validateOutboundUrl)
     const initialCookies = snapshotChallengeCookies(await context.cookies())
     if ((extraHeaders && Object.keys(extraHeaders).length > 0) || method === "POST") {
       const override = (route: RouteLike) => {

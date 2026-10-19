@@ -21,13 +21,13 @@ The response is HTTP 201 with `{ "id": "account", "createdAt": 1770000000000, "e
 
 Creation options:
 
-| Field | Default | Description |
-| --- | --- | --- |
-| `id` | UUID | Unique session ID; duplicates return 409 |
-| `proxy` | Configured proxy pool, otherwise direct | HTTP, HTTPS or SOCKS5 URL; fixed for the life of the session |
-| `headful` | `false` | Use the headful pool; requires `BROWSER_HEADFUL_POOL_SIZE > 0` |
-| `ignoreCertificateErrors` | `false` | Context TLS policy; certificate verification remains enabled by default |
-| `keepPage` | `false` | Keep one main page open across operations; enables session eval |
+| Field                     | Default                                 | Description                                                             |
+| ------------------------- | --------------------------------------- | ----------------------------------------------------------------------- |
+| `id`                      | UUID                                    | Unique session ID; duplicates return 409                                |
+| `proxy`                   | Configured proxy pool, otherwise direct | HTTP, HTTPS or SOCKS5 URL; fixed for the life of the session            |
+| `headful`                 | `false`                                 | Use the headful pool; requires `BROWSER_HEADFUL_POOL_SIZE > 0`          |
+| `ignoreCertificateErrors` | `false`                                 | Context TLS policy; certificate verification remains enabled by default |
+| `keepPage`                | `false`                                 | Keep one main page open across operations; enables session eval         |
 
 Use `sessionId` with ordinary `/scrape` options, including POST bodies, screenshots and diagnostics:
 
@@ -66,13 +66,15 @@ curl -X POST http://localhost:8191/sessions/web/eval \
 curl http://localhost:8191/sessions/web/cookies
 ```
 
-`POST /sessions/:id/eval` evaluates `expression` against the retained page's current state and returns `{ "value": ... }`. A result of `undefined` is returned as `null`; returned promises are awaited, so async expressions such as `fetch(...).then(r => r.json())` resolve before the response. `maxTimeout` (milliseconds, optional) bounds the operation like a scrape deadline and defaults to the deployment scrape maximum. A JavaScript exception returns HTTP 500 with the error message. A timed out eval retires the session, because the page may still be mutating.
+`POST /sessions/:id/eval` evaluates `expression` in the retained page's main JavaScript context, including globals and functions defined by the site's scripts, and returns `{ "value": ... }`. A result of `undefined` is returned as `null`; returned promises are awaited, so async expressions such as `fetch(...).then(r => r.json())` resolve before the response. `maxTimeout` (milliseconds, optional) bounds the operation like a scrape deadline and defaults to the deployment scrape maximum. A JavaScript exception returns HTTP 500 with the error message. A timed out eval retires the session, because the page may still be mutating.
 
 `GET /sessions/:id/cookies` returns `{ "cookies": [...] }` from the browser context, including HttpOnly cookies that page JavaScript cannot see, without navigating. Cookie entries use the same shape as `/scrape` results. This endpoint works on any named session; it does not require `keepPage`.
 
 Both operations share the session's existing busy handling: they wait for no one, and a concurrent scrape, eval or deletion while busy returns 409. Errors otherwise mirror the scrape paths — 400 for invalid input or eval on a session without a kept page, 404 for an unknown or expired session, 410 after the underlying browser was replaced, 503 while sessions are unavailable.
 
 The retained page closes with its context on session expiry, deletion, a timed-out operation or browser replacement. A failed scrape that does not time out keeps the page, so an eval can inspect the state a failure left behind.
+
+An outbound URL policy installed by a restricted client such as MCP remains active on the retained page, including background requests and eval. Later native requests do not remove that protection. Request-specific headers and capture listeners are removed after each scrape. The optional Cloudflare solver capture is installed once per page and reused across navigations.
 
 ## FlareSolverr compatibility
 

@@ -31,7 +31,8 @@ function app() {
         newPage: async () => {
           const page = {
             closed: false,
-            evaluate: async (expression: string) => (expression === "window.answer" ? 42 : undefined),
+            evaluate: async (expression: string) =>
+              expression.replace(/^mw:/, "") === "window.answer" ? 42 : undefined,
             isClosed() {
               return page.closed
             },
