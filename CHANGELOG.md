@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Add `POST /sessions/:id/scrape` for existing browser sessions, sharing native `/scrape` validation, responses, logging and metrics. Reject conflicting URL and body session IDs (#230).
 - Add opt-in kept pages for named browser sessions (`keepPage` at creation): `/scrape` loads or navigates the session's retained page, `POST /sessions/:id/eval` evaluates JavaScript against its live state (awaiting async expressions), and `GET /sessions/:id/cookies` reads the context cookie jar including HttpOnly cookies without navigating. Retained pages close on session expiry, destruction and timed-out operations; sessions created without the option keep the existing per-request page cleanup (#230).
 
 ### Fixed

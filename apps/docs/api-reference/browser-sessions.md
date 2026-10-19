@@ -29,16 +29,16 @@ Creation options:
 | `ignoreCertificateErrors` | `false`                                 | Context TLS policy; certificate verification remains enabled by default |
 | `keepPage`                | `false`                                 | Keep one main page open across operations; enables session eval         |
 
-Use `sessionId` with ordinary `/scrape` options, including POST bodies, screenshots and diagnostics:
+Use `POST /sessions/:id/scrape` with ordinary `/scrape` options, including POST bodies, screenshots and diagnostics. The session must already exist. The ID comes from the URL, so omit `sessionId` from the body; if provided, it must match the URL or the request returns 400. `POST /scrape` with the same `sessionId` remains equivalent, including session isolation, fixed proxy/TLS policy, busy handling and deadlines.
 
 ```sh
-curl -X POST http://localhost:8191/scrape \
+curl -X POST http://localhost:8191/sessions/account/scrape \
   -H 'Content-Type: application/json' \
-  -d '{"url":"https://example.com/login","sessionId":"account","method":"POST","headers":{"Content-Type":"application/x-www-form-urlencoded"},"body":"username=example&password=example"}'
+  -d '{"url":"https://example.com/login","method":"POST","headers":{"Content-Type":"application/x-www-form-urlencoded"},"body":"username=example&password=example"}'
 
-curl -X POST http://localhost:8191/scrape \
+curl -X POST http://localhost:8191/sessions/account/scrape \
   -H 'Content-Type: application/json' \
-  -d '{"url":"https://example.com/account","sessionId":"account"}'
+  -d '{"url":"https://example.com/account"}'
 
 curl http://localhost:8191/sessions
 curl -X DELETE http://localhost:8191/sessions/account
@@ -48,16 +48,16 @@ curl -X DELETE http://localhost:8191/sessions/account
 
 ## Kept pages: eval and cookies
 
-A session created with `"keepPage": true` retains one main page in its context instead of closing request pages after each operation. `/scrape` with that `sessionId` loads or navigates the retained page rather than opening a fresh one, so in-page JavaScript state — globals, the DOM and sessionStorage — survives between operations until the next navigation. This supports load → eval → cookies flows such as login or challenge sequences driven from outside.
+A session created with `"keepPage": true` retains one main page in its context instead of closing request pages after each operation. `/sessions/:id/scrape` or `/scrape` with that `sessionId` loads or navigates the retained page rather than opening a fresh one, so in-page JavaScript state (globals, the DOM and sessionStorage) survives between operations until the next navigation. This supports load → eval → cookies flows such as login or challenge sequences driven from outside.
 
 ```sh
 curl -X POST http://localhost:8191/sessions \
   -H 'Content-Type: application/json' \
   -d '{"id":"web","keepPage":true}'
 
-curl -X POST http://localhost:8191/scrape \
+curl -X POST http://localhost:8191/sessions/web/scrape \
   -H 'Content-Type: application/json' \
-  -d '{"url":"https://example.com/login","sessionId":"web"}'
+  -d '{"url":"https://example.com/login"}'
 
 curl -X POST http://localhost:8191/sessions/web/eval \
   -H 'Content-Type: application/json' \
@@ -70,7 +70,7 @@ curl http://localhost:8191/sessions/web/cookies
 
 `GET /sessions/:id/cookies` returns `{ "cookies": [...] }` from the browser context, including HttpOnly cookies that page JavaScript cannot see, without navigating. Cookie entries use the same shape as `/scrape` results. This endpoint works on any named session; it does not require `keepPage`.
 
-Both operations share the session's existing busy handling: they wait for no one, and a concurrent scrape, eval or deletion while busy returns 409. Errors otherwise mirror the scrape paths — 400 for invalid input or eval on a session without a kept page, 404 for an unknown or expired session, 410 after the underlying browser was replaced, 503 while sessions are unavailable.
+Both operations share the session's existing busy handling: they wait for no one, and a concurrent scrape, eval or deletion while busy returns 409. Errors otherwise mirror the scrape paths: 400 for invalid input or eval on a session without a kept page, 404 for an unknown or expired session, 410 after the underlying browser was replaced, 503 while sessions are unavailable.
 
 The retained page closes with its context on session expiry, deletion, a timed-out operation or browser replacement. A failed scrape that does not time out keeps the page, so an eval can inspect the state a failure left behind.
 
