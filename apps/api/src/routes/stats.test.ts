@@ -29,6 +29,7 @@ describe("GET /stats", () => {
       restarts: 0,
       queueDepth: 2,
       longestBusyMs: 4200,
+      draining: false,
       headful: {
         browsers: 1,
         available: 1,
@@ -48,5 +49,13 @@ describe("GET /stats", () => {
       () => undefined,
     ).handle(new Request("http://localhost/stats"))
     expect((await response.json()).headful).toBeNull()
+  })
+
+  test("reports a pool draining for shutdown", async () => {
+    const response = await statsRoute(
+      () => stats({ draining: true }),
+      () => undefined,
+    ).handle(new Request("http://localhost/stats"))
+    expect((await response.json()).draining).toBeTrue()
   })
 })

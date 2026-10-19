@@ -125,6 +125,8 @@ export const STALL_TIMEOUT_MS = positiveInteger(process.env.BROWSER_STALL_TIMEOU
 // Upper bound on a single browser/context close during a recycle. Camoufox can hang on
 // close when a content process is wedged; past this we abandon the close and relaunch.
 export const CLOSE_TIMEOUT_MS = positiveInteger(process.env.BROWSER_CLOSE_TIMEOUT_MS, 10_000)
+// How long shutdown waits for in-flight browser checkouts before closing the pools.
+export const SHUTDOWN_DRAIN_MS = nonNegativeInteger(process.env.BROWSER_SHUTDOWN_DRAIN_MS, 0)
 // Upper bound on a browser launch. A cold Camoufox start is a few seconds, but launches
 // have been observed to hang indefinitely - without a bound that strands the pool entry.
 export const LAUNCH_TIMEOUT_MS = positiveInteger(process.env.BROWSER_LAUNCH_TIMEOUT_MS, 90_000)

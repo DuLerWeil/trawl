@@ -101,6 +101,7 @@ export class BrowserPool {
   private label: string
   private stallAfterMs: number
   private closeTimeoutMs: number
+  private drainTimeoutMs: number
   private launchTimeoutMs: number
   private healthIntervalMs: number
   private browserFactory?: BrowserFactory
@@ -128,6 +129,7 @@ export class BrowserPool {
     label = "pool",
     stallAfterMs = 180_000,
     closeTimeoutMs = CLOSE_TIMEOUT_MS,
+    drainTimeoutMs = 0,
     launchTimeoutMs = LAUNCH_TIMEOUT_MS,
     healthIntervalMs = 30_000,
     idleTimeoutMs = 0,
@@ -147,6 +149,8 @@ export class BrowserPool {
     label?: string
     stallAfterMs?: number
     closeTimeoutMs?: number
+    // How long shutdown() waits for in-flight checkouts before closing their browsers.
+    drainTimeoutMs?: number
     launchTimeoutMs?: number
     healthIntervalMs?: number
     idleTimeoutMs?: number
@@ -171,6 +175,7 @@ export class BrowserPool {
     this.label = label
     this.stallAfterMs = stallAfterMs
     this.closeTimeoutMs = closeTimeoutMs
+    this.drainTimeoutMs = drainTimeoutMs
     this.launchTimeoutMs = launchTimeoutMs
     if (!Number.isSafeInteger(idleTimeoutMs) || idleTimeoutMs < 0)
       throw new Error("idleTimeoutMs must be a non-negative integer")
@@ -933,7 +938,23 @@ export class BrowserPool {
       sleeping: this.entries.filter((e) => e.sleeping && e.healthy && !e.restarting).length,
       queueDepth: this.acquireWaiters.size,
       longestBusyMs,
+      draining: this.shuttingDown,
     }
+  }
+
+  // Waits for checkouts that can still finish: a stalled checkout never releases and a
+  // disconnected browser has nothing left to finish, so neither holds up the close.
+  private async drain(): Promise<void> {
+    const deadline = Date.now() + this.drainTimeoutMs
+    const inFlight = () => {
+      const now = Date.now()
+      return this.entries.filter((e) => e.busy && !this.isStalled(e, now) && this.isUsable(e)).length
+    }
+    while (Date.now() < deadline && inFlight() > 0) {
+      await new Promise((resolve) => setTimeout(resolve, Math.min(this.pollIntervalMs, deadline - Date.now())))
+    }
+    const stillBusy = this.entries.filter((e) => e.busy).length
+    if (stillBusy > 0) console.warn(`[${this.label}] shutdown: closing ${stillBusy} browser(s) still checked out`)
   }
 
   async shutdown(): Promise<void> {
@@ -943,6 +964,7 @@ export class BrowserPool {
       clearInterval(this.healthInterval)
       delete this.healthInterval
     }
+    await this.drain()
     for (const entry of this.entries) {
       // Bounded for the same reason as restartEntry - an unbounded close here hangs
       // SIGTERM handling until the supervisor's grace period expires and force-kills us.

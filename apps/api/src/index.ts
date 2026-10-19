@@ -14,6 +14,7 @@ import {
   PORT,
   SCRAPE_MIN_TIER,
   SCRAPE_PROXY_SELECTION,
+  SHUTDOWN_DRAIN_MS,
   USER_PREFS,
 } from "./config"
 import { getDeps, initPool } from "./deps"
@@ -59,7 +60,8 @@ poolReady.catch((err) => {
 registerLifecycleHandlers({
   onShutdown: async () => {
     stopMemoryMonitor()
-    app.server?.stop(true)
+    // With a drain configured, requests already in flight finish before the pools close.
+    app.server?.stop(SHUTDOWN_DRAIN_MS === 0)
     if (state.proxyHandle) await shutdownMitmProxy(state.proxyHandle)
   },
 })

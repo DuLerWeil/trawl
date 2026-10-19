@@ -371,6 +371,19 @@ BROWSER_HEADFUL_POOL_SIZE=1   # required for DataDome targets, ~380 MB on first 
 
 These bounds keep an unresponsive Firefox process from permanently consuming a pool slot. The defaults are suitable for most installations.
 
+### `BROWSER_SHUTDOWN_DRAIN_MS`
+
+**Default:** `0` (close at once)
+
+How long shutdown on `SIGTERM` or `SIGINT` waits for in-flight browser requests to finish before closing the pools. While it waits, the API accepts no new connections, requests that are already running complete normally, and new browser checkouts are refused. Stalled checkouts and disconnected browsers are not waited for. `/stats` reports `draining: true` until the process exits. The forced-exit deadline is this value plus 30 seconds.
+
+Set it no higher than your supervisor's grace period minus the time to close the browsers, or the supervisor kills the process mid-drain. In Kubernetes that is `terminationGracePeriodSeconds`; with Docker Compose it is `stop_grace_period`, which defaults to 10 seconds. A request that has to solve a challenge can take minutes, so a useful drain is usually minutes too.
+
+```ini
+BROWSER_SHUTDOWN_DRAIN_MS=0        # default - close in-flight requests at once
+BROWSER_SHUTDOWN_DRAIN_MS=240000   # wait up to 4 minutes; pair with a 300s grace period
+```
+
 ## Screenshots
 
 Only read when a request sets `screenshot: true` - see [Native API](/api-reference/native-api).

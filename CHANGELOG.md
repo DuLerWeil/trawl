@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Add opt-in `BROWSER_SHUTDOWN_DRAIN_MS`: on shutdown, the API stops accepting connections and the browser pools wait up to that long for in-flight checkouts before closing, so a rollout or scale-down no longer fails requests mid-scrape. The forced-exit deadline extends by the drain time, and `/stats` reports `draining`. The default `0` keeps closing at once (#241, #245).
+
 ## [1.9.1] - 2026-10-19
 
 ### Added

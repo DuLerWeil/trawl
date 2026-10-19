@@ -106,6 +106,7 @@ Lightweight public stats for dashboards and landing pages.
   "live": 5,
   "queueDepth": 0,
   "longestBusyMs": 12000,
+  "draining": false,
   "headful": null
 }
 ```
@@ -120,6 +121,7 @@ Lightweight public stats for dashboards and landing pages.
 | `live`          | number | Connected, non-stalled browser capacity                             |
 | `queueDepth`    | number | Requests currently waiting for a browser                            |
 | `longestBusyMs` | number | Milliseconds since the oldest active checkout began; zero when idle |
+| `draining`      | boolean | `true` once shutdown has begun and new browser checkouts are refused |
 
 ### Curl
 

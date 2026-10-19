@@ -26,6 +26,7 @@ import {
   SCRAPE_MIN_TIER,
   SESSION_CACHE_DRIVER,
   type SessionCacheDriver,
+  SHUTDOWN_DRAIN_MS,
   STALL_TIMEOUT_MS,
   USER_PREFS,
 } from "./config"
@@ -184,6 +185,7 @@ export const initPool = async ({
     hardwareConcurrency: BROWSER_HARDWARE_CONCURRENCY,
     stallAfterMs: STALL_TIMEOUT_MS,
     closeTimeoutMs: CLOSE_TIMEOUT_MS,
+    drainTimeoutMs: SHUTDOWN_DRAIN_MS,
     launchTimeoutMs: LAUNCH_TIMEOUT_MS,
     userPrefs: USER_PREFS,
     memoryUsage: () => readRuntimeMemory(poolSize, headfulPoolSize),
@@ -203,6 +205,7 @@ export const initPool = async ({
       label: "pool:headful",
       stallAfterMs: STALL_TIMEOUT_MS,
       closeTimeoutMs: CLOSE_TIMEOUT_MS,
+      drainTimeoutMs: SHUTDOWN_DRAIN_MS,
       launchTimeoutMs: LAUNCH_TIMEOUT_MS,
       userPrefs: USER_PREFS,
       memoryUsage: () => readRuntimeMemory(poolSize, headfulPoolSize),

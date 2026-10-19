@@ -1,3 +1,4 @@
+import { SHUTDOWN_DRAIN_MS } from "./config"
 import { shutdownPools } from "./deps"
 
 export interface LifecycleOptions {
@@ -24,7 +25,7 @@ export const registerLifecycleHandlers = (opts: LifecycleOptions = {}): void => 
     exitCode = Math.max(exitCode, code)
     if (stopping) return
     stopping = true
-    const deadline = setTimeout(() => process.exit(exitCode || 1), 30_000)
+    const deadline = setTimeout(() => process.exit(exitCode || 1), SHUTDOWN_DRAIN_MS + 30_000)
     try {
       try {
         await opts.onShutdown?.()

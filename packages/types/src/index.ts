@@ -275,6 +275,8 @@ export interface PoolStats {
   sleeping?: number
   queueDepth?: number
   longestBusyMs?: number
+  // True once shutdown() has begun: checkouts are refused while in-flight ones drain.
+  draining?: boolean
 }
 
 // Per-instance HTTP-level fingerprint (User-Agent + matching navigator.platform /
