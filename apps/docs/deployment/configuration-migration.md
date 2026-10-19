@@ -5,6 +5,19 @@ description: Upgrade notes and environment-variable changes across TRAWL release
 
 # Configuration migration
 
+## Upgrading from v1.9.0 to v1.9.1
+
+No configuration changes are required. `POST /sessions/:id/scrape` accepts the
+same options as `/scrape` with `sessionId`; both use the existing session.
+
+To retain one main page between operations, create a session with `keepPage: true`.
+`POST /sessions/:id/eval` then evaluates JavaScript in that page's main context.
+`GET /sessions/:id/cookies` reads the cookie jar, including HttpOnly cookies, for
+any named session. See [browser sessions](/api-reference/browser-sessions).
+
+Sessions without `keepPage` retain per-request page cleanup. All named sessions
+remain process-local and must be recreated after an API restart or invalidation.
+
 ## Upgrading from v1.8.0 to v1.9.0
 
 Keep the existing Redis data and dashboard volume mounted. Older clearance-cache
