@@ -1,6 +1,8 @@
 import { type BrowserHandle, closeTemporaryContext, newFreshContext } from "@trawl/browser"
-import type { BrowserSession, CreateBrowserSession } from "@trawl/types"
+import type { BrowserSession, Cookie, CreateBrowserSession } from "@trawl/types"
+import type { Page } from "patchright"
 import type { AcquireOptions } from "./orchestrator"
+import { toCookies } from "./utils/cookies"
 import { RequestBudget } from "./utils/deadline"
 import { RequestValidationError } from "./utils/sanitize"
 
@@ -9,6 +11,7 @@ interface Entry {
   info: BrowserSession
   options: CreateBrowserSession
   context?: Context
+  page?: Page
   browser?: BrowserHandle["browser"]
   browserId?: number
   busy: boolean
@@ -92,7 +95,7 @@ export class BrowserSessions {
       throw new RequestValidationError("Browser session limit reached", 429)
     const now = this.now()
     const entry: Entry = {
-      info: { id, createdAt: now, expiresAt: now + this.ttlMs, busy: false },
+      info: { id, createdAt: now, expiresAt: now + this.ttlMs, busy: false, keepPage: Boolean(options.keepPage) },
       options: { ...options, proxy },
       busy: false,
       sessionStorage: new Map(),
@@ -148,11 +151,31 @@ export class BrowserSessions {
     await this.remove(entry)
   }
 
+  async evaluate(id: string, expression: string, budget: RequestBudget): Promise<unknown> {
+    if (!this.require(id).options.keepPage)
+      throw new RequestValidationError("Session does not retain a page; create it with keepPage", 400)
+    const result = await this.use(id, "", budget, async (_handle, _context, _storage, page) => {
+      if (!page) throw new RequestValidationError("Session page is unavailable", 410)
+      return page.evaluate(expression)
+    })
+    // Playwright reports a JS undefined as-is; JSON responses carry null instead.
+    return result === undefined ? null : result
+  }
+
+  async cookies(id: string, budget: RequestBudget): Promise<Cookie[]> {
+    return this.use(id, "", budget, async (_handle, context) => toCookies(await context.cookies()))
+  }
+
   async use<T>(
     id: string,
     domain: string,
     budget: RequestBudget,
-    operation: (handle: BrowserHandle, context: Context, storage: Map<string, [string, string][]>) => Promise<T>,
+    operation: (
+      handle: BrowserHandle,
+      context: Context,
+      storage: Map<string, [string, string][]>,
+      page?: Page,
+    ) => Promise<T>,
   ): Promise<T> {
     const entry = this.require(id)
     if (entry.busy) throw new RequestValidationError("Session is busy; retry after its request completes", 409)
@@ -205,7 +228,10 @@ export class BrowserSessions {
       if (this.stopped || this.entries.get(id) !== entry)
         throw new RequestValidationError("Session is no longer available", 410)
       const context = entry.context
-      return await budget.run(() => operation(acquired, context, entry.sessionStorage))
+      if (entry.options.keepPage && (!entry.page || entry.page.isClosed())) {
+        entry.page = await budget.run(() => context.newPage())
+      }
+      return await budget.run(() => operation(acquired, context, entry.sessionStorage, entry.page))
     } catch (error) {
       // A timed out operation can still be mutating storage. Retire its context
       // before releasing the lease; never reuse an uncertain session.
@@ -227,29 +253,42 @@ export class BrowserSessions {
           {
             close: async () => {
               try {
-                const page = context.pages()[0]
-                if (page) {
-                  for (const frame of page.frames()) {
-                    const snapshot = await frame.evaluate(() => {
-                      if (!/^https?:$/.test(location.protocol)) return null
-                      try {
-                        return { origin: location.origin, values: Object.entries(sessionStorage) }
-                      } catch (error) {
-                        if (error instanceof DOMException && error.name === "SecurityError") return null
-                        throw error
-                      }
-                    })
-                    if (snapshot) entry.sessionStorage.set(snapshot.origin, snapshot.values)
-                  }
-                  const chars = [...entry.sessionStorage].reduce(
-                    (total, [origin, values]) =>
-                      total + origin.length + values.reduce((n, [key, value]) => n + key.length + value.length, 0),
-                    0,
+                if (entry.options.keepPage) {
+                  // The retained page holds its own sessionStorage, so no snapshot is
+                  // needed here; only stray extra pages are closed.
+                  const retained = entry.page && !entry.page.isClosed() ? entry.page : undefined
+                  await Promise.all(
+                    context
+                      .pages()
+                      .filter((page: Page) => page !== retained)
+                      .map((page: { close(): Promise<void> }) => page.close()),
                   )
-                  if (entry.sessionStorage.size > 32 || chars > 5_000_000) cleanupFailed = true
+                  if (context.pages().some((page: Page) => page !== retained)) cleanupFailed = true
+                } else {
+                  const page = context.pages()[0]
+                  if (page) {
+                    for (const frame of page.frames()) {
+                      const snapshot = await frame.evaluate(() => {
+                        if (!/^https?:$/.test(location.protocol)) return null
+                        try {
+                          return { origin: location.origin, values: Object.entries(sessionStorage) }
+                        } catch (error) {
+                          if (error instanceof DOMException && error.name === "SecurityError") return null
+                          throw error
+                        }
+                      })
+                      if (snapshot) entry.sessionStorage.set(snapshot.origin, snapshot.values)
+                    }
+                    const chars = [...entry.sessionStorage].reduce(
+                      (total, [origin, values]) =>
+                        total + origin.length + values.reduce((n, [key, value]) => n + key.length + value.length, 0),
+                      0,
+                    )
+                    if (entry.sessionStorage.size > 32 || chars > 5_000_000) cleanupFailed = true
+                  }
+                  await Promise.all(context.pages().map((page: { close(): Promise<void> }) => page.close()))
+                  if (context.pages().length) cleanupFailed = true
                 }
-                await Promise.all(context.pages().map((page: { close(): Promise<void> }) => page.close()))
-                if (context.pages().length) cleanupFailed = true
               } catch {
                 cleanupFailed = true
               }

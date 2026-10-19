@@ -8,6 +8,7 @@ describe("browser outbound policy", () => {
       route: async (_pattern: string, callback: (route: any) => Promise<void>) => {
         handler = callback
       },
+      unroute: async () => {},
     }
     await installOutboundPolicy(page, async (url) => {
       if (url.includes("private")) throw new Error("blocked")

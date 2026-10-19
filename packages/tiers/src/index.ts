@@ -13,6 +13,7 @@ export { runTier4, type Tier4Result } from "./tiers/4"
 export { anubisInspectionText } from "./utils/anubis"
 export { normalizeInputCookies } from "./utils/cookies"
 export type { LandingProbe, LandingProbeOptions } from "./utils/crossedLanding"
+export { RequestBudget } from "./utils/deadline"
 export {
   type ChallengeType,
   type DataDomeAction,

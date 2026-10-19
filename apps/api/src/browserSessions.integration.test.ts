@@ -268,6 +268,99 @@ describe.skipIf(process.env.TRAWL_BROWSER_SESSION_TESTS !== "1")("persistent bro
     }
   }, 25000)
 
+  test("kept page: scrape navigates one page, eval shares its state and cookies come from the jar", async () => {
+    expect(await send("/sessions", { id: "web", keepPage: true })).toMatchObject({
+      status: 201,
+      body: { id: "web", keepPage: true },
+    })
+    const loaded = await send("/scrape", { url: url("/storage"), sessionId: "web", maxTimeout: 15000 })
+    expect(loaded.status, JSON.stringify(loaded.body)).toBe(200)
+
+    // JS realm state survives between evals only when both run on the same page.
+    expect((await send("/sessions/web/eval", { expression: "window.marker = 41" })).status).toBe(200)
+    const marker = await send("/sessions/web/eval", { expression: "window.marker + 1" })
+    expect(marker.status).toBe(200)
+    expect(marker.body.value).toBe(42)
+    const tabState = await send("/sessions/web/eval", { expression: "sessionStorage.getItem('tab-marker')" })
+    expect(tabState.body.value).toBe("retained")
+
+    // A scrape navigates the kept page: the realm resets, the context jar keeps login state.
+    const login = await send("/scrape", {
+      url: url("/login"),
+      sessionId: "web",
+      method: "POST",
+      body: "user=fixture",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      maxTimeout: 15000,
+    })
+    expect(login.status, JSON.stringify(login.body)).toBe(200)
+    expect(login.body.html).toContain('data-login="true"')
+    const afterNav = await send("/sessions/web/eval", { expression: "window.marker ?? null" })
+    expect(afterNav.body.value).toBeNull()
+
+    const jar = await send("/sessions/web/cookies")
+    expect(jar.status).toBe(200)
+    const loginCookie = jar.body.cookies.find((cookie: { name: string }) => cookie.name === "fixture_login")
+    expect(loginCookie).toMatchObject({ value: "yes", httpOnly: true })
+    const jsCookies = await send("/sessions/web/eval", { expression: "document.cookie" })
+    expect(jsCookies.body.value).not.toContain("fixture_login")
+
+    const budget = new RequestBudget(1000)
+    try {
+      await getDeps().sessions?.use("web", "", budget, async (_, context) => {
+        expect(context.pages()).toHaveLength(1)
+      })
+    } finally {
+      budget.dispose()
+    }
+    await expectAvailableBrowser()
+
+    expect((await send("/sessions", { id: "other", keepPage: true })).status).toBe(201)
+    const otherJar = await send("/sessions/other/cookies")
+    expect(otherJar.body.cookies).toEqual([])
+    const otherMarker = await send("/sessions/other/eval", { expression: "typeof window.marker" })
+    expect(otherMarker.body.value).toBe("undefined")
+    expect((await send("/sessions/other", undefined, "DELETE")).status).toBe(200)
+
+    expect((await send("/sessions/web", undefined, "DELETE")).status).toBe(200)
+    expect((await send("/sessions/web/eval", { expression: "1" })).status).toBe(404)
+    expect((await send("/sessions/web/cookies")).status).toBe(404)
+    await expectAvailableBrowser()
+  }, 100000)
+
+  test("a kept-page session reports busy while a scrape holds it", async () => {
+    expect((await send("/sessions", { id: "busy", keepPage: true })).status).toBe(201)
+    const pending = send("/scrape", { url: url("/slow"), sessionId: "busy", maxTimeout: 15000 })
+    const deadline = Date.now() + 5000
+    let sessions: { id: string; busy: boolean }[] = []
+    while (Date.now() < deadline) {
+      sessions = (await send("/sessions")).body.sessions
+      if (sessions[0]?.busy) break
+      await Bun.sleep(20)
+    }
+    expect(sessions[0]?.busy).toBe(true)
+    expect((await send("/sessions/busy/eval", { expression: "1" })).status).toBe(409)
+    expect((await send("/sessions/busy/cookies")).status).toBe(409)
+    const done = await pending
+    expect(done.status, JSON.stringify(done.body)).toBe(200)
+    expect((await send("/sessions/busy", undefined, "DELETE")).status).toBe(200)
+    await expectAvailableBrowser()
+  }, 30000)
+
+  test("a timed-out eval retires the session and frees the browser", async () => {
+    expect((await send("/sessions", { id: "stuck", keepPage: true })).status).toBe(201)
+    const result = await send("/sessions/stuck/eval", { expression: "new Promise(() => {})", maxTimeout: 300 })
+    expect(result.status).toBe(500)
+    const deadline = Date.now() + 10000
+    while (!getPool()?.getStats().available && Date.now() < deadline) await Bun.sleep(20)
+    expect((await send("/sessions")).body.sessions).toEqual([])
+    await expectAvailableBrowser()
+    expect((await send("/scrape", { url: url("/account") })).status).toBe(200)
+  }, 15000)
+
+  // Runs last: a deadline that kills a mid-flight operation has been observed to
+  // leave the pooled browser refusing the next page creation, and only the crash
+  // test's browser restart heals it.
   test("browser loss invalidates sessions and the pool can create a new session", async () => {
     expect((await send("/sessions", { id: "crash" })).status).toBe(201)
     const budget = new RequestBudget(1000)

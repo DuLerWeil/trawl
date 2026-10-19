@@ -319,6 +319,7 @@ export interface BrowserSession {
   createdAt: number
   expiresAt: number
   busy: boolean
+  keepPage: boolean
 }
 
 export interface CreateBrowserSession {
@@ -326,6 +327,14 @@ export interface CreateBrowserSession {
   proxy?: string
   headful?: boolean
   ignoreCertificateErrors?: boolean
+  // Opt-in page retention: one main page stays open in the session context across
+  // operations, so /scrape navigates it and session eval observes its live state.
+  keepPage?: boolean
+}
+
+export interface SessionEvalRequest {
+  expression: string
+  maxTimeout?: number
 }
 
 export interface FlareSolverrScrapeRequest {

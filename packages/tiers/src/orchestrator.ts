@@ -315,11 +315,12 @@ async function scrapeWithinBudget(
       throw new RequestValidationError("Minimum tier 4 requires a proxy set on session creation", 400)
     const sessions = deps.sessions
     if (!sessions) throw new RequestValidationError("Browser sessions are unavailable", 503)
-    return sessions.use(req.sessionId, domain, budget, async (handle, context, storage) => {
+    return sessions.use(req.sessionId, domain, budget, async (handle, context, storage, page) => {
       const sessionCapture = {
         ...capture,
         sessionContext: context,
         sessionStorage: storage,
+        sessionPage: page,
       }
       const result =
         minTier === 4

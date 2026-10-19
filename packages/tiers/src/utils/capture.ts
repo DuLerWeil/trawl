@@ -31,6 +31,9 @@ export interface CaptureOptions extends ResponseCaptureOptions {
   cookies?: InputCookie[]
   sessionContext?: Awaited<ReturnType<typeof import("@trawl/browser").newFreshContext>>
   sessionStorage?: Map<string, [string, string][]>
+  // Kept-page sessions run on their retained page instead of a fresh per-request page.
+  // The tier strips per-request instrumentation from it again when the operation ends.
+  sessionPage?: Page
   budget?: RequestBudget
   // Shared across Tier 3 retries when a residential fallback is available.
   cloudflareDeadline?: number
