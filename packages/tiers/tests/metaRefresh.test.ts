@@ -492,6 +492,29 @@ describe("allowShortContent", () => {
       expect(result.html).toBe(TINY)
       expect(result.effectiveUrl).toBe(START)
     })
+
+    for (const [name, html, status, reason] of [
+      [
+        "network error",
+        '<title data-l10n-id="neterror-page-title"></title>',
+        "error",
+        tier === 3 ? "browser network error (about:neterror)" : "proxy-connection-failed",
+      ],
+      ["Cloudflare wall", '<div id="cf-error-details">Blocked</div>', "blocked", "cloudflare-persistent"],
+      ["CAPTCHA wall", '<form action="https://duckduckgo.com/anomaly.js"></form>', "blocked", "duckduckgo-persistent"],
+    ] as const) {
+      test(`Tier ${tier} rejects a short ${name} even with allowShortContent`, async () => {
+        const documents = { [START]: CONTENT }
+        const site = makeSite(documents)
+        site.page.waitForLoadState = async () => {
+          documents[START] = html
+        }
+
+        const result = await browserTier(tier, site, { allowShortContent: true })
+        expect(result.status).toBe(status)
+        expect(result.reason).toBe(reason)
+      })
+    }
   }
 
   test("the orchestrator passes the flag to the browser tiers", async () => {
