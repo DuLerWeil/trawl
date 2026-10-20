@@ -99,6 +99,12 @@ that long for checkouts that can still finish, meaning those that are not stalle
 browser is connected. After that it closes every context and browser, each close bounded by
 `BROWSER_CLOSE_TIMEOUT_MS`. See [`BROWSER_SHUTDOWN_DRAIN_MS`](/getting-started/configuration#browser-shutdown-drain-ms).
 
+The API first gives accepted HTTP requests one bounded drain window, keeping their
+sessions and browsers alive. With a drain configured, Playwright's automatic
+`SIGTERM`/`SIGINT` browser closes are disabled so they cannot interrupt that window.
+Pool cleanup then skips a second drain. This also allows HTTP-only requests and
+queued browser requests to finish. The default `0` still closes immediately.
+
 ## Why Camoufox Firefox, not Chromium?
 
 Cloudflare detects datacenter Chromium via multiple signals: the CDP leak (`Runtime.enable` fires in a detectable pattern), `navigator.webdriver`, missing browser internals, and fingerprint inconsistencies.

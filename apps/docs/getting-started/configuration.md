@@ -375,7 +375,9 @@ These bounds keep an unresponsive Firefox process from permanently consuming a p
 
 **Default:** `0` (close at once)
 
-How long shutdown on `SIGTERM` or `SIGINT` waits for in-flight browser requests to finish before closing the pools. While it waits, the API accepts no new connections, requests that are already running complete normally, and new browser checkouts are refused. Stalled checkouts and disconnected browsers are not waited for. `/stats` reports `draining: true` until the process exits. The forced-exit deadline is this value plus 30 seconds.
+How long shutdown on `SIGTERM` or `SIGINT` lets accepted HTTP requests finish before closing sessions and browser pools. The API stops accepting new connections immediately. Existing requests, including HTTP-only scrapes, queued browser requests and named sessions, can finish within this window. At the deadline, remaining HTTP connections are closed and cleanup begins without another drain interval. Long-lived streams can use the entire window. The MITM proxy keeps its separate, bounded shutdown behavior.
+
+`/stats` includes the pool's `draining` flag once pool shutdown begins; the API listener is already stopped at that point. The forced-exit deadline is the configured drain plus 30 seconds. Invalid values fall back to `0`; the maximum accepted value is `2147453647` ms, leaving room for the forced-exit timer.
 
 Set it no higher than your supervisor's grace period minus the time to close the browsers, or the supervisor kills the process mid-drain. In Kubernetes that is `terminationGracePeriodSeconds`; with Docker Compose it is `stop_grace_period`, which defaults to 10 seconds. A request that has to solve a challenge can take minutes, so a useful drain is usually minutes too.
 

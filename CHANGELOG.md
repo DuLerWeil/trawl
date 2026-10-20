@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Add opt-in `BROWSER_SHUTDOWN_DRAIN_MS`: on shutdown, the API stops accepting connections and the browser pools wait up to that long for in-flight checkouts before closing, so a rollout or scale-down no longer fails requests mid-scrape. The forced-exit deadline extends by the drain time, and `/stats` reports `draining`. The default `0` keeps closing at once (#241, #245).
+- Add opt-in `BROWSER_SHUTDOWN_DRAIN_MS` to let accepted HTTP requests finish before sessions and browser pools close during shutdown. Requests exceeding the drain window are interrupted; the default `0` keeps closing at once. The forced-exit deadline extends by the drain time, and `/stats` reports pool shutdown through `draining` (#241, #245).
 - Add `GET /metrics`, the browser pool's saturation in the Prometheus text exposition format, for scrape jobs and autoscalers. It sits alongside the local metrics dashboard and reports pool utilization, waiting requests, and counters for granted checkouts, exhausted checkouts and cumulative wait time (#240, #244).
 - Add opt-in `allowShortContent` to the native scrape API: Tiers 3 and 4 return a document under 100 characters instead of failing it as empty content, so a caller can judge a tiny page itself, such as a forwarder whose refresh `followMetaRefresh` does not take. Network-error pages and challenge walls are still rejected (#242, #246).
 
