@@ -5,6 +5,18 @@ description: Upgrade notes and environment-variable changes across TRAWL release
 
 # Configuration migration
 
+## Upgrading from v1.9.1 to v1.9.2
+
+No configuration changes are required. `GET /metrics` now exposes browser pool
+metrics for Prometheus alongside `/stats` and the local dashboard.
+
+`allowShortContent` is an opt-in native scrape option for browser documents under
+100 characters. Network-error pages and challenge walls are still rejected.
+
+Shutdown remains immediate by default. To let accepted requests finish during a
+restart, set `BROWSER_SHUTDOWN_DRAIN_MS` and allow additional time for browser
+cleanup in your supervisor's stop timeout. See [shutdown configuration](/getting-started/configuration#browser-shutdown-drain-ms).
+
 ## Upgrading from v1.9.0 to v1.9.1
 
 No configuration changes are required. `POST /sessions/:id/scrape` accepts the

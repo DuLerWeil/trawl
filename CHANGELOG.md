@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.2] - 2026-10-20
+
 ### Added
 - Add opt-in `BROWSER_SHUTDOWN_DRAIN_MS` to let accepted HTTP requests finish before sessions and browser pools close during shutdown. Requests exceeding the drain window are interrupted; the default `0` keeps closing at once. The forced-exit deadline extends by the drain time, and `/stats` reports pool shutdown through `draining` (#241, #245).
 - Add `GET /metrics`, the browser pool's saturation in the Prometheus text exposition format, for scrape jobs and autoscalers. It sits alongside the local metrics dashboard and reports pool utilization, waiting requests, and counters for granted checkouts, exhausted checkouts and cumulative wait time (#240, #244).
@@ -14,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fold the MHTML archive's `Content-Type` parameters onto their own lines, as Blink writes them, so MHTML readers that find `boundary` at the start of a line can parse trawl's archives (#243).
+- Pass `BROWSER_SHUTDOWN_DRAIN_MS` from `.env` in every Compose variant; retain the disabled default and document the matching supervisor stop timeout.
+
+### Changed
+- Refresh compatible transitive dependencies, including Nitro, Rollup, PostCSS and Undici. Retain the Camoufox/Playwright pairing and TypeScript 6 for Vue typechecking.
 
 ## [1.9.1] - 2026-10-19
 
