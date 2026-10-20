@@ -40,6 +40,7 @@ export interface CaptureOptions extends ResponseCaptureOptions {
   externalCaptcha?: ExternalCaptchaSession
   solveEmbeddedCaptchas?: boolean
   followMetaRefresh?: boolean
+  allowShortContent?: boolean
   screenshotFullPage?: boolean
   screenshotWaitForSelector?: string
   screenshotSelector?: string
