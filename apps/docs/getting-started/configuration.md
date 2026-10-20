@@ -386,6 +386,17 @@ BROWSER_SHUTDOWN_DRAIN_MS=0        # default - close in-flight requests at once
 BROWSER_SHUTDOWN_DRAIN_MS=240000   # wait up to 4 minutes; pair with a 300s grace period
 ```
 
+The supplied Compose files pass this variable from `.env`. Set the matching
+`stop_grace_period` in a Compose override, for example:
+
+```yaml
+services:
+  trawl:
+    stop_grace_period: 300s
+    environment:
+      BROWSER_SHUTDOWN_DRAIN_MS: "240000"
+```
+
 ## Screenshots
 
 Only read when a request sets `screenshot: true` - see [Native API](/api-reference/native-api).
