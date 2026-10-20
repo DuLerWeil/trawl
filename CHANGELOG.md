@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Add opt-in `BROWSER_SHUTDOWN_DRAIN_MS`: on shutdown, the API stops accepting connections and the browser pools wait up to that long for in-flight checkouts before closing, so a rollout or scale-down no longer fails requests mid-scrape. The forced-exit deadline extends by the drain time, and `/stats` reports `draining`. The default `0` keeps closing at once (#241, #245).
+- Add `GET /metrics`, the browser pool's saturation in the Prometheus text exposition format, for scrape jobs and autoscalers. It sits alongside the local metrics dashboard and reports pool utilization, waiting requests, and counters for granted checkouts, exhausted checkouts and cumulative wait time (#240, #244).
+- Add opt-in `allowShortContent` to the native scrape API: Tiers 3 and 4 return a document under 100 characters instead of failing it as empty content, so a caller can judge a tiny page itself, such as a forwarder whose refresh `followMetaRefresh` does not take. Network-error pages and challenge walls are still rejected (#242, #246).
+
+### Fixed
+- Fold the MHTML archive's `Content-Type` parameters onto their own lines, as Blink writes them, so MHTML readers that find `boundary` at the start of a line can parse trawl's archives (#243).
 
 ## [1.9.1] - 2026-10-19
 

@@ -460,3 +460,76 @@ describe("HTTP tier escalation", () => {
     expect(result.timings[0]?.reason).toBe("meta-refresh-needs-browser")
   })
 })
+
+describe("allowShortContent", () => {
+  const TINY = "<p>gone</p>"
+  const browserTier = (tier: 3 | 4, site: ReturnType<typeof makeSite>, capture: { allowShortContent?: boolean }) =>
+    tier === 3
+      ? runTier3(START, site.handle, 4000, undefined, undefined, undefined, undefined, undefined, false, capture)
+      : runTier4(
+          START,
+          site.handle,
+          4000,
+          "http://proxy.example:8080",
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          false,
+          capture,
+        )
+
+  for (const tier of [3, 4] as const) {
+    test(`Tier ${tier} fails a page under 100 characters by default`, async () => {
+      const result = await browserTier(tier, makeSite({ [START]: TINY }), {})
+      expect(result.status).toBe("error")
+      expect(result.reason).toBe("page returned empty content")
+    })
+
+    test(`Tier ${tier} returns a page under 100 characters when asked`, async () => {
+      const result = await browserTier(tier, makeSite({ [START]: TINY }), { allowShortContent: true })
+      expect(result.status).toBe("success")
+      expect(result.html).toBe(TINY)
+      expect(result.effectiveUrl).toBe(START)
+    })
+
+    for (const [name, html, status, reason] of [
+      [
+        "network error",
+        '<title data-l10n-id="neterror-page-title"></title>',
+        "error",
+        tier === 3 ? "browser network error (about:neterror)" : "proxy-connection-failed",
+      ],
+      ["Cloudflare wall", '<div id="cf-error-details">Blocked</div>', "blocked", "cloudflare-persistent"],
+      ["CAPTCHA wall", '<form action="https://duckduckgo.com/anomaly.js"></form>', "blocked", "duckduckgo-persistent"],
+    ] as const) {
+      test(`Tier ${tier} rejects a short ${name} even with allowShortContent`, async () => {
+        const documents = { [START]: CONTENT }
+        const site = makeSite(documents)
+        site.page.waitForLoadState = async () => {
+          documents[START] = html
+        }
+
+        const result = await browserTier(tier, site, { allowShortContent: true })
+        expect(result.status).toBe(status)
+        expect(result.reason).toBe(reason)
+      })
+    }
+  }
+
+  test("the orchestrator passes the flag to the browser tiers", async () => {
+    const site = makeSite({ [START]: TINY })
+    const deps = {
+      acquireBrowser: async () => site.handle,
+      releaseBrowser: () => {},
+      loadSession: async () => undefined,
+      saveSession: async () => {},
+      invalidateSession: async () => {},
+    }
+    const request = { url: START, skipHttp: true, maxTier: 3 as const, maxTimeout: 4000 }
+
+    await expect(scrape(request, deps)).rejects.toThrow()
+    const result = await scrape({ ...request, allowShortContent: true }, deps)
+    expect(result.html).toBe(TINY)
+  })
+})
