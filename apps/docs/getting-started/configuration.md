@@ -371,6 +371,32 @@ BROWSER_HEADFUL_POOL_SIZE=1   # required for DataDome targets, ~380 MB on first 
 
 These bounds keep an unresponsive Firefox process from permanently consuming a pool slot. The defaults are suitable for most installations.
 
+### `BROWSER_SHUTDOWN_DRAIN_MS`
+
+**Default:** `0` (close at once)
+
+How long shutdown on `SIGTERM` or `SIGINT` lets accepted HTTP requests finish before closing sessions and browser pools. The API stops accepting new connections immediately. Existing requests, including HTTP-only scrapes, queued browser requests and named sessions, can finish within this window. At the deadline, remaining HTTP connections are closed and cleanup begins without another drain interval. Long-lived streams can use the entire window. The MITM proxy keeps its separate, bounded shutdown behavior.
+
+`/stats` includes the pool's `draining` flag once pool shutdown begins; the API listener is already stopped at that point. The forced-exit deadline is the configured drain plus 30 seconds. Invalid values fall back to `0`; the maximum accepted value is `2147453647` ms, leaving room for the forced-exit timer.
+
+Set it no higher than your supervisor's grace period minus the time to close the browsers, or the supervisor kills the process mid-drain. In Kubernetes that is `terminationGracePeriodSeconds`; with Docker Compose it is `stop_grace_period`, which defaults to 10 seconds. A request that has to solve a challenge can take minutes, so a useful drain is usually minutes too.
+
+```ini
+BROWSER_SHUTDOWN_DRAIN_MS=0        # default - close in-flight requests at once
+BROWSER_SHUTDOWN_DRAIN_MS=240000   # wait up to 4 minutes; pair with a 300s grace period
+```
+
+The supplied Compose files pass this variable from `.env`. Set the matching
+`stop_grace_period` in a Compose override, for example:
+
+```yaml
+services:
+  trawl:
+    stop_grace_period: 300s
+    environment:
+      BROWSER_SHUTDOWN_DRAIN_MS: "240000"
+```
+
 ## Screenshots
 
 Only read when a request sets `screenshot: true` - see [Native API](/api-reference/native-api).

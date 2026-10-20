@@ -112,6 +112,7 @@ export function validateScrapeRequest(body: unknown): asserts body is ScrapeRequ
     "mhtml",
     "ignoreCertificateErrors",
     "followMetaRefresh",
+    "allowShortContent",
     "favicons",
   ] as const) {
     if (req[field] !== undefined && typeof req[field] !== "boolean") {

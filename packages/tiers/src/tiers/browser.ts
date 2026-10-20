@@ -251,6 +251,7 @@ async function runBrowserTierTask<T extends 3 | 4>(
     if (wall?.reason !== "anubis-persistent" && wall?.reason !== "google-sorry-persistent") {
       // Empty shell means the browser got nothing - treat as a load failure
       if (
+        !capture.allowShortContent &&
         html.length < 100 &&
         challengeType !== "anubis" &&
         !isNonHtmlTextContentType(mainResponse.headers["content-type"])

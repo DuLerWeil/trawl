@@ -40,6 +40,7 @@ interface ScrapeRequest {
   mhtml?: boolean                        // assemble an MHTML archive of the page, default false
   ignoreCertificateErrors?: boolean      // load the page even if its TLS certificate fails verification, default false
   followMetaRefresh?: boolean            // follow bounded meta refresh redirects, default false
+  allowShortContent?: boolean            // return a browser page under 100 characters instead of failing it, default false
   favicons?: boolean                     // fetch the page's declared icons from inside the page, default false
 }
 ```
@@ -81,6 +82,7 @@ not relax that guard.
 | `mhtml`                     | boolean  | false    | Assemble a `multipart/related` MHTML archive of the page on the browser tiers (2-4) and return it as `mhtml`. An approximation of "Save as MHTML", not an engine snapshot - see the note below                                                                                                                                                            |
 | `ignoreCertificateErrors`   | boolean  | false    | Load the page even when its TLS certificate fails verification (expired, self-signed, issued for another host) instead of failing the fetch. Off by default, so every other caller keeps a verified connection. An unverified connection no longer proves whose page came back, so the request also gets the crossed-landing guard - see the note below   |
 | `followMetaRefresh`         | boolean  | false    | Follow HTTP(S) meta refresh redirects with delays up to 10 seconds, allowing at most 3 browser-followed hops. Tier 1 escalates eligible HTML forwarders to a browser; Tiers 2-4 follow in the existing context. Reload-only refreshes are ignored. Navigation failures, loops, and exhausted budgets fail the attempt instead of returning the forwarder. |
+| `allowShortContent`         | boolean  | false    | Return a browser-tier (3-4) document under 100 characters as a success instead of failing it with `page returned empty content`, for callers that judge a tiny page themselves. Browser network-error pages and challenge walls are still rejected. |
 | `favicons`                  | boolean  | false    | Fetch the apex `/favicon.ico` and every declared link whose `rel` contains `icon` from inside the page on the browser tiers (2-4) and return them as `favicons`. Tier 1 never produces them; use `skipHttp: true` to force a browser attempt - see the note below                                                                                         |
 
 ### Embedded CAPTCHA widgets

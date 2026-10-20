@@ -14,10 +14,11 @@ import {
   PORT,
   SCRAPE_MIN_TIER,
   SCRAPE_PROXY_SELECTION,
+  SHUTDOWN_DRAIN_MS,
   USER_PREFS,
 } from "./config"
 import { getDeps, initPool } from "./deps"
-import { registerLifecycleHandlers } from "./lifecycle"
+import { registerLifecycleHandlers, stopServer } from "./lifecycle"
 import { type MitmProxyHandle, shutdownMitmProxy, startMitmProxy } from "./proxy/server"
 import { startMemoryMonitor } from "./runtimeMemory"
 
@@ -59,7 +60,9 @@ poolReady.catch((err) => {
 registerLifecycleHandlers({
   onShutdown: async () => {
     stopMemoryMonitor()
-    app.server?.stop(true)
-    if (state.proxyHandle) await shutdownMitmProxy(state.proxyHandle)
+    await Promise.all([
+      stopServer(app.server, SHUTDOWN_DRAIN_MS),
+      state.proxyHandle ? shutdownMitmProxy(state.proxyHandle) : undefined,
+    ])
   },
 })

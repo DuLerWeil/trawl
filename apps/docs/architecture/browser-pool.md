@@ -55,6 +55,7 @@ new BrowserPool({
   idleTimeoutMs: 0,           // BROWSER_IDLE_TIMEOUT_MS - disabled by default
   stallAfterMs: 180000,       // BROWSER_STALL_TIMEOUT_MS
   closeTimeoutMs: 10000,      // BROWSER_CLOSE_TIMEOUT_MS
+  drainTimeoutMs: 0,          // BROWSER_SHUTDOWN_DRAIN_MS - close at once by default
   launchTimeoutMs: 90000,     // BROWSER_LAUNCH_TIMEOUT_MS
 })
 ```
@@ -90,6 +91,19 @@ or intentionally sleeping capacity remains.
 interval and relaunch on the next browser-backed request. Shared clearance cache entries survive;
 HTTP requests can still use them. Active requests, queued acquires and retained named-session
 contexts prevent retirement. See [idle retirement](/getting-started/configuration#browser-idle-timeout-ms).
+
+## Shutdown
+
+`pool.shutdown()` refuses new checkouts at once. With `drainTimeoutMs` set, it then waits up to
+that long for checkouts that can still finish, meaning those that are not stalled and whose
+browser is connected. After that it closes every context and browser, each close bounded by
+`BROWSER_CLOSE_TIMEOUT_MS`. See [`BROWSER_SHUTDOWN_DRAIN_MS`](/getting-started/configuration#browser-shutdown-drain-ms).
+
+The API first gives accepted HTTP requests one bounded drain window, keeping their
+sessions and browsers alive. With a drain configured, Playwright's automatic
+`SIGTERM`/`SIGINT` browser closes are disabled so they cannot interrupt that window.
+Pool cleanup then skips a second drain. This also allows HTTP-only requests and
+queued browser requests to finish. The default `0` still closes immediately.
 
 ## Why Camoufox Firefox, not Chromium?
 

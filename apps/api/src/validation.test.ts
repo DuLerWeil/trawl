@@ -76,6 +76,7 @@ describe("API request validation", () => {
     "mhtml",
     "ignoreCertificateErrors",
     "followMetaRefresh",
+    "allowShortContent",
     "favicons",
   ] as const) {
     test(`accepts boolean ${field} flags and rejects other values`, () => {
