@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Add opt-in `allowShortContent` to the native scrape API: Tiers 3 and 4 return a document under 100 characters instead of failing it as empty content, so a caller can judge a tiny page itself, such as a forwarder whose refresh `followMetaRefresh` does not take. Network-error pages and challenge walls are still rejected (#242, #246).
 
+### Fixed
+- Fold the MHTML archive's `Content-Type` parameters onto their own lines, as Blink writes them, so MHTML readers that find `boundary` at the start of a line can parse trawl's archives (#243).
+
 ## [1.9.1] - 2026-10-19
 
 ### Added
