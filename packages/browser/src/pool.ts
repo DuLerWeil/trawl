@@ -395,17 +395,19 @@ export class BrowserPool {
   // Queue time consumes the caller's remaining request budget.
   acquire(domain?: string, budgetMs?: number, signal?: AbortSignal, browserId?: number): Promise<BrowserHandle> {
     const waitMs = Math.min(this.acquireTimeoutMs, budgetMs ?? this.acquireTimeoutMs)
-    const start = Date.now()
-    const deadline = start + waitMs
+    const start = performance.now()
+    const deadline = Date.now() + waitMs
     return new Promise((resolve, reject) => {
       let timer: ReturnType<typeof setTimeout> | undefined
       let settled = false
       const finish = (outcome: "acquired" | "exhausted" | "cancelled") => {
         if (settled) return
         settled = true
-        if (outcome === "acquired") this.acquiredTotal++
+        if (outcome === "acquired") {
+          this.acquiredTotal++
+          this.acquireWaitMsTotal += performance.now() - start
+        }
         if (outcome === "exhausted") this.exhaustedTotal++
-        this.acquireWaitMsTotal += Date.now() - start
         if (timer) clearTimeout(timer)
         this.acquireWaiters.delete(tryAcquire)
         signal?.removeEventListener("abort", tryAcquire)

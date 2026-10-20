@@ -1146,8 +1146,6 @@ test("a completed recovery clears requests made while the replacement was warmin
   releaseRetention()
 })
 
-// The autoscaling counters /metrics exports. acquired and exhausted are monotonic, and a
-// caller's queued time is added however it leaves the queue.
 describe("BrowserPool saturation counters", () => {
   test("counts a direct acquire and a queued one", async () => {
     const pool = createPool({ poolSize: 1, acquireTimeoutMs: 5_000, browserFactory: makeFactory().factory })
@@ -1155,9 +1153,11 @@ describe("BrowserPool saturation counters", () => {
 
     const first = await pool.acquire()
     expect(pool.getStats().acquired).toBe(1)
+    const waitBefore = pool.getStats().acquireWaitMsTotal ?? 0
 
     const queued = pool.acquire()
     await waitFor(() => pool.getStats().queueDepth === 1)
+    await Bun.sleep(20)
     pool.release(first.id, first.lease)
     const second = await queued
 
@@ -1165,20 +1165,22 @@ describe("BrowserPool saturation counters", () => {
     expect(stats.acquired).toBe(2)
     expect(stats.exhausted).toBe(0)
     expect(stats.queueDepth).toBe(0)
+    expect(stats.acquireWaitMsTotal).toBeGreaterThanOrEqual(waitBefore + 15)
     pool.release(second.id, second.lease)
   })
 
-  test("a timed-out caller counts as exhausted and its wait is recorded", async () => {
+  test("a timed-out caller counts as exhausted without adding to successful checkout wait", async () => {
     const pool = createPool({ poolSize: 1, acquireTimeoutMs: 50, browserFactory: makeFactory().factory })
     await pool.init()
 
     const held = await pool.acquire()
+    const waitBefore = pool.getStats().acquireWaitMsTotal
     await expect(pool.acquire()).rejects.toThrow("Browser pool exhausted")
 
     const stats = pool.getStats()
     expect(stats.exhausted).toBe(1)
     expect(stats.acquired).toBe(1)
-    expect(stats.acquireWaitMsTotal).toBeGreaterThanOrEqual(45)
+    expect(stats.acquireWaitMsTotal).toBe(waitBefore)
     pool.release(held.id, held.lease)
   })
 
@@ -1187,14 +1189,17 @@ describe("BrowserPool saturation counters", () => {
     await pool.init()
 
     const held = await pool.acquire()
+    const waitBefore = pool.getStats().acquireWaitMsTotal
     const controller = new AbortController()
     const queued = pool.acquire("aborted.test", undefined, controller.signal)
     await waitFor(() => pool.getStats().queueDepth === 1)
+    await Bun.sleep(20)
     controller.abort()
     await expect(queued).rejects.toThrow("Browser pool exhausted")
 
     expect(pool.getStats().exhausted).toBe(0)
     expect(pool.getStats().queueDepth).toBe(0)
+    expect(pool.getStats().acquireWaitMsTotal).toBe(waitBefore)
     pool.release(held.id, held.lease)
   })
 })
