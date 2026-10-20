@@ -93,6 +93,9 @@ export interface ScrapeRequest {
   ignoreCertificateErrors?: boolean
   // Follow bounded HTTP(S) meta refresh redirects, escalating HTML forwarders to a browser.
   followMetaRefresh?: boolean
+  // Return a browser-tier page under 100 characters instead of failing it as empty
+  // content. Off by default; the network-error and challenge checks still apply.
+  allowShortContent?: boolean
   // Opt-in favicon collection from the browser tiers (2-4), returned as
   // `ScrapeResult.favicons`. The apex `/favicon.ico` and every declared
   // `<link rel~="icon">` are fetched from inside the page, so they carry the origin's
