@@ -278,6 +278,11 @@ export interface PoolStats {
   sleeping?: number
   queueDepth?: number
   longestBusyMs?: number
+  // Granted and timed-out acquire() calls since process start.
+  acquired?: number
+  exhausted?: number
+  // Cumulative wait for granted checkouts only; divide by acquired for their mean wait.
+  acquireWaitMsTotal?: number
 }
 
 // Per-instance HTTP-level fingerprint (User-Agent + matching navigator.platform /

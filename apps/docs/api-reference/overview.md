@@ -31,6 +31,7 @@ Content-Type: application/json
 | -------- | ------------------------ | ---------------------------------- |
 | `GET`    | `/health`                | Pool status and uptime             |
 | `GET`    | `/stats`                 | Public numbers for dashboards      |
+| `GET`    | `/metrics`               | Prometheus pool metrics            |
 | `POST`   | `/v1`                    | FlareSolverr v2 compatible         |
 | `POST`   | `/scrape`                | Native TRAWL API                   |
 | `POST`   | `/sessions`              | Create an isolated browser session |

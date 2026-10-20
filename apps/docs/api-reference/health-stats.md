@@ -1,6 +1,6 @@
 ---
 title: Health & Stats
-description: GET /, GET /health and GET /stats - status and monitoring endpoints.
+description: GET /, GET /health, GET /stats and GET /metrics - status and monitoring endpoints.
 ---
 
 # Health & Stats
@@ -131,8 +131,43 @@ curl -s http://localhost:8191/stats | jq
 
 Point an uptime monitor (e.g. UptimeRobot, Uptime Kuma) at `/health`. A 200 response with `"status": "ok"` confirms full operation.
 
-For Prometheus, scrape `/stats` and parse its JSON. A Prometheus exposition
-endpoint is not currently provided.
+For Prometheus, scrape [`GET /metrics`](#get-metrics).
+
+## `GET /metrics`
+
+The main browser pool's numbers in the Prometheus text exposition format
+(`text/plain; version=0.0.4`), for a Prometheus scrape job, a Kubernetes
+`ServiceMonitor` or a Horizontal Pod Autoscaler fed by a metrics adapter. It reads
+the same pool state as `/stats`, needs no authentication, and is independent of the
+[local metrics dashboard](#local-metrics-dashboard): the dashboard records completed
+requests in SQLite for people to browse, while `/metrics` exposes live pool
+saturation for scrapers. Values are zero until the main pool is constructed, then
+reflect its current state during startup and operation. The optional headful pool
+is not included.
+
+| Series                                  | Type    | Description                                                     |
+| --------------------------------------- | ------- | --------------------------------------------------------------- |
+| `trawl_pool_size`                       | gauge   | Configured browser pool slots                                   |
+| `trawl_pool_busy`                       | gauge   | Slots currently checked out                                     |
+| `trawl_pool_available`                  | gauge   | Idle, healthy, connected slots                                  |
+| `trawl_pool_live`                       | gauge   | Connected, non-stalled browser capacity                         |
+| `trawl_pool_stalled`                    | gauge   | Checked-out slots past their deadline                           |
+| `trawl_pool_waiting`                    | gauge   | Requests waiting for a browser (`queueDepth` in `/stats`)       |
+| `trawl_pool_utilization_ratio`          | gauge   | `busy / size`, from 0 to 1                                      |
+| `trawl_pool_acquired_total`             | counter | Browser checkouts granted since startup                         |
+| `trawl_pool_exhausted_total`            | counter | Checkouts that ran out of time waiting and failed as exhausted  |
+| `trawl_pool_acquire_wait_seconds_total` | counter | Cumulative wait seconds for granted browser checkouts           |
+| `trawl_browser_restarts_total`          | counter | Browser restarts since startup                                  |
+
+`trawl_pool_utilization_ratio` and `trawl_pool_waiting` are the useful autoscaling
+signals: utilization saturates at 1, and the waiting count keeps rising after that.
+`rate(trawl_pool_acquire_wait_seconds_total[5m]) / rate(trawl_pool_acquired_total[5m])`
+is the mean wait in seconds per granted checkout. Timed-out and cancelled
+acquires do not contribute to this average; exhausted acquires have their own counter.
+
+```bash
+curl -s http://localhost:8191/metrics
+```
 
 ## Local metrics dashboard
 

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Add `GET /metrics`, the browser pool's saturation in the Prometheus text exposition format, for scrape jobs and autoscalers. It sits alongside the local metrics dashboard and reports pool utilization, waiting requests, and counters for granted checkouts, exhausted checkouts and cumulative wait time (#240, #244).
 - Add opt-in `allowShortContent` to the native scrape API: Tiers 3 and 4 return a document under 100 characters instead of failing it as empty content, so a caller can judge a tiny page itself, such as a forwarder whose refresh `followMetaRefresh` does not take. Network-error pages and challenge walls are still rejected (#242, #246).
 
 ### Fixed
