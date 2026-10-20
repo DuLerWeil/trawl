@@ -137,10 +137,13 @@ const parseArchive = (archive: string) => {
       return { headers, content: chunk.slice(split + 4).replace(/\r\n$/, "") }
     })
   const headers = Object.fromEntries(
-    header.split("\r\n").map((line) => {
-      const at = line.indexOf(": ")
-      return [line.slice(0, at).toLowerCase(), line.slice(at + 2)]
-    }),
+    header
+      .replace(/\r\n[ \t]+/g, " ")
+      .split("\r\n")
+      .map((line) => {
+        const at = line.indexOf(": ")
+        return [line.slice(0, at).toLowerCase(), line.slice(at + 2)]
+      }),
   )
   return { boundary, headers, parts }
 }
@@ -208,6 +211,24 @@ describe("assembleMhtml", () => {
     expect(parts[0].headers["content-location"]).toBe("https://example.com/page")
     expect(fromQuotedPrintable(parts[0].content).toString("utf8")).toBe("<html><body>main</body></html>")
     expect(parts[1].headers["content-location"]).toBe("https://example.com/app.css")
+  })
+
+  test("puts the boundary on its own folded header line, as Blink does", () => {
+    const archive = assembleMhtml({
+      url: "https://example.com/page",
+      html: "<html></html>",
+      parts: [],
+      omissions: [],
+      omitted: 0,
+    })
+
+    const { boundary, headers } = parseArchive(archive)
+    const lines = archive.split("\r\n\r\n")[0].split("\r\n")
+
+    expect(lines).toContain("Content-Type: multipart/related;")
+    expect(lines).toContain('\ttype="text/html";')
+    expect(lines).toContain(`\tboundary="${boundary}"`)
+    expect(headers["content-type"]).toBe(`multipart/related; type="text/html"; boundary="${boundary}"`)
   })
 
   test("drops a subresource part that duplicates the main document", () => {
