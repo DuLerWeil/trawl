@@ -1203,3 +1203,109 @@ describe("BrowserPool saturation counters", () => {
     pool.release(held.id, held.lease)
   })
 })
+
+// Without a drain, shutdown() closed every context at once, and a request mid-scrape
+// failed with "Target page, context or browser has been closed".
+describe("BrowserPool shutdown drain", () => {
+  test("rejects invalid drain durations", () => {
+    for (const drainTimeoutMs of [-1, 1.5, NaN, Infinity]) {
+      expect(() => new BrowserPool({ poolSize: 1, drainTimeoutMs })).toThrow("drainTimeoutMs")
+    }
+  })
+
+  test("can skip a configured drain after the HTTP server has already waited", async () => {
+    const { factory, contexts } = makeFactory()
+    const pool = createPool({ poolSize: 1, drainTimeoutMs: 5_000, browserFactory: factory })
+    await pool.init()
+    await pool.acquire()
+    const started = performance.now()
+    await pool.shutdown(0)
+    expect(performance.now() - started).toBeLessThan(1000)
+    expect(contexts.every((context) => context.closed)).toBeTrue()
+  })
+
+  test("waits for a checkout that is still in flight", async () => {
+    const { factory, contexts } = makeFactory()
+    const pool = createPool({ poolSize: 1, pollIntervalMs: 10, drainTimeoutMs: 5_000, browserFactory: factory })
+    await pool.init()
+
+    const held = await pool.acquire()
+    let settled = false
+    const shutdown = pool.shutdown().then(() => {
+      settled = true
+    })
+
+    await Bun.sleep(200)
+    expect(contexts.every((c) => !c.closed)).toBeTrue()
+    expect(settled).toBeFalse()
+    expect(pool.getStats().draining).toBeTrue()
+
+    pool.release(held.id, held.lease)
+    await shutdown
+    expect(contexts.every((c) => c.closed)).toBeTrue()
+  })
+
+  test("closes anyway once the drain timeout expires", async () => {
+    const { factory, contexts } = makeFactory()
+    const pool = createPool({ poolSize: 1, pollIntervalMs: 10, drainTimeoutMs: 150, browserFactory: factory })
+    await pool.init()
+    await pool.acquire()
+
+    const started = performance.now()
+    await pool.shutdown()
+
+    expect(performance.now() - started).toBeGreaterThanOrEqual(140)
+    expect(contexts.every((c) => c.closed)).toBeTrue()
+  })
+
+  test("does not wait for a stalled checkout", async () => {
+    const { factory } = makeFactory()
+    const pool = createPool({
+      poolSize: 1,
+      pollIntervalMs: 10,
+      stallAfterMs: 1,
+      drainTimeoutMs: 5_000,
+      browserFactory: factory,
+    })
+    await pool.init()
+    await pool.acquire()
+    await Bun.sleep(20)
+
+    const started = performance.now()
+    await pool.shutdown()
+    expect(performance.now() - started).toBeLessThan(1_000)
+  })
+
+  test("refuses new checkouts while draining instead of queueing them", async () => {
+    const { factory } = makeFactory()
+    const pool = createPool({
+      poolSize: 2,
+      acquireTimeoutMs: 60_000,
+      pollIntervalMs: 10,
+      drainTimeoutMs: 5_000,
+      browserFactory: factory,
+    })
+    await pool.init()
+    const held = await pool.acquire()
+    const shutdown = pool.shutdown()
+
+    const started = performance.now()
+    await expect(pool.acquire()).rejects.toThrow("Browser pool exhausted")
+    expect(performance.now() - started).toBeLessThan(1_000)
+
+    pool.release(held.id, held.lease)
+    await shutdown
+  })
+
+  test("closes at once by default", async () => {
+    const { factory, contexts } = makeFactory()
+    const pool = createPool({ poolSize: 1, browserFactory: factory })
+    await pool.init()
+    await pool.acquire()
+
+    const started = performance.now()
+    await pool.shutdown()
+    expect(performance.now() - started).toBeLessThan(1_000)
+    expect(contexts.every((c) => c.closed)).toBeTrue()
+  })
+})

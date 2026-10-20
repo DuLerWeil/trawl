@@ -1,6 +1,62 @@
 import { describe, expect, test } from "bun:test"
+import { stopServer } from "./lifecycle"
 
 const lifecycleUrl = new URL("./lifecycle.ts", import.meta.url).href
+
+describe("HTTP shutdown drain", () => {
+  test("finishes an admitted response and refuses new connections", async () => {
+    const entered = Promise.withResolvers<void>()
+    const finish = Promise.withResolvers<void>()
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      async fetch() {
+        entered.resolve()
+        await finish.promise
+        return new Response("completed")
+      },
+    })
+    const url = `http://127.0.0.1:${server.port}`
+    const response = fetch(url).then((r) => r.text())
+    try {
+      await entered.promise
+      const stopping = stopServer(server, 1000)
+      await expect(fetch(url)).rejects.toThrow()
+      finish.resolve()
+      expect(await response).toBe("completed")
+      await stopping
+    } finally {
+      finish.resolve()
+      await server.stop(true)
+    }
+  })
+
+  test.each([0, 50])("bounds unfinished responses with a %dms drain", async (drainMs) => {
+    const entered = Promise.withResolvers<void>()
+    const finish = Promise.withResolvers<void>()
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      async fetch() {
+        entered.resolve()
+        await finish.promise
+        return new Response("too late")
+      },
+    })
+    const response = fetch(`http://127.0.0.1:${server.port}`).catch(() => undefined)
+    try {
+      await entered.promise
+      const start = performance.now()
+      await stopServer(server, drainMs)
+      expect(performance.now() - start).toBeGreaterThanOrEqual(drainMs * 0.8)
+      expect(performance.now() - start).toBeLessThan(1000)
+      expect(await response).toBeUndefined()
+    } finally {
+      finish.resolve()
+      await server.stop(true)
+    }
+  })
+})
 
 async function child(body: string) {
   const proc = Bun.spawn(

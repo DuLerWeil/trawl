@@ -278,6 +278,8 @@ export interface PoolStats {
   sleeping?: number
   queueDepth?: number
   longestBusyMs?: number
+  // True once shutdown() has begun: checkouts are refused while in-flight ones drain.
+  draining?: boolean
   // Granted and timed-out acquire() calls since process start.
   acquired?: number
   exhausted?: number

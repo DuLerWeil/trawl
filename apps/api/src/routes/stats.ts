@@ -27,6 +27,7 @@ export function statsRoute(
       restarts: stats.restarts,
       queueDepth: stats.queueDepth ?? 0,
       longestBusyMs: stats.longestBusyMs ?? 0,
+      draining: stats.draining ?? false,
       headful: headful
         ? {
             browsers: headful.total,
@@ -37,6 +38,7 @@ export function statsRoute(
             restarts: headful.restarts,
             queueDepth: headful.queueDepth ?? 0,
             longestBusyMs: headful.longestBusyMs ?? 0,
+            draining: headful.draining ?? false,
           }
         : null,
     }

@@ -1,7 +1,28 @@
+import { SHUTDOWN_DRAIN_MS } from "./config"
 import { shutdownPools } from "./deps"
 
 export interface LifecycleOptions {
   onShutdown?: () => Promise<void>
+}
+
+export async function stopServer(
+  server: Pick<Bun.Server<unknown>, "stop"> | null | undefined,
+  drainTimeoutMs = SHUTDOWN_DRAIN_MS,
+): Promise<void> {
+  if (!server) return
+  if (drainTimeoutMs === 0) return server.stop(true)
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    await Promise.race([
+      server.stop(false),
+      new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, drainTimeoutMs)
+      }),
+    ])
+  } finally {
+    if (timer) clearTimeout(timer)
+    await server.stop(true)
+  }
 }
 
 function isMalformedBrowserPageError(error: unknown): boolean {
@@ -24,12 +45,13 @@ export const registerLifecycleHandlers = (opts: LifecycleOptions = {}): void => 
     exitCode = Math.max(exitCode, code)
     if (stopping) return
     stopping = true
-    const deadline = setTimeout(() => process.exit(exitCode || 1), 30_000)
+    const deadline = setTimeout(() => process.exit(exitCode || 1), SHUTDOWN_DRAIN_MS + 30_000)
     try {
       try {
         await opts.onShutdown?.()
       } finally {
-        await shutdownPools()
+        // The HTTP server has already used the drain window before pool cleanup.
+        await shutdownPools(0)
       }
     } catch (error) {
       exitCode = 1
