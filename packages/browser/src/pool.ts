@@ -178,6 +178,8 @@ export class BrowserPool {
     this.label = label
     this.stallAfterMs = stallAfterMs
     this.closeTimeoutMs = closeTimeoutMs
+    if (!Number.isSafeInteger(drainTimeoutMs) || drainTimeoutMs < 0)
+      throw new Error("drainTimeoutMs must be a non-negative integer")
     this.drainTimeoutMs = drainTimeoutMs
     this.launchTimeoutMs = launchTimeoutMs
     if (!Number.isSafeInteger(idleTimeoutMs) || idleTimeoutMs < 0)
@@ -282,6 +284,9 @@ export class BrowserPool {
       // `"virtual"` launches headful Camoufox behind Xvfb; camoufox-js tears the display
       // down with the browser. This mode is used by the optional DataDome pool.
       headless: this.virtualDisplay ? "virtual" : true,
+      // Let the API finish its drain before Playwright closes the browser on a signal.
+      handleSIGTERM: this.drainTimeoutMs === 0,
+      handleSIGINT: this.drainTimeoutMs === 0,
       os: [camoufoxOs],
       exclude_addons: this.blockAds ? [] : ["UBO"],
       // Screen + window randomization - Camoufox picks from the constraints per launch.
@@ -959,27 +964,27 @@ export class BrowserPool {
 
   // Waits for checkouts that can still finish: a stalled checkout never releases and a
   // disconnected browser has nothing left to finish, so neither holds up the close.
-  private async drain(): Promise<void> {
-    const deadline = Date.now() + this.drainTimeoutMs
+  private async drain(timeoutMs: number): Promise<void> {
+    const deadline = performance.now() + timeoutMs
     const inFlight = () => {
       const now = Date.now()
-      return this.entries.filter((e) => e.busy && !this.isStalled(e, now) && this.isUsable(e)).length
+      return this.entries.some((e) => e.busy && !this.isStalled(e, now) && this.isUsable(e))
     }
-    while (Date.now() < deadline && inFlight() > 0) {
-      await new Promise((resolve) => setTimeout(resolve, Math.min(this.pollIntervalMs, deadline - Date.now())))
+    while (performance.now() < deadline && inFlight()) {
+      await new Promise((resolve) => setTimeout(resolve, Math.min(this.pollIntervalMs, deadline - performance.now())))
     }
     const stillBusy = this.entries.filter((e) => e.busy).length
     if (stillBusy > 0) console.warn(`[${this.label}] shutdown: closing ${stillBusy} browser(s) still checked out`)
   }
 
-  async shutdown(): Promise<void> {
+  async shutdown(drainTimeoutMs = this.drainTimeoutMs): Promise<void> {
     this.shuttingDown = true
     this.wakeAcquires()
     if (this.healthInterval) {
       clearInterval(this.healthInterval)
       delete this.healthInterval
     }
-    await this.drain()
+    await this.drain(drainTimeoutMs)
     for (const entry of this.entries) {
       // Bounded for the same reason as restartEntry - an unbounded close here hangs
       // SIGTERM handling until the supervisor's grace period expires and force-kills us.

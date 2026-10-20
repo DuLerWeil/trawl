@@ -1207,6 +1207,23 @@ describe("BrowserPool saturation counters", () => {
 // Without a drain, shutdown() closed every context at once, and a request mid-scrape
 // failed with "Target page, context or browser has been closed".
 describe("BrowserPool shutdown drain", () => {
+  test("rejects invalid drain durations", () => {
+    for (const drainTimeoutMs of [-1, 1.5, NaN, Infinity]) {
+      expect(() => new BrowserPool({ poolSize: 1, drainTimeoutMs })).toThrow("drainTimeoutMs")
+    }
+  })
+
+  test("can skip a configured drain after the HTTP server has already waited", async () => {
+    const { factory, contexts } = makeFactory()
+    const pool = createPool({ poolSize: 1, drainTimeoutMs: 5_000, browserFactory: factory })
+    await pool.init()
+    await pool.acquire()
+    const started = performance.now()
+    await pool.shutdown(0)
+    expect(performance.now() - started).toBeLessThan(1000)
+    expect(contexts.every((context) => context.closed)).toBeTrue()
+  })
+
   test("waits for a checkout that is still in flight", async () => {
     const { factory, contexts } = makeFactory()
     const pool = createPool({ poolSize: 1, pollIntervalMs: 10, drainTimeoutMs: 5_000, browserFactory: factory })

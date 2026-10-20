@@ -6,6 +6,7 @@ image=${1:-trawl-smoke}
 
 # Separate processes keep each suite's browser and Bun memory independent.
 for suite in \
+  apps/api/src/shutdown.integration.test.ts \
   apps/api/src/browserSessions.integration.test.ts \
   apps/api/src/proxySessions.integration.test.ts \
   apps/api/src/httpReplay.integration.test.ts \
@@ -18,7 +19,7 @@ for suite in \
 do
   memory_limit=1g
   # Persistent contexts need headroom; the runtime memory guard may retire them.
-  if [[ "$suite" == apps/api/src/browserSessions.integration.test.ts ]]; then
+  if [[ "$suite" == apps/api/src/browserSessions.integration.test.ts || "$suite" == apps/api/src/shutdown.integration.test.ts ]]; then
     memory_limit=2g
   fi
   docker run --rm --memory="$memory_limit" --memory-swap="$memory_limit" --shm-size=256m \
@@ -34,8 +35,10 @@ do
     -e TRAWL_TURNSTILE_TESTS=1 \
     -e TRAWL_CLOUDFLARE_FALLBACK_TESTS=1 \
     -e TRAWL_EXTERNAL_CAPTCHA_TESTS=1 \
+    -e TRAWL_SHUTDOWN_TESTS=1 \
     -v "$repo_root/packages/browser/tests:/app/packages/browser/tests:ro" \
     -v "$repo_root/apps/api/src/browserSessions.integration.test.ts:/app/apps/api/src/browserSessions.integration.test.ts:ro" \
+    -v "$repo_root/apps/api/src/shutdown.integration.test.ts:/app/apps/api/src/shutdown.integration.test.ts:ro" \
     -v "$repo_root/apps/api/src/proxySessions.integration.test.ts:/app/apps/api/src/proxySessions.integration.test.ts:ro" \
     -v "$repo_root/apps/api/src/httpReplay.integration.test.ts:/app/apps/api/src/httpReplay.integration.test.ts:ro" \
     -v "$repo_root/apps/api/src/turnstile.integration.test.ts:/app/apps/api/src/turnstile.integration.test.ts:ro" \

@@ -39,6 +39,7 @@ describe("GET /stats", () => {
         restarts: 2,
         queueDepth: 0,
         longestBusyMs: 0,
+        draining: false,
       },
     })
   })
@@ -54,8 +55,10 @@ describe("GET /stats", () => {
   test("reports a pool draining for shutdown", async () => {
     const response = await statsRoute(
       () => stats({ draining: true }),
-      () => undefined,
+      () => stats({ draining: true }),
     ).handle(new Request("http://localhost/stats"))
-    expect((await response.json()).draining).toBeTrue()
+    const body = await response.json()
+    expect(body.draining).toBeTrue()
+    expect(body.headful.draining).toBeTrue()
   })
 })

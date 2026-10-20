@@ -38,6 +38,7 @@ export function statsRoute(
             restarts: headful.restarts,
             queueDepth: headful.queueDepth ?? 0,
             longestBusyMs: headful.longestBusyMs ?? 0,
+            draining: headful.draining ?? false,
           }
         : null,
     }

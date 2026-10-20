@@ -17,6 +17,7 @@ type ConfigSnapshot = {
   scrapeProxySelection: string
   stallTimeoutMs: number
   closeTimeoutMs: number
+  shutdownDrainMs: number
   launchTimeoutMs: number
   port: number
   mitmPort: number
@@ -43,6 +44,7 @@ const readConfig = (overrides: Record<string, string>): ConfigSnapshot => {
       scrapeProxySelection: config.SCRAPE_PROXY_SELECTION,
       stallTimeoutMs: config.STALL_TIMEOUT_MS,
       closeTimeoutMs: config.CLOSE_TIMEOUT_MS,
+      shutdownDrainMs: config.SHUTDOWN_DRAIN_MS,
       launchTimeoutMs: config.LAUNCH_TIMEOUT_MS,
       port: config.PORT,
       mitmPort: config.MITM_PORT,
@@ -58,6 +60,7 @@ const readConfig = (overrides: Record<string, string>): ConfigSnapshot => {
       BROWSER_HARDWARE_CONCURRENCY: "",
       USER_PREFS: "",
       SCRAPE_MAX_TIMEOUT_MS: "",
+      BROWSER_SHUTDOWN_DRAIN_MS: "",
       ...overrides,
     },
   })
@@ -66,6 +69,15 @@ const readConfig = (overrides: Record<string, string>): ConfigSnapshot => {
 }
 
 describe("environment configuration", () => {
+  test("bounds shutdown drain to leave room for the forced-exit timer", () => {
+    expect(readConfig({}).shutdownDrainMs).toBe(0)
+    expect(readConfig({ BROWSER_SHUTDOWN_DRAIN_MS: "240000" }).shutdownDrainMs).toBe(240000)
+    expect(readConfig({ BROWSER_SHUTDOWN_DRAIN_MS: "2147453647" }).shutdownDrainMs).toBe(2147453647)
+    for (const value of ["2147453648", "-1", "1.5", "NaN"]) {
+      expect(readConfig({ BROWSER_SHUTDOWN_DRAIN_MS: value }).shutdownDrainMs).toBe(0)
+    }
+  })
+
   test("reads the deployment-wide default scrape timeout", () => {
     expect(readConfig({ SCRAPE_MAX_TIMEOUT_MS: " 120000 " }).scrapeMaxTimeoutMs).toBe(120000)
     expect(readConfig({}).scrapeMaxTimeoutMs).toBe(60000)
@@ -125,6 +137,7 @@ describe("environment configuration", () => {
       scrapeProxySelection: "roundrobin",
       stallTimeoutMs: 90000,
       closeTimeoutMs: 8000,
+      shutdownDrainMs: 0,
       launchTimeoutMs: 45000,
       port: 9000,
       mitmPort: 9001,
@@ -171,6 +184,7 @@ describe("environment configuration", () => {
       scrapeProxySelection: "failover",
       stallTimeoutMs: 180000,
       closeTimeoutMs: 10000,
+      shutdownDrainMs: 0,
       launchTimeoutMs: 90000,
       port: 8191,
       mitmPort: 8192,

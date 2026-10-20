@@ -18,7 +18,7 @@ import {
   USER_PREFS,
 } from "./config"
 import { getDeps, initPool } from "./deps"
-import { registerLifecycleHandlers } from "./lifecycle"
+import { registerLifecycleHandlers, stopServer } from "./lifecycle"
 import { type MitmProxyHandle, shutdownMitmProxy, startMitmProxy } from "./proxy/server"
 import { startMemoryMonitor } from "./runtimeMemory"
 
@@ -60,8 +60,9 @@ poolReady.catch((err) => {
 registerLifecycleHandlers({
   onShutdown: async () => {
     stopMemoryMonitor()
-    // With a drain configured, requests already in flight finish before the pools close.
-    app.server?.stop(SHUTDOWN_DRAIN_MS === 0)
-    if (state.proxyHandle) await shutdownMitmProxy(state.proxyHandle)
+    await Promise.all([
+      stopServer(app.server, SHUTDOWN_DRAIN_MS),
+      state.proxyHandle ? shutdownMitmProxy(state.proxyHandle) : undefined,
+    ])
   },
 })

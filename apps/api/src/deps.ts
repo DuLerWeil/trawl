@@ -164,9 +164,13 @@ export const getHeadfulPool = () => state.headfulPool
 
 const initSessionCache = (): Promise<void> => sessionCacheRecovery?.start() ?? Promise.resolve()
 
-export const shutdownPools = async (): Promise<void> => {
+export const shutdownPools = async (drainTimeoutMs?: number): Promise<void> => {
   await state.sessions?.shutdown()
-  await Promise.all([sessionCacheRecovery?.stop(), state.pool?.shutdown(), state.headfulPool?.shutdown()])
+  await Promise.all([
+    sessionCacheRecovery?.stop(),
+    state.pool?.shutdown(drainTimeoutMs),
+    state.headfulPool?.shutdown(drainTimeoutMs),
+  ])
 }
 
 export const initPool = async ({
