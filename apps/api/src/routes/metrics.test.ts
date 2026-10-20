@@ -47,8 +47,6 @@ describe("GET /metrics", () => {
     expect(value(renderMetrics(stats({ total: 6, busy: 3 })), "trawl_pool_utilization_ratio")).toBe(0.5)
   })
 
-  // A pool mid-init reports total 0. Dividing by it would emit NaN, which Prometheus
-  // rejects for the whole scrape - losing every other sample on the pod, not just this one.
   test("utilization is 0 rather than NaN before the pool has any slots", () => {
     const body = renderMetrics(stats({ total: 0, busy: 0 }))
 
@@ -56,8 +54,6 @@ describe("GET /metrics", () => {
     expect(body).not.toContain("NaN")
   })
 
-  // The HPA treats an absent series as a missing metric and refuses to scale on it, so a
-  // pod with no pool must still publish zeros.
   test("an uninitialized pool still publishes the full series set", () => {
     const body = renderMetrics(stats())
     const zeroed = renderMetrics(
@@ -74,6 +70,12 @@ describe("GET /metrics", () => {
 
   test("exposes queued callers as the saturation signal", () => {
     expect(value(renderMetrics(stats({ queueDepth: 7 })), "trawl_pool_waiting")).toBe(7)
+  })
+
+  test("exports checkout wait in seconds", () => {
+    expect(value(renderMetrics(stats({ acquireWaitMsTotal: 1250 })), "trawl_pool_acquire_wait_seconds_total")).toBe(
+      1.25,
+    )
   })
 
   test("a pool without the optional counters publishes them as zero", () => {

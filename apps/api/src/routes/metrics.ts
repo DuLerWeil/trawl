@@ -2,16 +2,11 @@ import type { PoolStats } from "@trawl/types"
 import { Elysia } from "elysia"
 import { getPool } from "../deps"
 
-// Prometheus text exposition (version 0.0.4). Hand-rolled rather than pulling in
-// prom-client: there are no labels, no histograms and no default process collectors
-// worth the dependency, and the pool already computes every number in getStats().
 const CONTENT_TYPE = "text/plain; version=0.0.4; charset=utf-8"
 
 type Line = [name: string, type: "gauge" | "counter", help: string, value: number]
 
-// A pool that has not finished init() reports zeros rather than vanishing from the
-// scrape. A disappearing series reads to an HPA as a missing metric, which it refuses to
-// scale on, instead of as "no capacity".
+// Keep the series present before the pool is constructed.
 const ZERO: PoolStats = {
   total: 0,
   busy: 0,
@@ -34,8 +29,6 @@ export function renderMetrics(stats: PoolStats): string {
       "Checked-out slots past their stall deadline; counted busy but dead",
       stats.stalled,
     ],
-    // The leading saturation signal: unbounded, and it rises the moment demand exceeds
-    // capacity, whereas utilization clamps at 1.0 and a caller only sees the 429 later.
     ["trawl_pool_waiting", "gauge", "Callers blocked in acquire() waiting for a slot", stats.queueDepth ?? 0],
     [
       "trawl_pool_utilization_ratio",
@@ -47,14 +40,14 @@ export function renderMetrics(stats: PoolStats): string {
     [
       "trawl_pool_exhausted_total",
       "counter",
-      "acquire() calls that timed out and became a 429 since start",
+      "acquire() calls that timed out waiting for a slot since start",
       stats.exhausted ?? 0,
     ],
     [
-      "trawl_pool_acquire_wait_ms_total",
+      "trawl_pool_acquire_wait_seconds_total",
       "counter",
-      "Cumulative milliseconds callers spent queued in acquire()",
-      stats.acquireWaitMsTotal ?? 0,
+      "Cumulative seconds spent waiting for granted browser checkouts",
+      (stats.acquireWaitMsTotal ?? 0) / 1000,
     ],
     ["trawl_browser_restarts_total", "counter", "Browser restarts across all pool entries since start", stats.restarts],
   ]
