@@ -88,7 +88,7 @@ export default defineNuxtConfig({
         siteName: "TRAWL",
         separator: "-",
       },
-      link: [{ rel: "icon", type: "image/svg+xml", href: "/favicon.svg" }],
+      link: [{ rel: "icon", type: "image/png", sizes: "512x512", href: "/favicon.png" }],
     },
   },
 })

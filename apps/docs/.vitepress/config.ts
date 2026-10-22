@@ -20,7 +20,7 @@ export default defineConfig({
   },
 
   head: [
-    ["link", { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" }],
+    ["link", { rel: "icon", type: "image/png", sizes: "512x512", href: "/favicon.png" }],
     ["meta", { name: "theme-color", content: "#00e87a" }],
     ["meta", { property: "og:type", content: "website" }],
     ["meta", { property: "og:site_name", content: "TRAWL Docs" }],
