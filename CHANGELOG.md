@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- Upgrade Bun to 1.4.4 to fix the Brotli decoder out-of-bounds write in CVE-2026-111497. Keep Docker builds and CI on the same runtime version.
+
 ## [1.9.2] - 2026-10-20
 
 ### Added

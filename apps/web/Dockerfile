@@ -1,6 +1,6 @@
 # Nuxt's build tooling requires Node APIs that Bun does not implement yet.
 FROM node:26.12.0-alpine AS builder
-COPY --from=oven/bun:1.4.3-alpine /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=oven/bun:1.4.4-alpine /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /app
 
