@@ -27,11 +27,45 @@ export const isHtmlContentType = (contentType: string | undefined): boolean => {
   return mediaType === "text/html" || mediaType === "application/xhtml+xml"
 }
 
+const CHARSET_PATTERN = /^\s*charset\s*=\s*(?:"([^"]*)"|'([^']*)'|([^;\s]+))/i
+
+const responseCharset = (contentType: string): string | undefined => {
+  const parameters = contentType.match(/(?:[^;"']|"[^"]*"|'[^']*')+/g) ?? []
+  for (const parameter of parameters.slice(1)) {
+    const charset = CHARSET_PATTERN.exec(parameter)
+    if (charset) return charset[1] ?? charset[2] ?? charset[3] ?? ""
+  }
+  return undefined
+}
+
+const hasNonAscii = (value: string): boolean => {
+  for (const char of value) if ((char.codePointAt(0) ?? 0) > 0x7f) return true
+  return false
+}
+
+export const isCharsetLessUtf8HtmlFragment = (contentType: string | undefined, body?: Uint8Array): boolean => {
+  if (
+    body === undefined ||
+    contentType?.split(";", 1)[0]?.trim().toLowerCase() !== "text/html" ||
+    responseCharset(contentType) !== undefined
+  )
+    return false
+  let markup: string
+  try {
+    markup = new TextDecoder("utf-8", { fatal: true }).decode(body)
+  } catch {
+    return false
+  }
+  if (!hasNonAscii(markup) || !/<[a-z][a-z0-9-]*(?=[\s/>])/i.test(markup)) return false
+  if (/<meta\b[^>]*\bcharset\s*=/i.test(markup)) return false
+  return !/<!doctype\s+html(?=\s|>)|<(?:html|head|body)(?=[\s/>])/i.test(markup)
+}
+
 export const decodeTextBody = (body: Uint8Array, contentType: string): string => {
-  const charset = /(?:^|;)\s*charset\s*=\s*(?:"([^"]*)"|'([^']*)'|([^;\s]+))/i.exec(contentType)
+  const charset = responseCharset(contentType)
   let decoder: TextDecoder
   try {
-    decoder = new TextDecoder(charset?.[1] ?? charset?.[2] ?? charset?.[3] ?? "utf-8")
+    decoder = new TextDecoder(charset ?? "utf-8")
   } catch {
     decoder = new TextDecoder("utf-8")
   }
@@ -41,10 +75,12 @@ export const decodeTextBody = (body: Uint8Array, contentType: string): string =>
 export const isNonHtmlTextContentType = (contentType: string | undefined): boolean =>
   !!contentType && isTextContentType(contentType) && !isHtmlContentType(contentType)
 
-// Use the captured file for non-HTML text; retain the rendered DOM for HTML.
 export const browserDocumentHtml = (contentType: string | undefined, pageHtml: string, body?: Uint8Array): string => {
   if (contentType && !isTextContentType(contentType)) return ""
-  if (body !== undefined && contentType && !isHtmlContentType(contentType)) return decodeTextBody(body, contentType)
+  if (body !== undefined && contentType) {
+    if (isCharsetLessUtf8HtmlFragment(contentType, body) || !isHtmlContentType(contentType))
+      return decodeTextBody(body, contentType)
+  }
   return normalizeHtml(pageHtml)
 }
 

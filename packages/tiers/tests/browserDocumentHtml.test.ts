@@ -12,6 +12,49 @@ describe("browserDocumentHtml", () => {
     )
   })
 
+  test("returns charset-less UTF-8 HTML fragments without serializing the DOM", () => {
+    const raw = '  <div data-ct="第1話">中文内容</div>\n'
+    const rendered = '<html><head></head><body><div data-ct="ç¬¬1è©±">ä¸­æ–‡å†…å®¹</div></body></html>'
+    expect(browserDocumentHtml("text/html", rendered, Buffer.from(raw))).toBe(raw)
+  })
+
+  test("keeps the rendered DOM for complete HTML documents", () => {
+    const raw = "<html><body>第1話</body></html>"
+    const rendered = "<html><body>rendered</body></html>"
+    expect(browserDocumentHtml("text/html", rendered, Buffer.from(raw))).toBe(rendered)
+  })
+
+  test("keeps the rendered DOM for non-UTF-8 fragments without a declared charset", () => {
+    const raw = Buffer.concat([Buffer.from("<div>caf"), Buffer.from([0xe9]), Buffer.from("</div>")])
+    const rendered = "<html><body><div>café</div></body></html>"
+    expect(browserDocumentHtml("text/html", rendered, raw)).toBe(rendered)
+  })
+
+  test("keeps the rendered DOM for HTML fragments with a declared charset", () => {
+    const raw = "<div>第1話</div>"
+    const rendered = "<html><body><div>第1話</div></body></html>"
+    expect(browserDocumentHtml("text/html; charset=utf-8", rendered, Buffer.from(raw))).toBe(rendered)
+  })
+
+  test.each([
+    '<meta charset="utf-8"><div>第1話</div>',
+    '<meta http-equiv="Content-Type" content="text/html; charset=utf-8"><div>第1話</div>',
+  ])("keeps the rendered DOM for fragments with an in-body charset declaration", (raw) => {
+    const rendered = "<html><body>rendered</body></html>"
+    expect(browserDocumentHtml("text/html", rendered, Buffer.from(raw))).toBe(rendered)
+  })
+
+  test("ignores charset text inside a quoted MIME parameter", () => {
+    const raw = "<div>第1話</div>"
+    const rendered = "<html><body>rendered</body></html>"
+    expect(browserDocumentHtml('text/html; profile="example;charset=legacy"', rendered, Buffer.from(raw))).toBe(raw)
+  })
+
+  test("keeps the rendered DOM for ASCII HTML fragments", () => {
+    const rendered = "<html><body><div>ok</div></body></html>"
+    expect(browserDocumentHtml("text/html", rendered, Buffer.from("<div>ok</div>"))).toBe(rendered)
+  })
+
   test("keeps the rendered DOM when no content type was captured", () => {
     expect(browserDocumentHtml(undefined, viewerShell("unknown type"))).toBe(viewerShell("unknown type"))
   })
