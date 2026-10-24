@@ -1,3 +1,4 @@
+import { parseHTML } from "linkedom"
 import { normalizeHtml } from "./html"
 
 export interface MinimalResponse {
@@ -43,7 +44,24 @@ const hasNonAscii = (value: string): boolean => {
   return false
 }
 
-export const isCharsetLessUtf8HtmlFragment = (contentType: string | undefined, body?: Uint8Array): boolean => {
+const fragmentContent = (html: string): string => {
+  const { document } = parseHTML(html)
+  const root = document.documentElement?.localName === "html" ? document.body : document
+  const styles = [...document.querySelectorAll("style,link")].map((element) => element.toString()).join("")
+  const attributes = root === document ? [] : [...document.body.attributes].map(({ name, value }) => [name, value])
+  for (const element of document.querySelectorAll("script,style,link,meta,iframe,frame,object,embed")) element.remove()
+  const content = [...root.childNodes]
+    .filter((node) => node.nodeType !== 10)
+    .map((node) => node.toString())
+    .join("")
+  return JSON.stringify([attributes, normalizeHtml(styles), normalizeHtml(content)])
+}
+
+export const isCharsetLessUtf8HtmlFragment = (
+  contentType: string | undefined,
+  body?: Uint8Array,
+  pageHtml?: string,
+): boolean => {
   if (
     body === undefined ||
     contentType?.split(";", 1)[0]?.trim().toLowerCase() !== "text/html" ||
@@ -57,8 +75,16 @@ export const isCharsetLessUtf8HtmlFragment = (contentType: string | undefined, b
     return false
   }
   if (!hasNonAscii(markup) || !/<[a-z][a-z0-9-]*(?=[\s/>])/i.test(markup)) return false
-  if (/<meta\b[^>]*\bcharset\s*=/i.test(markup)) return false
-  return !/<!doctype\s+html(?=\s|>)|<(?:html|head|body)(?=[\s/>])/i.test(markup)
+  if (/<(?:html|head|body|title|meta|base|frameset|iframe|frame|object|embed)(?=[\s/>])/i.test(markup)) return false
+  if (/<!doctype\b|<script(?=[\s/>])|\son[a-z]+\s*=/i.test(markup)) {
+    if (pageHtml === undefined) return false
+    // Passive injected scripts may leave only Firefox's fallback decoding different.
+    const rendered = fragmentContent(pageHtml)
+    return (
+      fragmentContent(markup) === rendered || fragmentContent(new TextDecoder("windows-1252").decode(body)) === rendered
+    )
+  }
+  return true
 }
 
 export const decodeTextBody = (body: Uint8Array, contentType: string): string => {
@@ -78,7 +104,7 @@ export const isNonHtmlTextContentType = (contentType: string | undefined): boole
 export const browserDocumentHtml = (contentType: string | undefined, pageHtml: string, body?: Uint8Array): string => {
   if (contentType && !isTextContentType(contentType)) return ""
   if (body !== undefined && contentType) {
-    if (isCharsetLessUtf8HtmlFragment(contentType, body) || !isHtmlContentType(contentType))
+    if (isCharsetLessUtf8HtmlFragment(contentType, body, pageHtml) || !isHtmlContentType(contentType))
       return decodeTextBody(body, contentType)
   }
   return normalizeHtml(pageHtml)

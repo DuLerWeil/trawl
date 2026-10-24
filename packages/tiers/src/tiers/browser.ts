@@ -265,7 +265,7 @@ async function runBrowserTierTask<T extends 3 | 4>(
         !isNonHtmlTextContentType(mainResponse.headers["content-type"])
       ) {
         captured = await captureResponse(mainResponse.response)
-        if (!isCharsetLessUtf8HtmlFragment(captured.contentType, captured.body)) {
+        if (!isCharsetLessUtf8HtmlFragment(captured.contentType, captured.body, html)) {
           const errMsg =
             tier === 3 && gotoErr instanceof Error ? gotoErr.message.split("\n")[0] : "page returned empty content"
           return { tier, status: "error", durationMs: Date.now() - start, reason: errMsg }
