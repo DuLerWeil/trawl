@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
-- Upgrade Bun to 1.4.4 to fix the Brotli decoder out-of-bounds write in CVE-2026-111497. Keep Docker builds and CI on the same runtime version.
+- Upgrade Bun to 1.4.4 and Node.js build tooling to 26.12.1 to fix the Brotli decoder out-of-bounds write in CVE-2026-111497. Keep Docker builds, CI and development instructions on the patched versions.
 
 ### Fixed
 - Preserve charset-less UTF-8 HTML fragments through browser tiers and the MITM proxy instead of returning a DOM serialization decoded with the browser's fallback encoding. Fragments with passive injected scripts require matching rendered content; complete documents, JavaScript-rendered changes and solved challenges retain the rendered DOM (#251).
