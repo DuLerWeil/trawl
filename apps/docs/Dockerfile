@@ -1,5 +1,5 @@
-FROM node:26.12.0-alpine AS builder
-COPY --from=oven/bun:1.4.3-alpine /usr/local/bin/bun /usr/local/bin/bun
+FROM node:26.12.1-alpine AS builder
+COPY --from=oven/bun:1.4.4-alpine /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /app
 
