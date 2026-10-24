@@ -8,7 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
-- Preserve charset-less UTF-8 HTML fragments through browser tiers and the MITM proxy instead of returning a DOM serialization decoded with the browser's fallback encoding. Complete HTML documents retain the rendered DOM (#251).
+- Preserve charset-less UTF-8 HTML fragments through browser tiers and the MITM proxy instead of returning a DOM serialization decoded with the browser's fallback encoding. Fragments with passive injected scripts require matching rendered content; complete documents, JavaScript-rendered changes and solved challenges retain the rendered DOM (#251).
+- Keep UTF-8 HTML fragments readable through MCP's text and Markdown outputs (#251).
+- Stop pending Cloudflare click and keyboard fallbacks when the interstitial clears, preventing clicks on the destination page.
 
 ## [1.9.2] - 2026-10-20
 
