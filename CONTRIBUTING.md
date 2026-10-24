@@ -106,8 +106,8 @@ Raw text browser integration tests use owned HTTP fixtures and a local forward p
 TRAWL_RAW_TEXT_TESTS=1 CAMOUFOX_INSTALL_DIR=/path/to/camoufox bun test packages/browser/tests/rawText.integration.test.ts
 ```
 
-They check TXT, JSON, XML, whitespace, empty files and declared charsets in browser
-tiers, plus rejection of empty HTML and HTTP blocks.
+They check TXT, JSON, XML, charset-less HTML fragments, whitespace, empty files and
+declared charsets in browser tiers, plus rejection of empty HTML and HTTP blocks.
 
 Firefox preference integration tests cover both headless and virtual-display pools:
 
